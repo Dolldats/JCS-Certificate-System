@@ -5,12 +5,14 @@ using JCS.Domain.Entities;
 
 namespace JCS.Application.Services;
 
-public sealed class ParticipantService(IParticipantRepository repo) : IParticipantService
+public sealed class ParticipantService : IParticipantService
 {
-    public async Task<ParticipantDto?> GetByIdAsync(Guid id,CancellationToken t=default)=>Map(await repo.GetByIdAsync(id,t));
-    public async Task<IReadOnlyCollection<ParticipantDto>> GetAllAsync(CancellationToken t=default)=>(await repo.GetAllAsync(t)).Select(x => Map(x)!).ToArray();
-    public async Task<ParticipantDto> CreateAsync(CreateParticipantDto d,CancellationToken t=default){var e=new Participant{Id=Guid.NewGuid(),MembershipId=d.MembershipId,FullName=d.FullName,Email=d.Email};await repo.AddAsync(e,t);return Map(e)!;}
-    public async Task<ParticipantDto?> UpdateAsync(Guid id,UpdateParticipantDto d,CancellationToken t=default){var e=await repo.GetByIdAsync(id,t);if(e is null)return null;e.FullName=d.FullName;e.Email=d.Email;e.IsVerified=d.IsVerified;e.VerificationStatus=d.VerificationStatus;await repo.UpdateAsync(e,t);return Map(e);}
-    public async Task<bool> DeleteAsync(Guid id,CancellationToken t=default){if(await repo.GetByIdAsync(id,t)is null)return false;await repo.DeleteAsync(id,t);return true;}
-    private static ParticipantDto? Map(Participant? e)=>e is null?null:new(e.Id,e.MembershipId,e.FullName,e.Email,e.IsVerified,e.VerificationStatus);
+    private readonly IParticipantRepository _repository;
+    public ParticipantService(IParticipantRepository repository) { _repository = repository; }
+    public async Task<ParticipantDto?> GetByIdAsync(Guid id, CancellationToken token = default) => TakeToParticipantDto(await _repository.GetByIdAsync(id, token));
+    public async Task<IReadOnlyCollection<ParticipantDto>> GetAllAsync(CancellationToken token = default) => (await _repository.GetAllAsync(token)).Select(TakeToParticipantDto).ToArray()!;
+    public async Task<ParticipantDto> CreateAsync(CreateParticipantDto dto, CancellationToken token = default) { var participant = new Participant { Id = Guid.NewGuid(), MembershipId = dto.MembershipId, FullName = dto.FullName, Email = dto.Email }; await _repository.AddAsync(participant, token); return TakeToParticipantDto(participant)!; }
+    public async Task<ParticipantDto?> UpdateAsync(Guid id, UpdateParticipantDto dto, CancellationToken token = default) { var participant = await _repository.GetByIdAsync(id, token); if (participant is null) return null; participant.FullName = dto.FullName; participant.Email = dto.Email; participant.IsVerified = dto.IsVerified; participant.VerificationStatus = dto.VerificationStatus; await _repository.UpdateAsync(participant, token); return TakeToParticipantDto(participant); }
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken token = default) { if (await _repository.GetByIdAsync(id, token) is null) return false; await _repository.DeleteAsync(id, token); return true; }
+    private static ParticipantDto? TakeToParticipantDto(Participant? participant) => participant is null ? null : new() { Id = participant.Id, MembershipId = participant.MembershipId, FullName = participant.FullName, Email = participant.Email, IsVerified = participant.IsVerified, VerificationStatus = participant.VerificationStatus };
 }

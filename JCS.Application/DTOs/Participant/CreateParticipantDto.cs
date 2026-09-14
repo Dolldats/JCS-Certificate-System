@@ -1,3 +1,8 @@
 namespace JCS.Application.DTOs.Participant;
 
-public record CreateParticipantDto(string MembershipId, string FullName, string? Email);
+public sealed class CreateParticipantDto
+{
+    public string MembershipId { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? Email { get; set; }
+}

@@ -1,3 +1,10 @@
 namespace JCS.Application.DTOs.CertificateTemplate;
 
-public record CertificateTemplateDto(Guid Id, string Name, string? Description, string FilePath, string? ConfigurationJson, bool IsActive);
+public sealed class CertificateTemplateDto {
+    public Guid Id { get; set; } 
+    public string Name { get; set; } = string.Empty; 
+    public string? Description { get; set; } 
+    public string FilePath { get; set; } = string.Empty; 
+    public string? ConfigurationJson { get; set; } 
+    public bool IsActive { get; set; } 
+}

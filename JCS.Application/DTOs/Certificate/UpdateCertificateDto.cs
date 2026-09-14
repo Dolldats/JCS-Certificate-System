@@ -1,3 +1,7 @@
 namespace JCS.Application.DTOs.Certificate;
 
-public record UpdateCertificateDto(string Status, string? FilePath);
+public sealed class UpdateCertificateDto
+{
+    public string Status { get; set; } = string.Empty;
+    public string? FilePath { get; set; }
+}
