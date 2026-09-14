@@ -4,6 +4,7 @@ namespace JCS.API
     using JCS.Application.Interfaces.Repositories;
     using JCS.Application.Interfaces.Services;
     using JCS.Application.Services;
+    using JCS.Application.Services.AuditLog;
     using JCS.Infastructure.Persistence;
     using JCS.Infastructure.Repositories;
     using Microsoft.EntityFrameworkCore;
@@ -32,6 +33,7 @@ namespace JCS.API
             builder.Services.AddScoped<ICertificateService, CertificateService>();
             builder.Services.AddScoped<ICertificateTemplateService, CertificateTemplateService>();
             builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+            builder.Services.AddScoped<IAdminAssignmentService, AdminAssignmentService>();
 
             var app = builder.Build();
 
