@@ -24,6 +24,7 @@ public class AuditLogsController : ControllerBase
     public async Task<IActionResult> GetAuditLogById(Guid id, CancellationToken token)
     {
         var result = await _service.GetByIdAsync(id, token);
+
         if (result == null)
         {
             return NotFound(new { message = $"Audit log with id {id} not found." });

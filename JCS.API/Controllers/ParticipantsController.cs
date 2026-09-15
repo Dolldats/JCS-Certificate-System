@@ -37,7 +37,11 @@ public class ParticipantsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateParticipant([FromBody] CreateParticipantDto dto, CancellationToken token)
     {
-        if (!ModelState.IsValid) return BadRequest(ModelState);
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         var result = await _service.CreateAsync(dto, token);
         return CreatedAtAction(nameof(GetParticipantById), new { id = result.Id }, result);
     }
@@ -45,10 +49,18 @@ public class ParticipantsController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateParticipant(Guid id, [FromBody] UpdateParticipantDto dto, CancellationToken token)
     {
-        if (!ModelState.IsValid) return BadRequest(ModelState);
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         var result = await _service.UpdateAsync(id, dto, token);
 
-        if (result == null) return NotFound(new { message = $"Participant with id {id} not found." });
+        if (result == null)
+        {
+            return NotFound(new { message = $"Participant with id {id} not found." });
+        }
+
         return Ok(result);
     }
 
@@ -56,7 +68,10 @@ public class ParticipantsController : ControllerBase
     public async Task<IActionResult> DeleteParticipant(Guid id, CancellationToken token)
     {
         if (!await _service.DeleteAsync(id, token))
+        {
             return NotFound(new { message = $"Participant with id {id} not found." });
+        }
+
         return NoContent();
     }
 }
