@@ -7,6 +7,7 @@ namespace JCS.API
     using JCS.Infastructure.Persistence;
     using JCS.Infastructure.Repositories;
     using Microsoft.EntityFrameworkCore;
+    using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 
     public class Program
     {
@@ -19,8 +20,11 @@ namespace JCS.API
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("DefaultConnection is not configured.");
+
             builder.Services.AddDbContext<JcsDbContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+                options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
             builder.Services.AddScoped<IAdminAssignmentRepository, AdminAssignmentRepository>();
             builder.Services.AddScoped<IEventRepository, EventRepository>();
             builder.Services.AddScoped<IParticipantRepository, ParticipantRepository>();
@@ -35,6 +39,7 @@ namespace JCS.API
             builder.Services.AddScoped<IAdminAssignmentService, AdminAssignmentService>();
 
             var app = builder.Build();
+
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
