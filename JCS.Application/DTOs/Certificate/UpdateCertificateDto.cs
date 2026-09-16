@@ -1,7 +1,11 @@
+﻿using JCS.Domain.Enum;
+
 namespace JCS.Application.DTOs.Certificate;
 
-public sealed class UpdateCertificateDto
+public class UpdateCertificateDto
 {
-    public string Status { get; set; } = string.Empty;
+    public CertificateStatus Status { get; set; }
     public string? FilePath { get; set; }
+    public string? RevocationReason { get; set; }
+    public string? RevokedBy { get; set; }
 }
