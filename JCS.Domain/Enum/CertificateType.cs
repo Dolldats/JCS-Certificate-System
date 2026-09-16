@@ -4,5 +4,8 @@ public enum CertificateType
 {
     Participation,
     Merit,
-    Excellence
+    Excellence,
+    Appreciation,
+    Recognition,
+    Attendance
 }

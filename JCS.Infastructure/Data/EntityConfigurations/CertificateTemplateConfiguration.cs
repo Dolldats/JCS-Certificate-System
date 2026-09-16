@@ -26,6 +26,15 @@ public sealed class CertificateTemplateConfiguration : IEntityTypeConfiguration<
             .IsRequired()
             .HasMaxLength(20);
 
+        builder.Property(x => x.Width)
+            .HasPrecision(18, 2);
+
+        builder.Property(x => x.Height)
+            .HasPrecision(18, 2);
+
+        builder.Property(x => x.BackgroundImagePath)
+            .HasMaxLength(500);
+
         builder.HasMany(x => x.Certificates)
             .WithOne(c => c.CertificateTemplate)
             .HasForeignKey(c => c.CertificateTemplateId)

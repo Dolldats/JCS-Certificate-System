@@ -204,9 +204,21 @@ namespace JCS.Infastructure.Migrations
                         .HasColumnType("varchar(20)");
 
                     b.Property<string>("PageSize")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                          .IsRequired()
+                          .HasMaxLength(20)
+                          .HasColumnType("varchar(20)");
+
+                    b.Property<string>("BackgroundImagePath")
+                          .HasMaxLength(500)
+                          .HasColumnType("varchar(500)");
+
+                    b.Property<decimal>("Height")
+                          .HasPrecision(18, 2)
+                          .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Width")
+                          .HasPrecision(18, 2)
+                          .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
 

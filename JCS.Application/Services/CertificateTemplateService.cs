@@ -33,6 +33,9 @@ public class CertificateTemplateService : ICertificateTemplateService
             ConfigurationJson = template.ConfigurationJson,
             Orientation = template.Orientation,
             PageSize = template.PageSize,
+            Width = template.Width,
+            Height = template.Height,
+            BackgroundImagePath = template.BackgroundImagePath,
             IsActive = template.IsActive,
             CreatedAt = template.CreatedAt
         };
@@ -55,6 +58,9 @@ public class CertificateTemplateService : ICertificateTemplateService
                 ConfigurationJson = template.ConfigurationJson,
                 Orientation = template.Orientation,
                 PageSize = template.PageSize,
+                Width = template.Width,
+                Height = template.Height,
+                BackgroundImagePath = template.BackgroundImagePath,
                 IsActive = template.IsActive,
                 CreatedAt = template.CreatedAt
             });
@@ -80,6 +86,9 @@ public class CertificateTemplateService : ICertificateTemplateService
                 ConfigurationJson = template.ConfigurationJson,
                 Orientation = template.Orientation,
                 PageSize = template.PageSize,
+                Width = template.Width,
+                Height = template.Height,
+                BackgroundImagePath = template.BackgroundImagePath,
                 IsActive = template.IsActive,
                 CreatedAt = template.CreatedAt
             });
@@ -100,6 +109,9 @@ public class CertificateTemplateService : ICertificateTemplateService
             ConfigurationJson = dto.ConfigurationJson,
             Orientation = dto.Orientation,
             PageSize = dto.PageSize,
+            Width = dto.Width,
+            Height = dto.Height,
+            BackgroundImagePath = dto.BackgroundImagePath,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -116,6 +128,9 @@ public class CertificateTemplateService : ICertificateTemplateService
             ConfigurationJson = template.ConfigurationJson,
             Orientation = template.Orientation,
             PageSize = template.PageSize,
+            Width = template.Width,
+            Height = template.Height,
+            BackgroundImagePath = template.BackgroundImagePath,
             IsActive = template.IsActive,
             CreatedAt = template.CreatedAt
         };
@@ -136,6 +151,9 @@ public class CertificateTemplateService : ICertificateTemplateService
         template.ConfigurationJson = dto.ConfigurationJson;
         template.Orientation = dto.Orientation;
         template.PageSize = dto.PageSize;
+        template.Width = dto.Width;
+        template.Height = dto.Height;
+        template.BackgroundImagePath = dto.BackgroundImagePath;
         template.IsActive = dto.IsActive;
 
         await _templateRepository.UpdateAsync(template, token);
@@ -150,6 +168,9 @@ public class CertificateTemplateService : ICertificateTemplateService
             ConfigurationJson = template.ConfigurationJson,
             Orientation = template.Orientation,
             PageSize = template.PageSize,
+            Width = template.Width,
+            Height = template.Height,
+            BackgroundImagePath = template.BackgroundImagePath,
             IsActive = template.IsActive,
             CreatedAt = template.CreatedAt
         };

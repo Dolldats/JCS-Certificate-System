@@ -11,4 +11,7 @@ public class CreateCertificateTemplateDto
     public string? ConfigurationJson { get; set; }
     public string Orientation { get; set; } = "Landscape";
     public string PageSize { get; set; } = "A4";
+    public decimal Width { get; set; }
+    public decimal Height { get; set; }
+    public string? BackgroundImagePath { get; set; }
 }
