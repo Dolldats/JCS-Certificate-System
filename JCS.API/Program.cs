@@ -35,6 +35,8 @@ namespace JCS.API
             builder.Services.AddScoped<IParticipantService, ParticipantService>();
             builder.Services.AddScoped<ICertificateService, CertificateService>();
             builder.Services.AddScoped<ICertificateTemplateService, CertificateTemplateService>();
+            builder.Services.AddSingleton<IPlaceholderEngine, PlaceholderEngine>();
+            builder.Services.AddScoped<IAssetStorageService>(_ => new AssetStorageService(builder.Environment.ContentRootPath));
             builder.Services.AddScoped<IAuditLogService, AuditLogService>();
             builder.Services.AddScoped<IAdminAssignmentService, AdminAssignmentService>();
 
