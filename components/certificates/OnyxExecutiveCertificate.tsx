@@ -174,7 +174,15 @@ export function OnyxExecutiveCertificate({
             <p>
               This is to congratulate and certify that {salutation}{' '}
               <Blank value={participantName} width={120} />, from{' '}
-              <Blank value={ilaqa} width={90} /> {regionLabel},{' '}
+              {regionLabel === 'District' ? (
+                <>
+                  District/Region <Blank value={ilaqa} width={90} />,{ ' ' }
+                </>
+              ) : (
+                <>
+                  <Blank value={ilaqa} width={90} /> {regionLabel},{' '}
+                </>
+              )}
               <Blank value={dilla} width={90} /> Dilla,{' '}
               <Blank value={jamaat} width={120} /> Jama&apos;at.
             </p>

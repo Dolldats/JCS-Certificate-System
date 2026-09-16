@@ -211,7 +211,15 @@ export function TealSurgeCertificate({
             <p>
               This is to congratulate and certify that <strong>{salutation}</strong>{' '}
               <Blank value={participantName} width={110} />, from{' '}
-              <Blank value={ilaqa} width={90} /> {regionLabel},{' '}
+              {regionLabel === 'District' ? (
+                <>
+                  District/Region <Blank value={ilaqa} width={90} />,{ ' ' }
+                </>
+              ) : (
+                <>
+                  <Blank value={ilaqa} width={90} /> {regionLabel},{' '}
+                </>
+              )}
               <Blank value={dilla} width={90} /> Dilla,{' '}
               <Blank value={jamaat} width={110} /> Jama&apos;at.
             </p>
