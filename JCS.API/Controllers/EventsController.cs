@@ -1,5 +1,6 @@
 using JCS.Application.DTOs.Event;
 using JCS.Application.Interfaces.Services;
+using JCS.Domain.Enum;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JCS.API.Controllers;
@@ -8,24 +9,31 @@ namespace JCS.API.Controllers;
 [Route("api/[controller]")]
 public class EventsController : ControllerBase
 {
-    private readonly IEventService _service;
+    private readonly IEventService _eventService;
 
-    public EventsController(IEventService service)
+    public EventsController(IEventService eventService)
     {
-        _service = service;
+        _eventService = eventService;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAllEvents(CancellationToken token)
     {
-        return Ok(await _service.GetAllAsync(token));
+        var events = await _eventService.GetAllAsync(token);
+        return Ok(events);
+    }
+
+    [HttpGet("auxiliary/{auxiliary}")]
+    public async Task<IActionResult> GetEventsByAuxiliary(Auxiliary auxiliary, CancellationToken token)
+    {
+        var events = await _eventService.GetByAuxiliaryAsync(auxiliary, token);
+        return Ok(events);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetEventById(Guid id, CancellationToken token)
     {
-        var result = await _service.GetByIdAsync(id, token);
-
+        var result = await _eventService.GetByIdAsync(id, token);
         if (result == null)
         {
             return NotFound(new { message = $"Event with id {id} not found." });
@@ -42,7 +50,7 @@ public class EventsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var result = await _service.CreateAsync(dto, token);
+        var result = await _eventService.CreateAsync(dto, token);
         return CreatedAtAction(nameof(GetEventById), new { id = result.Id }, result);
     }
 
@@ -54,7 +62,7 @@ public class EventsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var result = await _service.UpdateAsync(id, dto, token);
+        var result = await _eventService.UpdateAsync(id, dto, token);
         if (result == null)
         {
             return NotFound(new { message = $"Event with id {id} not found." });
@@ -66,7 +74,8 @@ public class EventsController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteEvent(Guid id, CancellationToken token)
     {
-        if (!await _service.DeleteAsync(id, token))
+        var deleted = await _eventService.DeleteAsync(id, token);
+        if (!deleted)
         {
             return NotFound(new { message = $"Event with id {id} not found." });
         }

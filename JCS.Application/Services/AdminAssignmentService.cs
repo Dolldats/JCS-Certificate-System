@@ -6,7 +6,7 @@ using JCS.Domain.Enum;
 
 namespace JCS.Application.Services;
 
-public sealed class AdminAssignmentService : IAdminAssignmentService
+public class AdminAssignmentService : IAdminAssignmentService
 {
     private readonly IAdminAssignmentRepository _adminAssignmentRepository;
 

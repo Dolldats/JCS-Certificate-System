@@ -6,7 +6,7 @@ using JCS.Domain.Enum;
 
 namespace JCS.Application.Services;
 
-public sealed class EventService : IEventService
+public class EventService : IEventService
 {
     private readonly IEventRepository _eventRepository;
 

@@ -1,4 +1,4 @@
-using JCS.Domain.Entities;
+﻿using JCS.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -17,5 +17,18 @@ public sealed class CertificateTemplateConfiguration : IEntityTypeConfiguration<
         builder.Property(x => x.FilePath)
             .IsRequired()
             .HasMaxLength(500);
+
+        builder.Property(x => x.Orientation)
+            .IsRequired()
+            .HasMaxLength(20);
+
+        builder.Property(x => x.PageSize)
+            .IsRequired()
+            .HasMaxLength(20);
+
+        builder.HasMany(x => x.Certificates)
+            .WithOne(c => c.CertificateTemplate)
+            .HasForeignKey(c => c.CertificateTemplateId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

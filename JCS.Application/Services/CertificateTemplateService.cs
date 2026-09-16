@@ -6,7 +6,7 @@ using JCS.Domain.Enum;
 
 namespace JCS.Application.Services;
 
-public sealed class CertificateTemplateService : ICertificateTemplateService
+public class CertificateTemplateService : ICertificateTemplateService
 {
     private readonly ICertificateTemplateRepository _templateRepository;
 

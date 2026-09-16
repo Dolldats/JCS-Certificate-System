@@ -8,30 +8,37 @@ namespace JCS.API.Controllers;
 [Route("api/[controller]")]
 public class ParticipantsController : ControllerBase
 {
-    private readonly IParticipantService _service;
+    private readonly IParticipantService _participantService;
 
-    public ParticipantsController(IParticipantService service)
+    public ParticipantsController(IParticipantService participantService)
     {
-        _service = service;
+        _participantService = participantService;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAllParticipants(CancellationToken token)
     {
-        return Ok(await _service.GetAllAsync(token));
+        var participants = await _participantService.GetAllAsync(token);
+        return Ok(participants);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetParticipantById(Guid id, CancellationToken token)
     {
-        var result = await _service.GetByIdAsync(id, token);
-
+        var result = await _participantService.GetByIdAsync(id, token);
         if (result == null)
         {
             return NotFound(new { message = $"Participant with id {id} not found." });
         }
 
         return Ok(result);
+    }
+
+    [HttpGet("event/{eventId:guid}")]
+    public async Task<IActionResult> GetParticipantsByEvent(Guid eventId, CancellationToken token)
+    {
+        var participants = await _participantService.GetByEventIdAsync(eventId, token);
+        return Ok(participants);
     }
 
     [HttpPost]
@@ -42,7 +49,7 @@ public class ParticipantsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var result = await _service.CreateAsync(dto, token);
+        var result = await _participantService.CreateAsync(dto, token);
         return CreatedAtAction(nameof(GetParticipantById), new { id = result.Id }, result);
     }
 
@@ -54,8 +61,7 @@ public class ParticipantsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var result = await _service.UpdateAsync(id, dto, token);
-
+        var result = await _participantService.UpdateAsync(id, dto, token);
         if (result == null)
         {
             return NotFound(new { message = $"Participant with id {id} not found." });
@@ -67,7 +73,8 @@ public class ParticipantsController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteParticipant(Guid id, CancellationToken token)
     {
-        if (!await _service.DeleteAsync(id, token))
+        var deleted = await _participantService.DeleteAsync(id, token);
+        if (!deleted)
         {
             return NotFound(new { message = $"Participant with id {id} not found." });
         }

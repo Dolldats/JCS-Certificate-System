@@ -6,7 +6,7 @@ using JCS.Domain.Enum;
 
 namespace JCS.Application.Services;
 
-public sealed class ParticipantService : IParticipantService
+public class ParticipantService : IParticipantService
 {
     private readonly IParticipantRepository _participantRepository;
 

@@ -6,7 +6,7 @@ using JCS.Domain.Enum;
 
 namespace JCS.Application.Services;
 
-public sealed class AuditLogService : IAuditLogService
+public class AuditLogService : IAuditLogService
 {
     private readonly IAuditLogRepository _auditLogRepository;
 

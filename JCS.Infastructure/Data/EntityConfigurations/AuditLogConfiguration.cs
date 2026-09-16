@@ -1,14 +1,18 @@
-using JCS.Domain.Entities;
+﻿using JCS.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace JCS.Infastructure.Data.EntityConfigurations;
 
-public sealed class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
+public class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
 {
     public void Configure(EntityTypeBuilder<AuditLog> builder)
     {
         builder.HasKey(x => x.Id);
+
+        builder.HasIndex(x => x.PerformedAt);
+
+        builder.HasIndex(x => x.Action);
 
         builder.Property(x => x.Action)
             .IsRequired()
@@ -18,6 +22,10 @@ public sealed class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
             .IsRequired()
             .HasMaxLength(100);
 
-        builder.HasIndex(x => x.PerformedAt);
+        builder.Property(x => x.EntityName)
+            .HasMaxLength(100);
+
+        builder.Property(x => x.EntityId)
+            .HasMaxLength(100);
     }
 }

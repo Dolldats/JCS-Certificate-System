@@ -50,9 +50,13 @@ public sealed class AdminAssignmentRepository : IAdminAssignmentRepository
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var assignment = await _context.AdminAssignments.FindAsync([id], cancellationToken);
+        var assignment = await _context.AdminAssignments.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-        if (assignment is null) return;
+        if (assignment == null)
+        {
+            return;
+        }
+
         _context.AdminAssignments.Remove(assignment);
         await _context.SaveChangesAsync(cancellationToken);
     }
