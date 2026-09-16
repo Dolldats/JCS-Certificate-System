@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 @theme inline {
@@ -12,15 +12,129 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* ============================================================
+   PRINT — A4 Landscape Certificate
+   @page MUST be at root level; Chrome ignores it inside @media.
+   ============================================================ */
+@page {
+  size: A4 landscape;
+  margin: 0;
+}
+
+@media print {
+  /* Hide everything except the certificate */
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    /* The modal sets body overflow:hidden inline — must not clip the page */
+    overflow: visible !important;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  /* Neutralize the screen-only scale-to-fit scaffolding: any transform on an
+     ancestor turns it into the containing block for position:fixed (so the
+     certificate below would no longer resolve against the page), and
+     overflow/height constraints would clip it — the classic blank-page cause. */
+  .certificate-screen-scaler {
+    transform: none !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .certificate-screen-sizer,
+  .certificate-screen-wrap {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Modal chrome around the certificate must not transform or clip it */
+  .modal-panel {
+    transform: none !important;
+    overflow: visible !important;
+  }
+
+  .modal-scroll-content {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Make the certificate fill the full printed page */
+  #certificate-print-area,
+  #certificate-print-area * {
+    visibility: visible;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  #certificate-print-area {
+    position: fixed !important;
+    inset: 0 !important;
+    left: 0 !important;
+    top: 0 !important;
+    /* Explicit A4 landscape physical dimensions */
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    /* Remove all screen-specific styling */
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: hidden !important;
+    /* Force aspect-ratio to not fight the fixed dimensions */
+    aspect-ratio: unset !important;
+    /* Print-safe bold font stack — webfonts can render thin in PDFs */
+    font-family: Arial, Helvetica, sans-serif !important;
+    /* Ensure backgrounds print */
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Inner content keeps the same tight rhythm as the screen preview */
+  #certificate-print-area > div[class*='z-10'] {
+    padding: 5mm 8mm !important;
+  }
+
+  /* Force bold weights to survive PDF embedding */
+  #certificate-print-area h1 {
+    font-weight: 900 !important;
+    font-size: 28pt !important;
+    line-height: 1.15 !important;
+  }
+
+  #certificate-print-area h2 {
+    font-weight: 800 !important;
+  }
+
+  /* Force SVG and decorative elements to keep their colors */
+  #certificate-print-area svg,
+  #certificate-print-area svg * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Prevent page breaks inside the certificate */
+  #certificate-print-area {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
 }
