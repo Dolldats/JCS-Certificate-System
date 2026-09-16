@@ -2,11 +2,27 @@
 
 import React from 'react';
 import { Certificate, CertificateTemplate } from '../../types';
+import { getSalutation, getRegionLabel } from './certificateText';
 
 interface ModernCertificateProps {
   certificate?: Partial<Certificate>;
   template: CertificateTemplate;
   previewMode?: boolean;
+}
+
+/** Underline blank — shows the value on a line, or an empty line in preview. */
+function Blank({ value, width }: { value?: string; width: number }) {
+  const filled = value && !/^[_\s]+$/.test(value);
+  return (
+    <span
+      className={`inline-block border-b-[1.5px] border-black leading-[1.5] px-1.5 text-center align-baseline ${
+        filled ? 'font-black text-black' : ''
+      }`}
+      style={{ minWidth: width }}
+    >
+      {filled ? value : ' '}
+    </span>
+  );
 }
 
 export function ModernCertificate({
@@ -15,43 +31,18 @@ export function ModernCertificate({
   previewMode = false,
 }: ModernCertificateProps) {
   // Dynamic replacement data.
-  // Blank template look (like the original): when there is no issued
-  // certificate, show neat handwriting lines instead of sample names.
-  const BLANK = '________________________';
-  const BLANK_SHORT = '____________________';
-  const participantName = certificate?.participantName || BLANK;
-  const dilla = certificate?.dila || BLANK_SHORT;
-  const jamaat = certificate?.jamaat || BLANK;
-  const muqami =
-    (certificate as unknown as { muqami?: string })?.muqami || certificate?.ilaqa || BLANK_SHORT;
-  const venue = certificate?.venue || BLANK_SHORT;
-  // Line 4 from/to comes from "Program Duration & Dates" (e.g. "3rd August to Sunday 10th August, 2025").
-  const durationParts = (template.programDurationText || '').split(/\s+to\s+/i);
-  const fromPlace =
-    (certificate as unknown as { fromPlace?: string })?.fromPlace ||
-    (durationParts.length > 1 ? durationParts[0].trim() : BLANK_SHORT);
-  const toPlace =
-    (certificate as unknown as { toPlace?: string })?.toPlace ||
-    (durationParts.length > 1 ? durationParts.slice(1).join(' to ').trim() : BLANK);
-  // Member salutation per auxiliary (Atfal=Tifl, Khuddam=Khadim, etc.)
-  const AUX_SALUTATION: Record<string, string> = {
-    Atfal: 'Tifl',
-    Khuddam: 'Khadim',
-    Ansarullah: 'Nasir',
-    Lajna: 'Lajna member',
-    Nasra: 'Nasirah',
-    'atfal-emblem': 'Tifl',
-    'khuddam-emblem': 'Khadim',
-    'ansarullah-emblem': 'Nasir',
-    'lajna-emblem': 'Lajna member',
-    'nasra-emblem': 'Nasirah',
-  };
-  const salutation =
-    AUX_SALUTATION[template.auxiliary as string] ||
-    AUX_SALUTATION[template.logoType] ||
-    'Tifl';
+  // Blank look: no value = neat underline; value = bold name on a line.
+  const participantName = certificate?.participantName || undefined;
+  const dilla = certificate?.dila || undefined;
+  const jamaat = certificate?.jamaat || undefined;
+  const ilaqa = certificate?.ilaqa || undefined;
+  const venue = certificate?.venue || undefined;
+  const salutation = getSalutation(template);
+  const regionLabel = getRegionLabel(template);
   const eventName = certificate?.eventName || template.eventTitle;
   const theme = certificate?.theme || template.themeTitle;
+  const participationLine =
+    template.participationLine || 'Participated in a week Islamic Vacation Course which took place';
   const certNumber = certificate?.certificateNumber || (previewMode ? 'JCS-ATF-2025-0001' : 'JCS-VERIFIED');
 
   // Colors
@@ -84,11 +75,11 @@ export function ModernCertificate({
   return (
     <div
       id="certificate-print-area"
-      className="relative w-full max-w-4xl aspect-[1.414/1] bg-white shadow-2xl rounded-sm overflow-hidden select-none"
+      className="relative w-full h-full bg-white shadow-2xl rounded-sm overflow-hidden select-none"
       style={{
         backgroundColor: bgColor,
-        /* Screen: aspect-ratio drives height */
-        /* Print: globals.css overrides to 297mm × 210mm */
+        /* Screen size is driven by the parent scale-to-fit wrapper
+           (see CertificatePreview). Print size is forced in globals.css. */
       }}
     >
       {/* 1. Subtle Guilloche / Wavy Background Watermark */}
@@ -184,7 +175,7 @@ export function ModernCertificate({
 
       {/* Rosette Ribbon Seal (Bottom Left) */}
       {template.showRosetteBadge && (
-        <div className="absolute bottom-6 left-6 w-20 h-20 sm:w-24 sm:h-24 pointer-events-none drop-shadow-lg z-20">
+        <div className="absolute bottom-5 left-5 w-[88px] h-[88px] pointer-events-none drop-shadow-lg z-20">
           <svg viewBox="0 0 100 100" className="w-full h-full">
             <defs>
               <linearGradient id="sealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -220,13 +211,13 @@ export function ModernCertificate({
         </div>
       )}
 
-      {/* 4. Main Certificate Content Layout */}
-      <div className="relative z-10 h-full flex flex-col justify-between p-6 sm:p-10 print:p-[12mm] text-center">
+      {/* 4. Main Certificate Content Layout — tight rhythm like the official design */}
+      <div className="relative z-10 h-full flex flex-col justify-between px-6 pt-4 pb-4 print:p-[12mm] text-center">
         {/* Top Header: Logo + Organization Title */}
-        <div className="flex items-center gap-3 text-left">
+        <div className="flex items-center gap-2.5 text-left shrink-0">
           {/* Official Emblem — real auxiliary logo from /public */}
           <div
-            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 p-0.5 shrink-0 shadow-sm flex items-center justify-center bg-white overflow-hidden"
+            className="w-12 h-12 rounded-full border-2 p-0.5 shrink-0 shadow-sm flex items-center justify-center bg-white overflow-hidden"
             style={{ borderColor: primaryColor }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -237,84 +228,76 @@ export function ModernCertificate({
             />
           </div>
 
-          <div className="h-9 w-px bg-slate-400" />
+          <div className="h-11 w-px bg-slate-400" />
 
           <div>
             <h2
-              className="text-xs sm:text-sm font-extrabold tracking-wide uppercase font-sans"
+              className="text-[14px] font-extrabold tracking-wide uppercase font-sans"
               style={{ color: neutralColor }}
             >
               {template.organizationName}
             </h2>
-            <p className="text-3xs sm:text-2xs text-slate-600 font-medium">
+            <p className="text-[11px] text-slate-600 font-medium">
               {template.organizationSubtitle}
             </p>
           </div>
         </div>
 
-        {/* Central Headlines & Body — neat blank-template layout like the original */}
-        <div className="my-auto py-3 sm:py-4 space-y-4 sm:space-y-5 w-full px-1 sm:px-4">
+        {/* Central Headlines & Body — compact so the whole page fits the landscape ratio */}
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center py-1 space-y-2 w-full px-8 overflow-hidden">
           {/* Big Main Event Title */}
           <h1
-            className="text-2xl sm:text-3xl md:text-4xl font-black uppercase tracking-tight font-sans leading-tight"
+            className="text-[26px] font-black uppercase tracking-tight font-sans leading-[1.2]"
             style={{ color: neutralColor }}
           >
             {eventName}
           </h1>
 
           {/* Certificate Type Badge Pill */}
-          <div className="inline-block pb-1">
+          <div className="inline-block pb-0.5">
             <span
-              className="inline-block px-8 py-2 rounded-md text-sm sm:text-base font-extrabold tracking-wider text-white shadow-sm uppercase"
+              className="inline-block px-8 py-1.5 rounded-md text-[13px] font-extrabold tracking-wider text-white shadow-sm uppercase"
               style={{ backgroundColor: primaryColor }}
             >
               {template.typeBadgeText}
             </span>
           </div>
 
-          {/* Line 1–2: exactly like the original — line 1 ends with bare "Ilaqa." */}
-          <div className="w-full text-left text-base sm:text-lg md:text-xl leading-loose text-black font-bold font-sans">
+          {/* Body — centered, underline blanks, balanced wrapping (no stranded fragments) */}
+          <div className="w-full text-center text-[13px] leading-[1.8] text-black font-bold font-sans text-balance">
             <p>
               This is to congratulate and certify that {salutation}{' '}
-              <span className="font-black text-black px-1">{participantName}</span>, Dilla{' '}
-              <span className="font-black text-black px-1">{dilla}</span>, Ilaqa.
+              <Blank value={participantName} width={110} />, from{' '}
+              <Blank value={ilaqa} width={90} /> {regionLabel},{' '}
+              <Blank value={dilla} width={90} /> Dilla,{' '}
+              <Blank value={jamaat} width={110} /> Jama&apos;at.
             </p>
-            <p>
-              from <span className="font-black text-black px-1">{jamaat}</span> Muqami,{' '}
-              <span className="font-black text-black px-1">{muqami}</span>.
-            </p>
-          </div>
-
-          {/* Line 3–4: participation — centered like the original */}
-          <div className="w-full text-center text-base sm:text-lg md:text-xl font-bold text-black font-sans leading-loose">
-            <p>Participated in a week Islamic Vacation Course which took place</p>
-            <p>
-              at <span className="font-black text-black px-1">{venue}</span> from{' '}
-              <span className="font-black text-black px-1">{fromPlace}</span> to{' '}
-              <span className="font-black text-black px-1">{toPlace}</span>.
+            <p className="mt-1">
+              {participationLine} at{' '}
+              <Blank value={venue} width={120} />.
             </p>
           </div>
 
           {/* Date & Theme Highlight */}
-          <div className="space-y-1.5 pt-1">
-            <p className="text-base sm:text-lg md:text-xl font-bold text-black font-sans">
-              {template.programDurationText}, with the
+          <div className="space-y-0.5">
+            <p className="text-[13px] font-bold text-black font-sans">
+              from {template.programDurationText}, with the
             </p>
-            <p className="text-lg sm:text-xl md:text-2xl font-black tracking-tight font-sans text-black">
+            <p className="text-[18px] font-black tracking-tight font-sans text-black">
               {theme}
             </p>
           </div>
 
           {/* Focus & Mission Description */}
-          <p className="w-full text-center text-base sm:text-lg text-black font-bold leading-relaxed font-sans max-w-3xl mx-auto">
+          <p className="w-full text-center text-[12px] text-black font-bold leading-snug font-sans max-w-2xl mx-auto line-clamp-3">
             {template.bodyFocusText}
           </p>
         </div>
 
         {/* Footer: Serial (bottom-center, clear of corner rings) & Official Signatory */}
-        <div className="flex items-end justify-between pt-4">
+        <div className="flex items-end justify-between pt-1 shrink-0">
           {/* Spacer — reserves room for the bottom-left rosette seal */}
-          <div className="w-20 sm:w-28 shrink-0" />
+          <div className="w-24 shrink-0" />
           {/* Serial Number & Security Code — centered where it reads cleanly */}
           <div className="flex-1 text-center px-4">
             <div className="text-3xs text-slate-400 font-mono tracking-wider">Serial No:</div>
@@ -324,9 +307,9 @@ export function ModernCertificate({
           </div>
 
           {/* Official Signatory Section */}
-          <div className="w-56 sm:w-64 text-center">
+          <div className="w-52 text-center">
             {/* Signature: uploaded image OR fallback SVG vector */}
-            <div className="h-10 flex items-end justify-center mb-1">
+            <div className="h-8 flex items-end justify-center mb-1">
               {template.signature1Image ? (
                 <img
                   src={template.signature1Image}
@@ -365,13 +348,13 @@ export function ModernCertificate({
             <div className="w-full h-0.5 bg-slate-800 mx-auto mb-1.5" />
 
             {/* Name & Title */}
-            <div className="text-xs sm:text-sm font-bold text-slate-900 leading-tight font-sans">
+            <div className="text-[12px] font-bold text-slate-900 leading-tight font-sans">
               {template.signature1Name}
             </div>
-            <div className="text-3xs sm:text-2xs font-medium text-slate-600 leading-tight">
+            <div className="text-[10px] font-medium text-slate-600 leading-tight">
               {template.signature1Title}
             </div>
-            <div className="text-3xs text-slate-500 font-medium mt-0.5">
+            <div className="text-[10px] text-slate-500 font-medium mt-0.5">
               {template.signature1Date}
             </div>
           </div>

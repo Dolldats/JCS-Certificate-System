@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { isLoading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   if (isLoading) {
     return (
@@ -20,10 +21,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 overflow-hidden font-sans">
+    <div className="flex h-screen w-full bg-[linear-gradient(135deg,#f8fafc_0%,#eef2f7_55%,#e7f4ec_100%)] overflow-hidden font-sans">
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:shrink-0">
-        <Sidebar />
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+        />
       </div>
 
       {/* Mobile Drawer */}

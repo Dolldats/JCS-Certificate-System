@@ -89,9 +89,55 @@ export const authApi = {
     return target;
   },
 
+  async register(input: {
+    fullName: string;
+    memberId: string;
+    auxiliary: Auxiliary;
+    jamaat?: string;
+    dila?: string;
+  }): Promise<User> {
+    await delay(300);
+    const users = getStorage<User[]>('users', INITIAL_USERS);
+    const cleanId = input.memberId.trim().toUpperCase();
+    if (!cleanId) throw new Error('Member ID is required.');
+    if (users.some((u) => u.memberId.toUpperCase() === cleanId)) {
+      throw new Error('An account with this Member ID already exists. Please sign in instead.');
+    }
+    const member = JAMAAT_MEMBER_DATABASE.find((m) => m.memberId.toUpperCase() === cleanId);
+    const newUser: User = {
+      id: `usr-${Date.now()}`,
+      memberId: cleanId,
+      fullName: input.fullName.trim(),
+      email: member?.email || `${cleanId.toLowerCase()}@jamaat.org`,
+      role: 'GENERAL_ADMIN',
+      assignedAuxiliary: input.auxiliary,
+      dila: input.dila?.trim() || member?.dila,
+      jamaat: input.jamaat?.trim() || member?.jamaat,
+    };
+    setStorage('users', [...users, newUser]);
+    setStorage('active_user_id', newUser.id);
+    await auditApi.recordLog({
+      action: 'Login',
+      adminName: newUser.fullName,
+      adminRole: newUser.role,
+      auxiliary: newUser.assignedAuxiliary,
+      target: 'Dashboard Session',
+      details: `Self-registered new ${input.auxiliary} admin account (${cleanId}) and signed in.`,
+    });
+    return newUser;
+  },
+
   async getAllUsers(): Promise<User[]> {
     await delay(100);
-    return getStorage<User[]>('users', INITIAL_USERS);
+    const stored = getStorage<User[]>('users', INITIAL_USERS);
+    // Merge in any seed users added to code later (e.g. new auxiliaries),
+    // so existing browsers pick them up without losing saved accounts.
+    const ids = new Set(stored.map((u) => u.id));
+    const missing = INITIAL_USERS.filter((u) => !ids.has(u.id));
+    if (missing.length === 0) return stored;
+    const merged = [...stored, ...missing];
+    setStorage('users', merged);
+    return merged;
   },
 
   async assignGeneralAdmin(memberId: string, auxiliary: Auxiliary, performedBy: User): Promise<User> {
@@ -513,6 +559,48 @@ export const certificatesApi = {
     });
 
     return newlyGenerated;
+  },
+
+  async update(
+    certificateId: string,
+    updates: Partial<
+      Pick<
+        Certificate,
+        | 'participantName'
+        | 'dila'
+        | 'ilaqa'
+        | 'jamaat'
+        | 'eventName'
+        | 'eventDate'
+        | 'venue'
+        | 'theme'
+        | 'type'
+        | 'templateId'
+      >
+    >,
+    performedBy: User
+  ): Promise<Certificate> {
+    await delay(200);
+    const certs = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
+    const target = certs.find((c) => c.id === certificateId);
+    if (!target) throw new Error('Certificate not found');
+
+    // Serial number, member link, issuer and timestamps stay fixed —
+    // only the printed details are editable.
+    const updated: Certificate = { ...target, ...updates };
+
+    setStorage('certificates', certs.map((c) => (c.id === certificateId ? updated : c)));
+
+    await auditApi.recordLog({
+      action: 'Certificate Updated',
+      adminName: performedBy.fullName,
+      adminRole: performedBy.role,
+      auxiliary: target.auxiliary,
+      target: `${target.certificateNumber} (${updated.participantName})`,
+      details: `Edited certificate details for ${updated.participantName}.`,
+    });
+
+    return updated;
   },
 
   async revoke(certificateId: string, reason: string, performedBy: User): Promise<Certificate> {

@@ -3,17 +3,19 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { templatesApi } from '../../../services/api';
-import { CertificateTemplate, Auxiliary, CertificateType } from '../../../types';
+import { CertificateTemplate, Auxiliary, CertificateType, CertificateDesign } from '../../../types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
+import { getRegionLabel } from '../../../components/certificates/certificateText';
 import { CertificatePreview } from '../../../components/certificates/CertificatePreview';
 import {
   Save,
   Check,
   Eye,
+  Pencil,
   Sliders,
   Sparkles,
   Palette,
@@ -32,6 +34,40 @@ const CERTIFICATE_TYPES: CertificateType[] = [
   'Certificate of Recognition',
   'Certificate of Attendance',
 ];
+
+const DEFAULT_PARTICIPATION_LINE =
+  'Participated in a week Islamic Vacation Course which took place';
+
+// Participation presets differ per auxiliary: Atfal/Nasra run vacation
+// courses, Khuddam/Ansarullah run ijtemas, Lajna runs seminars.
+function getParticipationPresets(auxiliary?: Auxiliary | 'All'): string[] {
+  switch (auxiliary) {
+    case 'Khuddam':
+    case 'Ansarullah':
+      return [
+        'Participated in a day National Ijtema which took place',
+        'Participated in a 2-day National Ijtema which took place',
+        'Participated in a 3-day National Ijtema which took place',
+        'Participated in the Annual National Ijtema which took place',
+      ];
+    case 'Lajna':
+      return [
+        'Participated in a day Tarbiyyat Seminar which took place',
+        'Participated in a 2-day Tarbiyyat Seminar which took place',
+        'Participated in a 3-day Tarbiyyat Seminar which took place',
+        'Participated in the National Tarbiyyat Seminar which took place',
+      ];
+    case 'Atfal':
+    case 'Nasra':
+    default:
+      return [
+        'Participated in a day Islamic Vacation Course which took place',
+        'Participated in a 2-day Islamic Vacation Course which took place',
+        'Participated in a 3-day Islamic Vacation Course which took place',
+        DEFAULT_PARTICIPATION_LINE,
+      ];
+  }
+}
 
 const COLOR_PRESETS = [
   { name: 'Atfal / Khuddam Green', primary: '#15803d', accent: '#84cc16', bg: '#ffffff' },
@@ -52,24 +88,26 @@ export default function TemplatesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<'visuals' | 'content' | 'signatories'>('visuals');
+  // Preview-first: entering the studio shows only the certificate.
+  // Hovering it reveals the "Edit Template" pill, which opens the editor.
+  const [isEditing, setIsEditing] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
   const [signatureError, setSignatureError] = useState('');
   const signatureInputRef = useRef<HTMLInputElement>(null);
+  const participationInputRef = useRef<HTMLInputElement>(null);
   // Sample recipient — preview only (empty = blank handwriting lines).
   const [sampleName, setSampleName] = useState('');
   const [sampleDilla, setSampleDilla] = useState('');
   const [sampleJamaat, setSampleJamaat] = useState('');
-  const [sampleMuqami, setSampleMuqami] = useState('');
+  const [sampleRegion, setSampleRegion] = useState('');
   const [sampleVenue, setSampleVenue] = useState('');
 
   // One input per blank on the certificate, matching the original layout.
-  // (Line 4 from/to auto-fill from "Program Duration & Dates".)
   const previewCertificate = {
     participantName: sampleName || undefined,
     dila: sampleDilla || undefined,
-    ilaqa: sampleMuqami || undefined,
+    ilaqa: sampleRegion || undefined,
     jamaat: sampleJamaat || undefined,
-    muqami: sampleMuqami || undefined,
     venue: sampleVenue || undefined,
   };
 
@@ -155,15 +193,27 @@ export default function TemplatesPage() {
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          size="md"
-          onClick={handleSave}
-          isLoading={isSaving}
-          leftIcon={saveSuccess ? <Check className="w-4 h-4 text-emerald-300" /> : <Save className="w-4 h-4" />}
-        >
-          {saveSuccess ? 'Saved to Templates!' : 'Save Template'}
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          {isEditing && (
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => setIsEditing(false)}
+              leftIcon={<Eye className="w-4 h-4" />}
+            >
+              Preview
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleSave}
+            isLoading={isSaving}
+            leftIcon={saveSuccess ? <Check className="w-4 h-4 text-emerald-300" /> : <Save className="w-4 h-4" />}
+          >
+            {saveSuccess ? 'Saved to Templates!' : 'Save Template'}
+          </Button>
+        </div>
       </div>
 
       {/* Template Selector Pills */}
@@ -191,8 +241,31 @@ export default function TemplatesPage() {
         })}
       </div>
 
+      {/* Preview-only (default): just the certificate. Hover reveals Edit Template. */}
+      {currentTemplate && !isEditing && (
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <CertificatePreview
+            certificate={previewCertificate}
+            template={currentTemplate}
+            previewMode={true}
+            showActions={false}
+          />
+          {/* Hover overlay — Edit Template pill (screen only, never printed) */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-slate-900/0 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:bg-slate-900/25 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:bg-slate-900/25 group-focus-within:opacity-100 print:hidden">
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="inline-flex scale-95 cursor-pointer items-center gap-2 rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-slate-900 shadow-xl transition-all duration-200 group-hover:scale-100 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            >
+              <Pencil className="w-4 h-4" />
+              Edit Template
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Studio: Controls (Left) + Live Interactive Preview (Right) */}
-      {currentTemplate && (
+      {currentTemplate && isEditing && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Controls Column (5 cols) */}
           <div className="lg:col-span-5 space-y-4">
@@ -243,6 +316,208 @@ export default function TemplatesPage() {
                   <CardTitle className="text-sm">Color Theme &amp; Ornaments</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Certificate Design picker */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">
+                      Certificate Design
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(
+                        [
+                          {
+                            id: 'modern-rings' as CertificateDesign,
+                            name: 'Modern Rings',
+                            desc: 'Mint bg, torus rings',
+                            recommended: {
+                              primaryColor: '#15803d',
+                              accentColor: '#84cc16',
+                              backgroundColor: '#f3faf2',
+                              showTorusRings: true,
+                              showWaveWatermark: true,
+                              showRosetteBadge: true,
+                            },
+                            thumb: (
+                              <svg viewBox="0 0 120 84" className="w-full h-14 rounded-md border border-slate-200">
+                                <rect width="120" height="84" fill="#f3faf2" />
+                                <circle cx="112" cy="8" r="22" fill="none" stroke="#84cc16" strokeWidth="9" />
+                                <circle cx="112" cy="8" r="22" fill="none" stroke="#15803d" strokeWidth="9" strokeDasharray="40 100" />
+                                <circle cx="10" cy="76" r="20" fill="none" stroke="#15803d" strokeWidth="8" />
+                                <rect x="34" y="14" width="52" height="7" rx="1" fill="#0f172a" />
+                                <rect x="40" y="26" width="40" height="9" rx="2" fill="#15803d" />
+                                <line x1="24" y1="44" x2="96" y2="44" stroke="#94a3b8" strokeWidth="1.5" />
+                                <line x1="24" y1="52" x2="96" y2="52" stroke="#94a3b8" strokeWidth="1.5" />
+                                <line x1="30" y1="60" x2="90" y2="60" stroke="#94a3b8" strokeWidth="1.5" />
+                              </svg>
+                            ),
+                          },
+                          {
+                            id: 'emerald-prestige' as CertificateDesign,
+                            name: 'Emerald Prestige',
+                            desc: 'Green band, premium',
+                            recommended: {
+                              primaryColor: '#064e3b',
+                              accentColor: '#c9a227',
+                              backgroundColor: '#ffffff',
+                              showTorusRings: false,
+                              showWaveWatermark: true,
+                              showRosetteBadge: true,
+                            },
+                            thumb: (
+                              <svg viewBox="0 0 120 84" className="w-full h-14 rounded-md border border-slate-200">
+                                <rect width="120" height="84" fill="#ffffff" />
+                                <rect width="120" height="26" fill="#064e3b" />
+                                <rect y="26" width="120" height="2.5" fill="#c9a227" />
+                                <circle cx="20" cy="13" r="7" fill="#ffffff" />
+                                <rect x="32" y="9" width="44" height="5" rx="1" fill="#ffffff" />
+                                <rect x="38" y="36" width="44" height="9" rx="4.5" fill="#064e3b" stroke="#c9a227" strokeWidth="1" />
+                                <line x1="26" y1="53" x2="94" y2="53" stroke="#94a3b8" strokeWidth="1.5" />
+                                <line x1="26" y1="61" x2="94" y2="61" stroke="#94a3b8" strokeWidth="1.5" />
+                                <line x1="36" y1="69" x2="84" y2="69" stroke="#94a3b8" strokeWidth="1.5" />
+                              </svg>
+                            ),
+                          },
+                          {
+                            id: 'ivory-minimal' as CertificateDesign,
+                            name: 'Ivory Minimal',
+                            desc: 'Clean, airy, modern',
+                            recommended: {
+                              primaryColor: '#047857',
+                              accentColor: '#b45309',
+                              backgroundColor: '#faf8f2',
+                              showTorusRings: false,
+                              showWaveWatermark: true,
+                              showRosetteBadge: true,
+                            },
+                            thumb: (
+                              <svg viewBox="0 0 120 84" className="w-full h-14 rounded-md border border-slate-200">
+                                <rect width="120" height="84" fill="#faf8f2" />
+                                <rect width="4" height="84" fill="#047857" />
+                                <text x="60" y="22" textAnchor="middle" fontSize="7" letterSpacing="2" fill="#047857" fontWeight="bold">CERTIFICATE</text>
+                                <rect x="38" y="28" width="44" height="8" rx="1" fill="#1f2937" />
+                                <line x1="52" y1="42" x2="68" y2="42" stroke="#9ca3af" strokeWidth="1" />
+                                <line x1="28" y1="52" x2="92" y2="52" stroke="#cbd5e1" strokeWidth="1.5" />
+                                <line x1="28" y1="60" x2="92" y2="60" stroke="#cbd5e1" strokeWidth="1.5" />
+                                <line x1="38" y1="68" x2="82" y2="68" stroke="#cbd5e1" strokeWidth="1.5" />
+                              </svg>
+                            ),
+                          },
+                          {
+                            id: 'royal-maroon' as CertificateDesign,
+                            name: 'Royal Maroon',
+                            desc: 'Maroon strips, medallion',
+                            recommended: {
+                              primaryColor: '#7f1d2e',
+                              accentColor: '#c9a227',
+                              backgroundColor: '#fffdf9',
+                              showTorusRings: false,
+                              showWaveWatermark: true,
+                              showRosetteBadge: true,
+                            },
+                            thumb: (
+                              <svg viewBox="0 0 120 84" className="w-full h-14 rounded-md border border-slate-200">
+                                <rect width="120" height="84" fill="#fffdf9" />
+                                <rect width="120" height="8" fill="#7f1d2e" />
+                                <rect y="8" width="120" height="2" fill="#c9a227" />
+                                <rect y="74" width="120" height="2" fill="#c9a227" />
+                                <rect y="76" width="120" height="8" fill="#7f1d2e" />
+                                <circle cx="60" cy="24" r="7" fill="none" stroke="#7f1d2e" strokeWidth="2" />
+                                <rect x="38" y="36" width="44" height="8" fill="#7f1d2e" />
+                                <line x1="26" y1="52" x2="94" y2="52" stroke="#94a3b8" strokeWidth="1.5" />
+                                <line x1="26" y1="60" x2="94" y2="60" stroke="#94a3b8" strokeWidth="1.5" />
+                              </svg>
+                            ),
+                          },
+                          {
+                            id: 'teal-surge' as CertificateDesign,
+                            name: 'Teal Surge',
+                            desc: 'Wave bands, rounded badge',
+                            recommended: {
+                              primaryColor: '#0f766e',
+                              accentColor: '#2dd4bf',
+                              backgroundColor: '#ffffff',
+                              showTorusRings: false,
+                              showWaveWatermark: true,
+                              showRosetteBadge: true,
+                            },
+                            thumb: (
+                              <svg viewBox="0 0 120 84" className="w-full h-14 rounded-md border border-slate-200">
+                                <rect width="120" height="84" fill="#ffffff" />
+                                <path d="M0 84 V62 C 25 62, 40 50, 62 52 C 86 54, 96 64, 120 60 V84 Z" fill="#0f766e" opacity="0.3" />
+                                <path d="M0 84 V70 C 25 70, 40 60, 62 62 C 86 64, 96 72, 120 68 V84 Z" fill="#0f766e" />
+                                <rect x="38" y="30" width="44" height="9" rx="4.5" fill="#0f766e" />
+                                <line x1="26" y1="50" x2="94" y2="50" stroke="#94a3b8" strokeWidth="1.5" />
+                                <line x1="26" y1="58" x2="94" y2="58" stroke="#94a3b8" strokeWidth="1.5" />
+                              </svg>
+                            ),
+                          },
+                          {
+                            id: 'onyx-executive' as CertificateDesign,
+                            name: 'Onyx Executive',
+                            desc: 'Charcoal frame, gold ticks',
+                            recommended: {
+                              primaryColor: '#181c22',
+                              accentColor: '#b08d2e',
+                              backgroundColor: '#ffffff',
+                              showTorusRings: false,
+                              showWaveWatermark: true,
+                              showRosetteBadge: true,
+                            },
+                            thumb: (
+                              <svg viewBox="0 0 120 84" className="w-full h-14 rounded-md border border-slate-200">
+                                <rect width="120" height="84" fill="#ffffff" />
+                                <rect x="8" y="8" width="104" height="68" fill="none" stroke="#181c22" strokeWidth="1.5" />
+                                <path d="M8 16 V8 H16" fill="none" stroke="#b08d2e" strokeWidth="2.5" />
+                                <path d="M104 8 H112 V16" fill="none" stroke="#b08d2e" strokeWidth="2.5" />
+                                <path d="M8 68 V76 H16" fill="none" stroke="#b08d2e" strokeWidth="2.5" />
+                                <path d="M104 76 H112 V68" fill="none" stroke="#b08d2e" strokeWidth="2.5" />
+                                <rect x="38" y="26" width="44" height="8" fill="#181c22" />
+                                <rect x="42" y="40" width="36" height="5" fill="#181c22" />
+                                <line x1="28" y1="54" x2="92" y2="54" stroke="#94a3b8" strokeWidth="1.5" />
+                                <line x1="32" y1="62" x2="88" y2="62" stroke="#94a3b8" strokeWidth="1.5" />
+                              </svg>
+                            ),
+                          },
+                        ]
+                      ).map((option) => {
+                        const isActive = (currentTemplate.design || 'modern-rings') === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() =>
+                              setCurrentTemplate({
+                                ...currentTemplate,
+                                design: option.id,
+                                ...option.recommended,
+                              })
+                            }
+                            className={`p-2 rounded-xl border-2 text-left cursor-pointer transition-all ${
+                              isActive
+                                ? 'border-emerald-600 bg-emerald-50/60 shadow-xs'
+                                : 'border-slate-200 bg-white hover:border-slate-400'
+                            }`}
+                          >
+                            {option.thumb}
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <span
+                                className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                  isActive ? 'border-emerald-600' : 'border-slate-300'
+                                }`}
+                              >
+                                {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />}
+                              </span>
+                              <span className="text-xs font-bold text-slate-800">{option.name}</span>
+                            </div>
+                            <p className="text-3xs text-slate-500 ml-5">{option.desc}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-3xs text-slate-400 mt-1.5">
+                      Switching applies the recommended colors &amp; ornaments for that design — you can still tweak them below.
+                    </p>
+                  </div>
+
                   {/* Preset Swatches */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-2">
@@ -624,6 +899,49 @@ export default function TemplatesPage() {
                     placeholder="e.g. 3rd August to Sunday 10th August, 2025"
                   />
 
+                  <Select
+                    label="Participation Line (duration)"
+                    value={(() => {
+                      const presets = getParticipationPresets(currentTemplate.auxiliary);
+                      const current =
+                        currentTemplate.participationLine || presets[presets.length - 1];
+                      return presets.includes(current) ? current : 'custom';
+                    })()}
+                    onChange={(e) => {
+                      if (e.target.value === 'custom') {
+                        participationInputRef.current?.focus();
+                        return;
+                      }
+                      setCurrentTemplate({
+                        ...currentTemplate,
+                        participationLine: e.target.value,
+                      });
+                    }}
+                    options={[
+                      ...getParticipationPresets(currentTemplate.auxiliary).map((p) => ({
+                        value: p,
+                        label: p,
+                      })),
+                      { value: 'custom', label: 'Custom — type your own below' },
+                    ]}
+                  />
+
+                  <Input
+                    label="Custom participation text (type your suggestion here)"
+                    value={
+                      currentTemplate.participationLine ||
+                      getParticipationPresets(currentTemplate.auxiliary).slice(-1)[0]
+                    }
+                    ref={participationInputRef}
+                    onChange={(e) =>
+                      setCurrentTemplate({
+                        ...currentTemplate,
+                        participationLine: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. Participated in a 3-day program which took place"
+                  />
+
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Focus &amp; Purpose Description
@@ -657,23 +975,23 @@ export default function TemplatesPage() {
                     />
                     <div className="grid grid-cols-2 gap-3">
                       <Input
+                        label={getRegionLabel(currentTemplate)}
+                        value={sampleRegion}
+                        onChange={(e) => setSampleRegion(e.target.value)}
+                        placeholder="e.g. South West"
+                      />
+                      <Input
                         label="Dilla"
                         value={sampleDilla}
                         onChange={(e) => setSampleDilla(e.target.value)}
                         placeholder="e.g. Lagos"
                       />
-                      <Input
-                        label="Jamaat (from)"
-                        value={sampleJamaat}
-                        onChange={(e) => setSampleJamaat(e.target.value)}
-                        placeholder="e.g. Ilasamaja"
-                      />
                     </div>
                     <Input
-                      label="Muqami / Ilaqa"
-                      value={sampleMuqami}
-                      onChange={(e) => setSampleMuqami(e.target.value)}
-                      placeholder="e.g. South West"
+                      label="Jama'at"
+                      value={sampleJamaat}
+                      onChange={(e) => setSampleJamaat(e.target.value)}
+                      placeholder="e.g. Ilasamaja"
                     />
                     <Input
                       label="Venue (took place at)"
@@ -682,7 +1000,7 @@ export default function TemplatesPage() {
                       placeholder="e.g. Jamia Ahmadiyya Ilaro, Ogun State"
                     />
                     <p className="text-3xs text-slate-500">
-                      Line 4&apos;s from/to fills automatically from Program Duration &amp; Dates above (split on “to”).
+                      Dates show once, in the duration line above the theme.
                     </p>
                   </div>
                 </CardContent>
@@ -846,7 +1164,7 @@ export default function TemplatesPage() {
           </div>
 
           {/* Live Preview Column (7 cols) */}
-          <div className="lg:col-span-7 space-y-4">
+          <div className="lg:col-span-7 space-y-4 lg:sticky lg:top-4">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between w-full">
@@ -859,13 +1177,15 @@ export default function TemplatesPage() {
                   </span>
                 </div>
               </CardHeader>
-              <CardContent className="p-4 flex flex-col items-center bg-slate-100/70 rounded-b-xl overflow-hidden">
-                <CertificatePreview
-                  certificate={previewCertificate}
-                  template={currentTemplate}
-                  previewMode={true}
-                  showActions={true}
-                />
+              <CardContent className="p-3 sm:p-4 flex flex-col items-center bg-slate-100/70 rounded-b-xl">
+                <div className="w-full">
+                  <CertificatePreview
+                    certificate={previewCertificate}
+                    template={currentTemplate}
+                    previewMode={true}
+                    showActions={true}
+                  />
+                </div>
               </CardContent>
             </Card>
           </div>

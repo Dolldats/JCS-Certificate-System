@@ -58,7 +58,7 @@ export function Modal({
       <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
         <div
           className={cn(
-            'relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all w-full my-8 border border-slate-100',
+            'modal-panel relative overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all w-full my-8 border border-slate-100',
             maxWidths[maxWidth]
           )}
           onClick={(e) => e.stopPropagation()}
@@ -79,7 +79,7 @@ export function Modal({
             </button>
           </div>
 
-          <div className="px-6 py-5 max-h-[80vh] overflow-y-auto">{children}</div>
+          <div className="modal-scroll-content px-6 py-5 max-h-[80vh] overflow-y-auto">{children}</div>
 
           {footer && (
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">

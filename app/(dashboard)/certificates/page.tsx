@@ -33,10 +33,12 @@ import {
   TableCell,
 } from '../../../components/ui/Table';
 import { CertificateModal } from '../../../components/certificates/CertificateModal';
+import { EditCertificateModal } from '../../../components/certificates/EditCertificateModal';
 import {
   Award,
   Search,
   Eye,
+  Pencil,
   Sparkles,
   FileCheck,
 } from 'lucide-react';
@@ -54,6 +56,7 @@ const CERTIFICATE_TYPES: CertificateType[] = [
 function CertificatesContent() {
   const searchParams = useSearchParams();
   const initialEventId = searchParams.get('eventId') || '';
+  const initialQuery = searchParams.get('q') || '';
   const { user, activeAuxiliary } = useAuth();
 
   const [certificates, setCertificates] = useState<Certificate[]>([]);
@@ -61,10 +64,11 @@ function CertificatesContent() {
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>(initialEventId);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
   const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
+  const [editingCertificate, setEditingCertificate] = useState<Certificate | null>(null);
 
   // Batch Generation Wizard State
   const [isGenerateWizardOpen, setIsGenerateWizardOpen] = useState(false);
@@ -104,6 +108,12 @@ function CertificatesContent() {
     loadData();
   }, [activeAuxiliary]);
 
+  // Keep the search box in sync when arriving via the navbar search (?q=...).
+  useEffect(() => {
+    setSearchQuery(searchParams.get('q') || '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   useEffect(() => {
     async function loadWizardParticipants() {
       if (!wizardEventId) return;
@@ -142,6 +152,31 @@ function CertificatesContent() {
     if (!user) return;
     await certificatesApi.revoke(certId, reason, user);
     await loadData();
+  };
+
+  const handleUpdate = async (
+    certId: string,
+    updates: Partial<
+      Pick<
+        Certificate,
+        | 'participantName'
+        | 'dila'
+        | 'ilaqa'
+        | 'jamaat'
+        | 'eventName'
+        | 'eventDate'
+        | 'venue'
+        | 'theme'
+        | 'type'
+        | 'templateId'
+      >
+    >
+  ) => {
+    if (!user) return;
+    const updated = await certificatesApi.update(certId, updates, user);
+    await loadData();
+    // Keep the view modal in sync if it is open for this certificate.
+    setSelectedCertificate((prev) => (prev && prev.id === certId ? updated : prev));
   };
 
   const filteredCertificates = certificates.filter((c) => {
@@ -289,6 +324,14 @@ function CertificatesContent() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingCertificate(cert)}
+                          leftIcon={<Pencil className="w-3.5 h-3.5" />}
+                        >
+                          Edit
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -447,6 +490,14 @@ function CertificatesContent() {
         onClose={() => setSelectedCertificate(null)}
         certificate={selectedCertificate}
         onRevoke={handleRevoke}
+      />
+
+      <EditCertificateModal
+        isOpen={Boolean(editingCertificate)}
+        onClose={() => setEditingCertificate(null)}
+        certificate={editingCertificate}
+        templates={templates}
+        onSave={handleUpdate}
       />
     </div>
   );

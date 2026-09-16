@@ -35,6 +35,21 @@ export type CertificateType =
 
 export type CertificateStatus = 'Issued' | 'Revoked';
 
+// Certificate layout design — user-chosen in Certificate Studio.
+// 'modern-rings': mint bg, torus rings, left header
+// 'emerald-prestige': deep green header band, gold accents, premium centered body
+// 'ivory-minimal': clean ivory canvas, hairline rules, letterspaced label badge
+// 'royal-maroon': maroon/gold strips, medallion header, formal centered layout
+// 'teal-surge': flowing wave bands, left header, rounded badge
+// 'onyx-executive': charcoal/gold hairline frame, formal centered layout
+export type CertificateDesign =
+  | 'modern-rings'
+  | 'emerald-prestige'
+  | 'ivory-minimal'
+  | 'royal-maroon'
+  | 'teal-surge'
+  | 'onyx-executive';
+
 export interface User {
   id: string;
   memberId: string;
@@ -106,6 +121,7 @@ export interface CertificateTemplate {
   orientation: 'landscape' | 'portrait';
   
   // Visual Styling & Branding
+  design?: CertificateDesign; // layout choice (defaults to 'modern-rings')
   primaryColor: string; // Torus arc & main badge background (e.g. #15803d)
   accentColor: string;  // Highlights, seal border, accent text (e.g. #84cc16)
   neutralColor: string; // Headlines & text (e.g. #0f172a)
@@ -123,6 +139,7 @@ export interface CertificateTemplate {
   // Event & Certificate Content
   eventTitle: string; // e.g. "ISLAMIC VACATION COURSE/REGIONAL IJTEMA 2025"
   typeBadgeText: string; // e.g. "CERTIFICATE OF PARTICIPATION"
+  participationLine?: string; // e.g. "Participated in a week Islamic Vacation Course which took place"
   themeTitle: string; // e.g. "Theme: My Faith, My Identity."
   programDurationText: string; // e.g. "3rd August to Sunday 10th August, 2025"
   bodyIntroText: string; // e.g. "This is to congratulate and certify that {{Salutation}} {{ParticipantName}}, Dilla {{Dilla}}, Ilaqa {{Ilaqa}} from {{Jamaat}}."
@@ -177,6 +194,7 @@ export interface AuditLog {
     | 'Participant Import'
     | 'Member Verification'
     | 'Certificate Generated'
+    | 'Certificate Updated'
     | 'Certificate Revoked'
     | 'Template Modified';
   adminName: string;

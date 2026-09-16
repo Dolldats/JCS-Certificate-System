@@ -60,6 +60,16 @@ export const INITIAL_USERS: User[] = [
     dila: 'Abuja Dilla',
     jamaat: 'Gwarinpa',
   },
+  {
+    id: 'usr-6',
+    memberId: 'NAS-50118',
+    fullName: 'Ahmad Rufai',
+    email: 'ahmad.rufai@nasra.org',
+    role: 'GENERAL_ADMIN',
+    assignedAuxiliary: 'Nasra',
+    dila: 'Kaduna Dilla',
+    jamaat: 'Tudun Wada',
+  },
 ];
 
 export const JAMAAT_MEMBER_DATABASE: JamaatMember[] = [
@@ -259,6 +269,7 @@ export const INITIAL_TEMPLATES: CertificateTemplate[] = [
     auxiliary: 'Atfal',
     certificateType: 'Certificate of Participation',
     orientation: 'landscape',
+    design: 'modern-rings',
     primaryColor: '#15803d', // Vibrant green torus and badge
     accentColor: '#84cc16',  // Lime highlight and gold-green gradient
     neutralColor: '#0f172a', // Dark charcoal text
@@ -272,6 +283,7 @@ export const INITIAL_TEMPLATES: CertificateTemplate[] = [
     eventTitle: 'ISLAMIC VACATION COURSE/REGIONAL IJTEMA 2025',
     typeBadgeText: 'CERTIFICATE OF PARTICIPATION',
     themeTitle: 'Theme: My Faith, My Identity.',
+    participationLine: 'Participated in a week Islamic Vacation Course which took place',
     programDurationText: '3rd August to Sunday 10th August, 2025',
     bodyIntroText: 'This is to congratulate and certify that Tifl {{ParticipantName}}, Dilla {{Dilla}}, Ilaqa {{Ilaqa}} from {{Jamaat}}.',
     bodyDescriptionText: 'Participated in a week Islamic Vacation Course which took place at {{Venue}} from 3rd August to Sunday 10th August, 2025.',
@@ -288,6 +300,7 @@ export const INITIAL_TEMPLATES: CertificateTemplate[] = [
     auxiliary: 'Khuddam',
     certificateType: 'Certificate of Excellence',
     orientation: 'landscape',
+    design: 'modern-rings',
     primaryColor: '#046a38',
     accentColor: '#d97706',
     neutralColor: '#0f172a',
@@ -301,6 +314,7 @@ export const INITIAL_TEMPLATES: CertificateTemplate[] = [
     eventTitle: 'ANNUAL NATIONAL IJTEMA COMPETITION 2026',
     typeBadgeText: 'CERTIFICATE OF EXCELLENCE',
     themeTitle: 'Theme: Honor Thy Pledge',
+    participationLine: 'Participated in the Annual National Ijtema which took place',
     programDurationText: '18th to 20th September, 2026',
     bodyIntroText: 'Awarded with high distinction to Khadim {{ParticipantName}}, Dilla {{Dilla}}, representing {{Jamaat}} Jama\'at.',
     bodyDescriptionText: 'For securing exceptional academic merit and outstanding commitment during the National Ijtema at {{Venue}}.',
@@ -330,6 +344,7 @@ export const INITIAL_TEMPLATES: CertificateTemplate[] = [
     eventTitle: 'NATIONAL TARBIYYAT & ACADEMIC SEMINAR 2026',
     typeBadgeText: 'CERTIFICATE OF APPRECIATION',
     themeTitle: 'Theme: Women as Pillars of Peace',
+    participationLine: 'Participated in the National Tarbiyyat Seminar which took place',
     programDurationText: '15th October, 2026',
     bodyIntroText: 'Warmly presented to Lajna member {{ParticipantName}}, Dilla {{Dilla}}, {{Jamaat}} Jama\'at.',
     bodyDescriptionText: 'In gracious appreciation for her active participation and presentation at {{Venue}}.',
@@ -359,6 +374,7 @@ export const INITIAL_TEMPLATES: CertificateTemplate[] = [
     eventTitle: 'NATIONAL IJTEMA & TARBIYYAT CONVENTION 2026',
     typeBadgeText: 'CERTIFICATE OF RECOGNITION',
     themeTitle: 'Theme: Steadfast Servants of Allah',
+    participationLine: 'Participated in the Annual National Ijtema which took place',
     programDurationText: '22nd to 24th November, 2026',
     bodyIntroText: 'This is to proudly certify and honour Nasir {{ParticipantName}}, Dilla {{Dilla}}, Ilaqa {{Ilaqa}}, from {{Jamaat}} Jama\'at.',
     bodyDescriptionText: 'For his distinguished participation in the National Ijtema & Tarbiyyat Convention held at {{Venue}}.',
@@ -388,6 +404,7 @@ export const INITIAL_TEMPLATES: CertificateTemplate[] = [
     eventTitle: 'NATIONAL NASRA IJTEMA & SKILLS EXPOSITION 2026',
     typeBadgeText: 'CERTIFICATE OF MERIT',
     themeTitle: 'Theme: Young Minds, Strong Iman',
+    participationLine: 'Participated in a week Islamic Vacation Course which took place',
     programDurationText: '8th to 10th December, 2026',
     bodyIntroText: 'This is to commend and certify Nasirah {{ParticipantName}}, Dilla {{Dilla}}, Ilaqa {{Ilaqa}}, from {{Jamaat}} Jama\'at.',
     bodyDescriptionText: 'For commendable participation and dedication displayed at the National Nasra Ijtema held at {{Venue}}.',

@@ -33,6 +33,8 @@ body {
   body {
     margin: 0 !important;
     padding: 0 !important;
+    /* The modal sets body overflow:hidden inline — must not clip the page */
+    overflow: visible !important;
     background: #ffffff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -41,6 +43,34 @@ body {
 
   body * {
     visibility: hidden;
+  }
+
+  /* Neutralize the screen-only scale-to-fit scaffolding: any transform on an
+     ancestor turns it into the containing block for position:fixed (so the
+     certificate below would no longer resolve against the page), and
+     overflow/height constraints would clip it — the classic blank-page cause. */
+  .certificate-screen-scaler {
+    transform: none !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .certificate-screen-sizer,
+  .certificate-screen-wrap {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Modal chrome around the certificate must not transform or clip it */
+  .modal-panel {
+    transform: none !important;
+    overflow: visible !important;
+  }
+
+  .modal-scroll-content {
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   /* Make the certificate fill the full printed page */
@@ -79,9 +109,9 @@ body {
     color-adjust: exact !important;
   }
 
-  /* Inner content keeps breathing room on paper (outer has padding 0) */
+  /* Inner content keeps the same tight rhythm as the screen preview */
   #certificate-print-area > div[class*='z-10'] {
-    padding: 12mm 14mm !important;
+    padding: 5mm 8mm !important;
   }
 
   /* Force bold weights to survive PDF embedding */
