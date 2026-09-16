@@ -8,29 +8,49 @@ namespace JCS.API.Controllers;
 [Route("api/[controller]")]
 public class CertificatesController : ControllerBase
 {
-    private readonly ICertificateService _service;
-    public CertificatesController(ICertificateService service) 
+    private readonly ICertificateService _certificateService;
+
+    public CertificatesController(ICertificateService certificateService)
     {
-        _service = service;
+        _certificateService = certificateService;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAllCertificates(CancellationToken token) 
+    public async Task<IActionResult> GetAllCertificates(CancellationToken token)
     {
-        return Ok(await _service.GetAllAsync(token)); 
+        var certificates = await _certificateService.GetAllAsync(token);
+        return Ok(certificates);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetCertificateById(Guid id, CancellationToken token)
     {
-        var result = await _service.GetByIdAsync(id, token);
-
+        var result = await _certificateService.GetByIdAsync(id, token);
         if (result == null)
         {
             return NotFound(new { message = $"Certificate with id {id} not found." });
         }
 
         return Ok(result);
+    }
+
+    [HttpGet("verify/{certificateNumber}")]
+    public async Task<IActionResult> GetByCertificateNumber(string certificateNumber, CancellationToken token)
+    {
+        var result = await _certificateService.GetByCertificateNumberAsync(certificateNumber, token);
+        if (result == null)
+        {
+            return NotFound(new { message = $"Certificate with number {certificateNumber} not found." });
+        }
+
+        return Ok(result);
+    }
+
+    [HttpGet("event/{eventId:guid}")]
+    public async Task<IActionResult> GetCertificatesByEvent(Guid eventId, CancellationToken token)
+    {
+        var certificates = await _certificateService.GetByEventIdAsync(eventId, token);
+        return Ok(certificates);
     }
 
     [HttpPost]
@@ -41,7 +61,7 @@ public class CertificatesController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var result = await _service.CreateAsync(dto, token);
+        var result = await _certificateService.CreateAsync(dto, token);
         return CreatedAtAction(nameof(GetCertificateById), new { id = result.Id }, result);
     }
 
@@ -53,7 +73,7 @@ public class CertificatesController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var result = await _service.UpdateAsync(id, dto, token);
+        var result = await _certificateService.UpdateAsync(id, dto, token);
         if (result == null)
         {
             return NotFound(new { message = $"Certificate with id {id} not found." });
@@ -65,7 +85,8 @@ public class CertificatesController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteCertificate(Guid id, CancellationToken token)
     {
-        if (!await _service.DeleteAsync(id, token))
+        var deleted = await _certificateService.DeleteAsync(id, token);
+        if (!deleted)
         {
             return NotFound(new { message = $"Certificate with id {id} not found." });
         }

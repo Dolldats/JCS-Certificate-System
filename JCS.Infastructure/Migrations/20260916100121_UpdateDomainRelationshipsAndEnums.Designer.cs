@@ -4,6 +4,7 @@ using JCS.Infastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace JCS.Infastructure.Migrations
 {
     [DbContext(typeof(JcsDbContext))]
-    partial class JcsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260916100121_UpdateDomainRelationshipsAndEnums")]
+    partial class UpdateDomainRelationshipsAndEnums
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -204,21 +207,9 @@ namespace JCS.Infastructure.Migrations
                         .HasColumnType("varchar(20)");
 
                     b.Property<string>("PageSize")
-                          .IsRequired()
-                          .HasMaxLength(20)
-                          .HasColumnType("varchar(20)");
-
-                    b.Property<string>("BackgroundImagePath")
-                          .HasMaxLength(500)
-                          .HasColumnType("varchar(500)");
-
-                    b.Property<decimal>("Height")
-                          .HasPrecision(18, 2)
-                          .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("Width")
-                          .HasPrecision(18, 2)
-                          .HasColumnType("decimal(18,2)");
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.HasKey("Id");
 

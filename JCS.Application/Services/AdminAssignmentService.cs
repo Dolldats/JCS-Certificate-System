@@ -1,64 +1,156 @@
 using JCS.Application.DTOs.AdminAssignment;
 using JCS.Application.Interfaces.Repositories;
 using JCS.Application.Interfaces.Services;
+using JCS.Domain.Entities;
+using JCS.Domain.Enum;
 
 namespace JCS.Application.Services;
 
-public sealed class AdminAssignmentService(IAdminAssignmentRepository repo) : IAdminAssignmentService
+public class AdminAssignmentService : IAdminAssignmentService
 {
-    public async Task<AdminAssignmentDto?> GetByIdAsync(Guid id, CancellationToken token = default) => Map(await repo.GetByIdAsync(id, token));
+    private readonly IAdminAssignmentRepository _adminAssignmentRepository;
 
-    public async Task<IReadOnlyCollection<AdminAssignmentDto>> GetAllAsync(CancellationToken token = default) =>
-        (await repo.GetAllAsync(token)).Select(x => Map(x)!).ToArray();
+    public AdminAssignmentService(IAdminAssignmentRepository adminAssignmentRepository)
+    {
+        _adminAssignmentRepository = adminAssignmentRepository;
+    }
 
-    public async Task<AdminAssignmentDto?> GetActiveAssignmentAsync(string membershipId, CancellationToken token = default) =>
-        Map(await repo.GetActiveAssignmentAsync(membershipId, token));
+    public async Task<AdminAssignmentDto?> GetByIdAsync(Guid id, CancellationToken token = default)
+    {
+        var assignment = await _adminAssignmentRepository.GetByIdAsync(id, token);
+        if (assignment == null)
+        {
+            return null;
+        }
+
+        return new AdminAssignmentDto
+        {
+            Id = assignment.Id,
+            MembershipId = assignment.MembershipId,
+            Auxiliary = assignment.Auxiliary,
+            Role = assignment.Role,
+            Status = assignment.Status,
+            AssignedBy = assignment.AssignedBy,
+            AssignedAt = assignment.AssignedAt,
+            RevokedBy = assignment.RevokedBy,
+            RevokedAt = assignment.RevokedAt
+        };
+    }
+
+    public async Task<IReadOnlyCollection<AdminAssignmentDto>> GetAllAsync(CancellationToken token = default)
+    {
+        var assignments = await _adminAssignmentRepository.GetAllAsync(token);
+        var resultList = new List<AdminAssignmentDto>();
+
+        foreach (var assignment in assignments)
+        {
+            resultList.Add(new AdminAssignmentDto
+            {
+                Id = assignment.Id,
+                MembershipId = assignment.MembershipId,
+                Auxiliary = assignment.Auxiliary,
+                Role = assignment.Role,
+                Status = assignment.Status,
+                AssignedBy = assignment.AssignedBy,
+                AssignedAt = assignment.AssignedAt,
+                RevokedBy = assignment.RevokedBy,
+                RevokedAt = assignment.RevokedAt
+            });
+        }
+
+        return resultList;
+    }
+
+    public async Task<AdminAssignmentDto?> GetActiveAssignmentAsync(string membershipId, CancellationToken token = default)
+    {
+        var assignment = await _adminAssignmentRepository.GetActiveAssignmentAsync(membershipId, token);
+        if (assignment == null)
+        {
+            return null;
+        }
+
+        return new AdminAssignmentDto
+        {
+            Id = assignment.Id,
+            MembershipId = assignment.MembershipId,
+            Auxiliary = assignment.Auxiliary,
+            Role = assignment.Role,
+            Status = assignment.Status,
+            AssignedBy = assignment.AssignedBy,
+            AssignedAt = assignment.AssignedAt,
+            RevokedBy = assignment.RevokedBy,
+            RevokedAt = assignment.RevokedAt
+        };
+    }
 
     public async Task<AdminAssignmentDto> CreateAsync(CreateAdminAssignmentDto dto, CancellationToken token = default)
     {
-        var assignment = new Domain.Entities.AdminAssignment
+        var assignment = new AdminAssignment
         {
             Id = Guid.NewGuid(),
             MembershipId = dto.MembershipId,
             Auxiliary = dto.Auxiliary,
+            Role = dto.Role,
+            Status = AdminStatus.Active,
             AssignedBy = dto.AssignedBy,
             AssignedAt = DateTime.UtcNow
         };
 
-        await repo.AddAsync(assignment, token);
-        return Map(assignment)!;
+        await _adminAssignmentRepository.AddAsync(assignment, token);
+
+        return new AdminAssignmentDto
+        {
+            Id = assignment.Id,
+            MembershipId = assignment.MembershipId,
+            Auxiliary = assignment.Auxiliary,
+            Role = assignment.Role,
+            Status = assignment.Status,
+            AssignedBy = assignment.AssignedBy,
+            AssignedAt = assignment.AssignedAt,
+            RevokedBy = assignment.RevokedBy,
+            RevokedAt = assignment.RevokedAt
+        };
     }
 
     public async Task<AdminAssignmentDto?> UpdateAsync(Guid id, UpdateAdminAssignmentDto dto, CancellationToken token = default)
     {
-        var assignment = await repo.GetByIdAsync(id, token);
-        if (assignment is null) return null;
+        var assignment = await _adminAssignmentRepository.GetByIdAsync(id, token);
+        if (assignment == null)
+        {
+            return null;
+        }
 
         assignment.Auxiliary = dto.Auxiliary;
+        assignment.Role = dto.Role;
         assignment.Status = dto.Status;
         assignment.RevokedBy = dto.RevokedBy;
-        assignment.RevokedAt = dto.Status == Domain.Enum.AdminStatus.Active ? null : DateTime.UtcNow;
+        assignment.RevokedAt = dto.Status == AdminStatus.Active ? null : DateTime.UtcNow;
 
-        await repo.UpdateAsync(assignment, token);
-        return Map(assignment);
+        await _adminAssignmentRepository.UpdateAsync(assignment, token);
+
+        return new AdminAssignmentDto
+        {
+            Id = assignment.Id,
+            MembershipId = assignment.MembershipId,
+            Auxiliary = assignment.Auxiliary,
+            Role = assignment.Role,
+            Status = assignment.Status,
+            AssignedBy = assignment.AssignedBy,
+            AssignedAt = assignment.AssignedAt,
+            RevokedBy = assignment.RevokedBy,
+            RevokedAt = assignment.RevokedAt
+        };
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken token = default)
     {
-        if (await repo.GetByIdAsync(id, token) is null) return false;
-        await repo.DeleteAsync(id, token);
+        var assignment = await _adminAssignmentRepository.GetByIdAsync(id, token);
+        if (assignment == null)
+        {
+            return false;
+        }
+
+        await _adminAssignmentRepository.DeleteAsync(id, token);
         return true;
     }
-
-    private static AdminAssignmentDto? Map(Domain.Entities.AdminAssignment? assignment) => assignment is null ? null : new()
-    {
-        Id = assignment.Id,
-        MembershipId = assignment.MembershipId,
-        Auxiliary = assignment.Auxiliary,
-        Status = assignment.Status,
-        AssignedBy = assignment.AssignedBy,
-        AssignedAt = assignment.AssignedAt,
-        RevokedBy = assignment.RevokedBy,
-        RevokedAt = assignment.RevokedAt
-    };
 }
