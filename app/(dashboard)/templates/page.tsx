@@ -10,6 +10,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { getRegionLabel } from '../../../components/certificates/certificateText';
+import { processSignatureImage } from '../../../lib/utils';
 import { CertificatePreview } from '../../../components/certificates/CertificatePreview';
 import {
   Save,
@@ -124,9 +125,13 @@ export default function TemplatesPage() {
         return;
       }
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         const dataUrl = reader.result as string;
-        setCurrentTemplate({ ...currentTemplate, signature1Image: dataUrl });
+        // Auto-clean: transparent background, black ink.
+        const cleaned = await processSignatureImage(dataUrl);
+        setCurrentTemplate((prev) =>
+          prev ? { ...prev, signature1Image: cleaned } : prev
+        );
       };
       reader.onerror = () => setSignatureError('Could not read that file. Please try another image.');
       reader.readAsDataURL(file);
@@ -1080,7 +1085,7 @@ export default function TemplatesPage() {
                             Real signature applied
                           </p>
                           <p className="text-3xs text-slate-500 truncate">
-                            Shows on the live preview &amp; printed certificates.
+                            Background removed, ink turned black. Shows on the live preview &amp; printed certificates.
                           </p>
                           <div className="flex items-center gap-2 mt-1.5">
                             <button
@@ -1140,7 +1145,7 @@ export default function TemplatesPage() {
                               : 'Drag & drop signature here, or click to browse'}
                           </p>
                           <p className="text-3xs text-slate-500">
-                            Transparent PNG works best • JPG, WEBP, SVG • Max 2MB
+                            Photo or scan works — even on ruled jotter • lines removed, ink cleaned, blackened &amp; boldened automatically • Max 2MB
                           </p>
                         </div>
                       </div>
