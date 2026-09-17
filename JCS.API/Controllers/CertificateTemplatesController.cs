@@ -101,14 +101,14 @@ public class CertificateTemplatesController : ControllerBase
     }
 
     [HttpPost("assets")]
-    public async Task<IActionResult> UploadAsset([FromForm] IFormFile file, [FromForm] string folder = "templates", CancellationToken token = default)
+    public async Task<IActionResult> UploadAsset([FromForm] UploadAssetRequest request, CancellationToken token = default)
     {
-        if (file == null || file.Length == 0)
+        if (request.File == null || request.File.Length == 0)
         {
             return BadRequest(new { message = "A non-empty asset file is required." });
         }
 
-        var path = await _assetStorageService.SaveAsync(file.OpenReadStream(), file.FileName, folder, token);
+        var path = await _assetStorageService.SaveAsync(request.File.OpenReadStream(), request.File.FileName, request.Folder, token);
         return Ok(new { path });
     }
 
@@ -227,4 +227,10 @@ public class CertificateTemplatesController : ControllerBase
 public class TemplatePreviewRequest
 {
     public string ConfigurationJson { get; set; } = string.Empty;
+}
+
+public class UploadAssetRequest
+{
+    public IFormFile File { get; set; } = default!;
+    public string Folder { get; set; } = "templates";
 }

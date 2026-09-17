@@ -43,7 +43,11 @@ public class CertificatesController : ControllerBase
             return NotFound(new { message = $"Certificate with number {certificateNumber} not found." });
         }
 
-        return Ok(result);
+        return Ok(new
+        {
+            authenticity = result.Status == JCS.Domain.Enum.CertificateStatus.Revoked ? "Revoked" : "Authentic",
+            certificate = result
+        });
     }
 
     [HttpGet("event/{eventId:guid}")]
@@ -92,5 +96,30 @@ public class CertificatesController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    [HttpGet("{id:guid}/download")]
+    public async Task<IActionResult> DownloadCertificate(Guid id, CancellationToken token)
+    {
+        var certificate = await _certificateService.GetByIdAsync(id, token);
+        if (certificate == null)
+        {
+            return NotFound(new { message = $"Certificate with id {id} not found." });
+        }
+
+        if (string.IsNullOrWhiteSpace(certificate.FilePath) || !System.IO.File.Exists(certificate.FilePath))
+        {
+            return NotFound(new { message = "The certificate file has not been generated yet." });
+        }
+
+        var contentType = Path.GetExtension(certificate.FilePath).ToLowerInvariant() switch
+        {
+            ".pdf" => "application/pdf",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            _ => "application/octet-stream"
+        };
+
+        return PhysicalFile(certificate.FilePath, contentType, $"{certificate.CertificateNumber}{Path.GetExtension(certificate.FilePath)}");
     }
 }

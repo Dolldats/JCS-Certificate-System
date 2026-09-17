@@ -141,10 +141,14 @@ public class CertificateService : ICertificateService
 
     public async Task<CertificateDto> CreateAsync(CreateCertificateDto dto, CancellationToken token = default)
     {
+        var certificateNumber = string.IsNullOrWhiteSpace(dto.CertificateNumber)
+            ? $"JCS-{DateTime.UtcNow:yyyy}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}"
+            : dto.CertificateNumber;
+
         var certificate = new Certificate
         {
             Id = Guid.NewGuid(),
-            CertificateNumber = dto.CertificateNumber,
+            CertificateNumber = certificateNumber,
             ParticipantId = dto.ParticipantId,
             EventId = dto.EventId,
             CertificateTemplateId = dto.CertificateTemplateId,

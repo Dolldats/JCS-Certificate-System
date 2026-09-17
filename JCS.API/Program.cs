@@ -15,9 +15,13 @@ namespace JCS.API
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            builder.Logging.ClearProviders();
+            builder.Logging.AddConsole();
+
             // Add services to the container.
 
             builder.Services.AddControllers();
+            builder.Services.AddProblemDetails();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -36,11 +40,32 @@ namespace JCS.API
             builder.Services.AddScoped<ICertificateService, CertificateService>();
             builder.Services.AddScoped<ICertificateTemplateService, CertificateTemplateService>();
             builder.Services.AddSingleton<IPlaceholderEngine, PlaceholderEngine>();
+            builder.Services.AddSingleton<ICertificateRenderer, CertificateRenderer>();
             builder.Services.AddScoped<IAssetStorageService>(_ => new AssetStorageService(builder.Environment.ContentRootPath));
+
             builder.Services.AddScoped<IAuditLogService, AuditLogService>();
             builder.Services.AddScoped<IAdminAssignmentService, AdminAssignmentService>();
 
             var app = builder.Build();
+
+            // Keep the database schema synchronized with the entity model before
+            // accepting requests. Without this, a pending migration can make
+            // every repository query fail with a generic HTTP 500.
+            using (var scope = app.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<JcsDbContext>();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+                try
+                {
+                    db.Database.Migrate();
+                }
+                catch (Exception exception)
+                {
+                    logger.LogCritical(exception, "Database migration failed. The API cannot safely serve requests.");
+                    throw;
+                }
+            }
 
 
             // Configure the HTTP request pipeline.
@@ -52,6 +77,8 @@ namespace JCS.API
                 });
                 app.UseSwaggerUI();
             }
+
+            app.UseExceptionHandler();
 
             app.UseHttpsRedirection();
 
