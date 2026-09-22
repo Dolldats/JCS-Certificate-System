@@ -36,6 +36,11 @@ public sealed class AdminAssignmentRepository : IAdminAssignmentRepository
             .FirstOrDefaultAsync(x => x.MembershipId == membershipId && x.Status == AdminStatus.Active, cancellationToken);
     }
 
+    public async Task<bool> HasActiveGeneralAdminForAuxiliaryAsync(Auxiliary auxiliary, Guid? excludedId = null, CancellationToken cancellationToken = default)
+    {
+        return await _context.AdminAssignments.AnyAsync(x => x.Auxiliary == auxiliary && x.Role == AdminRole.GeneralAdmin && x.Status == AdminStatus.Active && (!excludedId.HasValue || x.Id != excludedId.Value), cancellationToken);
+    }
+
     public async Task AddAsync(AdminAssignment assignment, CancellationToken cancellationToken = default)
     {
         await _context.AdminAssignments.AddAsync(assignment, cancellationToken);
@@ -50,9 +55,13 @@ public sealed class AdminAssignmentRepository : IAdminAssignmentRepository
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var assignment = await _context.AdminAssignments.FindAsync([id], cancellationToken);
+        var assignment = await _context.AdminAssignments.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-        if (assignment is null) return;
+        if (assignment == null)
+        {
+            return;
+        }
+
         _context.AdminAssignments.Remove(assignment);
         await _context.SaveChangesAsync(cancellationToken);
     }

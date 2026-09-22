@@ -1,31 +1,50 @@
 using JCS.Application.DTOs.Event;
 using JCS.Application.Interfaces.Services;
+using JCS.Domain.Enum;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace JCS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class EventsController : ControllerBase
 {
-    private readonly IEventService _service;
+    private readonly IEventService _eventService;
+    private readonly IParticipantService _participantService;
 
-    public EventsController(IEventService service)
+    public EventsController(IEventService eventService, IParticipantService participantService)
     {
-        _service = service;
+        _eventService = eventService;
+        _participantService = participantService;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAllEvents(CancellationToken token)
     {
-        return Ok(await _service.GetAllAsync(token));
+        var events = await _eventService.GetAllAsync(token);
+        if (User.IsInRole("Member"))
+        {
+            var membershipId = User.Identity?.Name;
+            var participantEvents = await _participantService.GetAllAsync(token);
+            var eventIds = participantEvents.Where(x => string.Equals(x.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).Select(x => x.EventId).ToHashSet();
+            events = events.Where(x => eventIds.Contains(x.Id)).ToList();
+        }
+        return Ok(events);
+    }
+
+    [HttpGet("auxiliary/{auxiliary}")]
+    public async Task<IActionResult> GetEventsByAuxiliary(Auxiliary auxiliary, CancellationToken token)
+    {
+        var events = await _eventService.GetByAuxiliaryAsync(auxiliary, token);
+        return Ok(events);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetEventById(Guid id, CancellationToken token)
     {
-        var result = await _service.GetByIdAsync(id, token);
-
+        var result = await _eventService.GetByIdAsync(id, token);
         if (result == null)
         {
             return NotFound(new { message = $"Event with id {id} not found." });
@@ -42,7 +61,12 @@ public class EventsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var result = await _service.CreateAsync(dto, token);
+        if (dto.EndDate.HasValue && dto.EndDate.Value < dto.EventDate)
+        {
+            return BadRequest(new { message = "EndDate cannot be earlier than EventDate." });
+        }
+
+        var result = await _eventService.CreateAsync(dto, token);
         return CreatedAtAction(nameof(GetEventById), new { id = result.Id }, result);
     }
 
@@ -54,7 +78,12 @@ public class EventsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var result = await _service.UpdateAsync(id, dto, token);
+        if (dto.EndDate.HasValue && dto.EndDate.Value < dto.EventDate)
+        {
+            return BadRequest(new { message = "EndDate cannot be earlier than EventDate." });
+        }
+
+        var result = await _eventService.UpdateAsync(id, dto, token);
         if (result == null)
         {
             return NotFound(new { message = $"Event with id {id} not found." });
@@ -66,7 +95,8 @@ public class EventsController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteEvent(Guid id, CancellationToken token)
     {
-        if (!await _service.DeleteAsync(id, token))
+        var deleted = await _eventService.DeleteAsync(id, token);
+        if (!deleted)
         {
             return NotFound(new { message = $"Event with id {id} not found." });
         }

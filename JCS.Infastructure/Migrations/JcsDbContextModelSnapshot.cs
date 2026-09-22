@@ -51,6 +51,9 @@ namespace JCS.Infastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -58,7 +61,7 @@ namespace JCS.Infastructure.Migrations
 
                     b.HasIndex("MembershipId", "Status");
 
-                    b.ToTable("AdminAssignments", (string)null);
+                    b.ToTable("AdminAssignments");
                 });
 
             modelBuilder.Entity("JCS.Domain.Entities.AuditLog", b =>
@@ -72,14 +75,19 @@ namespace JCS.Infastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<int?>("Auxiliary")
+                        .HasColumnType("int");
+
                     b.Property<string>("Details")
                         .HasColumnType("longtext");
 
                     b.Property<string>("EntityId")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("EntityName")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<DateTime>("PerformedAt")
                         .HasColumnType("datetime(6)");
@@ -91,9 +99,11 @@ namespace JCS.Infastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Action");
+
                     b.HasIndex("PerformedAt");
 
-                    b.ToTable("AuditLogs", (string)null);
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("JCS.Domain.Entities.Certificate", b =>
@@ -110,34 +120,51 @@ namespace JCS.Infastructure.Migrations
                     b.Property<Guid>("CertificateTemplateId")
                         .HasColumnType("char(36)");
 
-                    b.Property<string>("CertificateType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                    b.Property<int>("CertificateType")
+                        .HasColumnType("int");
 
                     b.Property<Guid>("EventId")
                         .HasColumnType("char(36)");
 
                     b.Property<string>("FilePath")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<DateTime>("GeneratedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("IssuedAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<Guid>("ParticipantId")
                         .HasColumnType("char(36)");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                    b.Property<string>("RevocationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("RevokedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CertificateNumber")
                         .IsUnique();
 
-                    b.ToTable("Certificates", (string)null);
+                    b.HasIndex("CertificateTemplateId");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("ParticipantId");
+
+                    b.ToTable("Certificates");
                 });
 
             modelBuilder.Entity("JCS.Domain.Entities.CertificateTemplate", b =>
@@ -146,8 +173,14 @@ namespace JCS.Infastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<int?>("Auxiliary")
+                        .HasColumnType("int");
+
                     b.Property<string>("ConfigurationJson")
                         .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Description")
                         .HasColumnType("longtext");
@@ -165,9 +198,31 @@ namespace JCS.Infastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
+                    b.Property<string>("Orientation")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("PageSize")
+                          .IsRequired()
+                          .HasMaxLength(20)
+                          .HasColumnType("varchar(20)");
+
+                    b.Property<string>("BackgroundImagePath")
+                          .HasMaxLength(500)
+                          .HasColumnType("varchar(500)");
+
+                    b.Property<decimal>("Height")
+                          .HasPrecision(18, 2)
+                          .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Width")
+                          .HasPrecision(18, 2)
+                          .HasColumnType("decimal(18,2)");
+
                     b.HasKey("Id");
 
-                    b.ToTable("CertificateTemplates", (string)null);
+                    b.ToTable("CertificateTemplates");
                 });
 
             modelBuilder.Entity("JCS.Domain.Entities.Event", b =>
@@ -179,24 +234,32 @@ namespace JCS.Infastructure.Migrations
                     b.Property<int>("Auxiliary")
                         .HasColumnType("int");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Description")
                         .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("EventDate")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("EventType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                    b.Property<int>("EventType")
+                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
+                    b.Property<int>("OrganizationalLevel")
+                        .HasColumnType("int");
+
                     b.Property<string>("OrganizationalUnit")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -210,7 +273,7 @@ namespace JCS.Infastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Events", (string)null);
+                    b.ToTable("Events");
                 });
 
             modelBuilder.Entity("JCS.Domain.Entities.Participant", b =>
@@ -219,33 +282,119 @@ namespace JCS.Infastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<int>("Auxiliary")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Dila")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
                     b.Property<string>("Email")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("char(36)");
 
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
+                    b.Property<string>("Ilaqa")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
                     b.Property<bool>("IsVerified")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Jamaat")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
 
                     b.Property<string>("MembershipId")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
-                    b.Property<string>("VerificationStatus")
-                        .IsRequired()
+                    b.Property<string>("Phone")
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
 
+                    b.Property<string>("VerificationMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int>("VerificationStatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("VerifiedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("MembershipId")
+                    b.HasIndex("EventId", "MembershipId")
                         .IsUnique();
 
-                    b.ToTable("Participants", (string)null);
+                    b.ToTable("Participants");
+                });
+
+            modelBuilder.Entity("JCS.Domain.Entities.Certificate", b =>
+                {
+                    b.HasOne("JCS.Domain.Entities.CertificateTemplate", "CertificateTemplate")
+                        .WithMany("Certificates")
+                        .HasForeignKey("CertificateTemplateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("JCS.Domain.Entities.Event", "Event")
+                        .WithMany("Certificates")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("JCS.Domain.Entities.Participant", "Participant")
+                        .WithMany("Certificates")
+                        .HasForeignKey("ParticipantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CertificateTemplate");
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Participant");
+                });
+
+            modelBuilder.Entity("JCS.Domain.Entities.Participant", b =>
+                {
+                    b.HasOne("JCS.Domain.Entities.Event", "Event")
+                        .WithMany("Participants")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("JCS.Domain.Entities.CertificateTemplate", b =>
+                {
+                    b.Navigation("Certificates");
+                });
+
+            modelBuilder.Entity("JCS.Domain.Entities.Event", b =>
+                {
+                    b.Navigation("Certificates");
+
+                    b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("JCS.Domain.Entities.Participant", b =>
+                {
+                    b.Navigation("Certificates");
                 });
 #pragma warning restore 612, 618
         }
