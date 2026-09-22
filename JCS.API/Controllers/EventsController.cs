@@ -2,24 +2,35 @@ using JCS.Application.DTOs.Event;
 using JCS.Application.Interfaces.Services;
 using JCS.Domain.Enum;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace JCS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class EventsController : ControllerBase
 {
     private readonly IEventService _eventService;
+    private readonly IParticipantService _participantService;
 
-    public EventsController(IEventService eventService)
+    public EventsController(IEventService eventService, IParticipantService participantService)
     {
         _eventService = eventService;
+        _participantService = participantService;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAllEvents(CancellationToken token)
     {
         var events = await _eventService.GetAllAsync(token);
+        if (User.IsInRole("Member"))
+        {
+            var membershipId = User.Identity?.Name;
+            var participantEvents = await _participantService.GetAllAsync(token);
+            var eventIds = participantEvents.Where(x => string.Equals(x.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).Select(x => x.EventId).ToHashSet();
+            events = events.Where(x => eventIds.Contains(x.Id)).ToList();
+        }
         return Ok(events);
     }
 

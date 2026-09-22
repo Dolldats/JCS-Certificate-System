@@ -5,11 +5,13 @@ using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using System.Text;
 using System.Security;
+using Microsoft.AspNetCore.Authorization;
 
 namespace JCS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class CertificateTemplatesController : ControllerBase
 {
     private readonly ICertificateTemplateService _certificateTemplateService;
@@ -101,14 +103,22 @@ public class CertificateTemplatesController : ControllerBase
     }
 
     [HttpPost("assets")]
-    public async Task<IActionResult> UploadAsset([FromForm] UploadAssetRequest request, CancellationToken token = default)
+    public async Task<IActionResult> UploadAssets([FromForm] UploadAssetRequest request, CancellationToken token = default)
     {
         if (request.File == null || request.File.Length == 0)
         {
             return BadRequest(new { message = "A non-empty asset file is required." });
         }
 
-        var path = await _assetStorageService.SaveAsync(request.File.OpenReadStream(), request.File.FileName, request.Folder, token);
+        var folder = request.Folder.Equals("templates", StringComparison.OrdinalIgnoreCase) || request.Folder.Equals("signatures", StringComparison.OrdinalIgnoreCase) || request.Folder.Equals("logos", StringComparison.OrdinalIgnoreCase)
+            ? request.Folder.ToLowerInvariant()
+            : string.Empty;
+        if (string.IsNullOrEmpty(folder))
+        {
+            return BadRequest(new { message = "Folder must be templates, signatures, or logos." });
+        }
+
+        var path = await _assetStorageService.SaveAsync(request.File.OpenReadStream(), request.File.FileName, folder, token);
         return Ok(new { path });
     }
 
@@ -132,7 +142,7 @@ public class CertificateTemplatesController : ControllerBase
             ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
         };
 
-        var svg = BuildSvg(layout, values);
+        var svg = BuildSvg(layout, values, request.Width, request.Height, request.BackgroundImagePath);
         return Content(svg, "image/svg+xml", Encoding.UTF8);
     }
 
@@ -167,6 +177,18 @@ public class CertificateTemplatesController : ControllerBase
                     error = "Text coordinates must be non-negative and FontSize must be greater than zero.";
                     return false;
                 }
+
+                if (!element.TextColor.StartsWith("#", StringComparison.Ordinal) || (element.TextColor.Length != 7 && element.TextColor.Length != 9))
+                {
+                    error = "TextColor must be a six or eight digit hexadecimal color.";
+                    return false;
+                }
+
+                if (!new[] { "left", "center", "right" }.Contains(element.Alignment.ToLowerInvariant()))
+                {
+                    error = "Alignment must be Left, Center, or Right.";
+                    return false;
+                }
             }
 
             foreach (var element in layout.ImageElements)
@@ -174,6 +196,12 @@ public class CertificateTemplatesController : ControllerBase
                 if (element.X < 0 || element.Y < 0 || element.Width <= 0 || element.Height <= 0)
                 {
                     error = "Image coordinates and dimensions must be positive.";
+                    return false;
+                }
+
+                if (string.IsNullOrWhiteSpace(element.AssetKey) || element.AssetKey.Contains("..", StringComparison.Ordinal) || element.AssetKey.Contains('\\'))
+                {
+                    error = "Image AssetKey must reference a safe uploaded asset path.";
                     return false;
                 }
             }
@@ -187,12 +215,16 @@ public class CertificateTemplatesController : ControllerBase
         }
     }
 
-    private string BuildSvg(TemplateLayoutDto layout, IReadOnlyDictionary<string, string?> values)
+    private string BuildSvg(TemplateLayoutDto layout, IReadOnlyDictionary<string, string?> values, decimal width, decimal height, string? backgroundImagePath)
     {
-        const decimal width = 1122;
-        const decimal height = 793;
-        var svg = new StringBuilder($"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\">");
+        width = width <= 0 ? 1122 : width;
+        height = height <= 0 ? 793 : height;
+        var svg = new StringBuilder($"<svg xmlns=\"https://www.w3.org/TR/SVG2/\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\">");
         svg.Append("<rect width=\"100%\" height=\"100%\" fill=\"white\"/>");
+        if (!string.IsNullOrWhiteSpace(backgroundImagePath))
+        {
+            svg.Append($"<image href=\"{SecurityElement.Escape(backgroundImagePath)}\" x=\"0\" y=\"0\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"none\"/>");
+        }
 
         foreach (var image in layout.ImageElements)
         {
@@ -227,6 +259,9 @@ public class CertificateTemplatesController : ControllerBase
 public class TemplatePreviewRequest
 {
     public string ConfigurationJson { get; set; } = string.Empty;
+    public decimal Width { get; set; } = 1122;
+    public decimal Height { get; set; } = 793;
+    public string? BackgroundImagePath { get; set; }
 }
 
 public class UploadAssetRequest

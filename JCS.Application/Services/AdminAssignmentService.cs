@@ -85,6 +85,21 @@ public class AdminAssignmentService : IAdminAssignmentService
 
     public async Task<AdminAssignmentDto> CreateAsync(CreateAdminAssignmentDto dto, CancellationToken token = default)
     {
+        if (!Enum.IsDefined(dto.Auxiliary))
+        {
+            throw new InvalidOperationException("A valid auxiliary is required for an admin assignment.");
+        }
+
+        if (!Enum.IsDefined(dto.Role))
+        {
+            throw new InvalidOperationException("A valid admin role is required.");
+        }
+
+        if (dto.Role == AdminRole.GeneralAdmin && await _adminAssignmentRepository.HasActiveGeneralAdminForAuxiliaryAsync(dto.Auxiliary, null, token))
+        {
+            throw new InvalidOperationException($"An active General Admin already exists for {dto.Auxiliary}.");
+        }
+
         var assignment = new AdminAssignment
         {
             Id = Guid.NewGuid(),
@@ -118,6 +133,16 @@ public class AdminAssignmentService : IAdminAssignmentService
         if (assignment == null)
         {
             return null;
+        }
+
+        if (!Enum.IsDefined(dto.Auxiliary) || !Enum.IsDefined(dto.Role) || !Enum.IsDefined(dto.Status))
+        {
+            throw new InvalidOperationException("Valid auxiliary, role, and status values are required.");
+        }
+
+        if (dto.Status == AdminStatus.Active && dto.Role == AdminRole.GeneralAdmin && await _adminAssignmentRepository.HasActiveGeneralAdminForAuxiliaryAsync(dto.Auxiliary, id, token))
+        {
+            throw new InvalidOperationException($"An active General Admin already exists for {dto.Auxiliary}.");
         }
 
         assignment.Auxiliary = dto.Auxiliary;

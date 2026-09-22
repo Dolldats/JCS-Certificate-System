@@ -1,24 +1,40 @@
 using JCS.Application.DTOs.Certificate;
 using JCS.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
+using JCS.Application.Interfaces.Repositories;
+using System.Text.Json;
+using JCS.Application.DTOs.CertificateTemplate;
+using Microsoft.AspNetCore.Authorization;
 
 namespace JCS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class CertificatesController : ControllerBase
 {
     private readonly ICertificateService _certificateService;
+    private readonly ICertificateRepository _certificateRepository;
+    private readonly ICertificateRenderer _certificateRenderer;
+    private readonly IWebHostEnvironment _environment;
 
-    public CertificatesController(ICertificateService certificateService)
+    public CertificatesController(ICertificateService certificateService, ICertificateRepository certificateRepository, ICertificateRenderer certificateRenderer, IWebHostEnvironment environment)
     {
         _certificateService = certificateService;
+        _certificateRepository = certificateRepository;
+        _certificateRenderer = certificateRenderer;
+        _environment = environment;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAllCertificates(CancellationToken token)
     {
         var certificates = await _certificateService.GetAllAsync(token);
+        if (User.IsInRole("Member"))
+        {
+            var membershipId = User.Identity?.Name;
+            certificates = certificates.Where(x => string.Equals(x.ParticipantMembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
         return Ok(certificates);
     }
 
@@ -55,6 +71,25 @@ public class CertificatesController : ControllerBase
     {
         var certificates = await _certificateService.GetByEventIdAsync(eventId, token);
         return Ok(certificates);
+    }
+
+    [HttpGet("my")]
+    public async Task<IActionResult> GetMyCertificates(CancellationToken token)
+    {
+        var membershipId = User.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(membershipId)) return Unauthorized();
+        var certificates = await _certificateRepository.GetAllAsync(token);
+        return Ok(certificates.Where(x => string.Equals(x.Participant?.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).Select(x => new
+        {
+            x.Id,
+            x.CertificateNumber,
+            x.Status,
+            x.EventId,
+            EventName = x.Event?.Name,
+            x.GeneratedAt,
+            x.IssuedAt,
+            x.FilePath
+        }));
     }
 
     [HttpPost]
@@ -121,5 +156,141 @@ public class CertificatesController : ControllerBase
         };
 
         return PhysicalFile(certificate.FilePath, contentType, $"{certificate.CertificateNumber}{Path.GetExtension(certificate.FilePath)}");
+    }
+
+    [HttpPost("{id:guid}/generate")]
+    public async Task<IActionResult> GenerateCertificate(Guid id, CancellationToken token)
+    {
+        var certificate = await _certificateRepository.GetByIdAsync(id, token);
+        if (certificate?.Participant == null || certificate.Event == null || certificate.CertificateTemplate == null)
+        {
+            return NotFound(new { message = "Certificate, participant, event, or template was not found." });
+        }
+
+        var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson)
+            ? new TemplateLayoutDto()
+            : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+        var values = new Dictionary<string, string?>
+        {
+            ["ParticipantName"] = certificate.Participant.FullName,
+            ["EventName"] = certificate.Event.Name,
+            ["EventDate"] = certificate.Event.EventDate.ToString("yyyy-MM-dd"),
+            ["CertificateNumber"] = certificate.CertificateNumber,
+            ["Jamaat"] = certificate.Participant.Jamaat,
+            ["Auxiliary"] = certificate.Participant.Auxiliary.ToString(),
+            ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
+        };
+
+        var bytes = _certificateRenderer.RenderPdf(layout,
+            values,
+            certificate.CertificateTemplate.Width > 0 ? certificate.CertificateTemplate.Width : 1122, 
+            certificate.CertificateTemplate.Height > 0 ? certificate.CertificateTemplate.Height : 793);
+
+        var directory = Path.Combine(_environment.ContentRootPath, "uploads", "certificates");
+        Directory.CreateDirectory(directory);
+
+        var path = Path.Combine(directory, $"{certificate.CertificateNumber}.pdf");
+
+        await System.IO.File.WriteAllBytesAsync(path, bytes, token);
+        certificate.FilePath = path;
+        certificate.Status = JCS.Domain.Enum.CertificateStatus.Generated;
+        certificate.GeneratedAt = DateTime.UtcNow;
+
+        await _certificateRepository.UpdateAsync(certificate, token);
+
+        return File(bytes, "application/pdf", $"{certificate.CertificateNumber}.pdf");
+    }
+
+    [HttpPost("event/{eventId:guid}/generate-all")]
+    public async Task<IActionResult> GenerateEventCertificates(Guid eventId, CancellationToken token)
+    {
+        var certificates = await _certificateRepository.GetByEventIdAsync(eventId, token);
+        var generated = 0;
+        foreach (var certificate in certificates)
+        {
+            if (certificate.Participant == null || certificate.Event == null || certificate.CertificateTemplate == null)
+            {
+                continue;
+            }
+
+            var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson)
+                ? new TemplateLayoutDto()
+                : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+            var values = new Dictionary<string, string?>
+            {
+                ["ParticipantName"] = certificate.Participant.FullName,
+                ["EventName"] = certificate.Event.Name,
+                ["EventDate"] = certificate.Event.EventDate.ToString("yyyy-MM-dd"),
+                ["CertificateNumber"] = certificate.CertificateNumber,
+                ["Jamaat"] = certificate.Participant.Jamaat,
+                ["Auxiliary"] = certificate.Participant.Auxiliary.ToString(),
+                ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
+            };
+            var bytes = _certificateRenderer.RenderPdf(layout,
+                values,
+                certificate.CertificateTemplate.Width > 0 ? certificate.CertificateTemplate.Width : 1122,
+                certificate.CertificateTemplate.Height > 0 ? certificate.CertificateTemplate.Height : 793);
+
+            var directory = Path.Combine(_environment.ContentRootPath, "uploads", "certificates");
+            Directory.CreateDirectory(directory);
+            certificate.FilePath = Path.Combine(directory, $"{certificate.CertificateNumber}.pdf");
+
+            await System.IO.File.WriteAllBytesAsync(certificate.FilePath, bytes, token);
+            certificate.Status = JCS.Domain.Enum.CertificateStatus.Generated;
+            certificate.GeneratedAt = DateTime.UtcNow;
+
+            await _certificateRepository.UpdateAsync(certificate, token);
+            generated++;
+        }
+
+        return Ok(new { eventId, generated, total = certificates.Count });
+    }
+
+    [HttpGet("event/{eventId:guid}/download-all-pdf")]
+    public async Task<IActionResult> DownloadAllPdf(Guid eventId, CancellationToken token)
+    {
+        var certificates = await _certificateRepository.GetByEventIdAsync(eventId, token);
+
+        var requests = new List<CertificateRenderRequest>();
+        foreach (var certificate in certificates)
+        {
+            if (certificate.Participant == null || certificate.Event == null || certificate.CertificateTemplate == null)
+            {
+                continue;
+            }
+
+            var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson) ? new TemplateLayoutDto() : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+            requests.Add(new CertificateRenderRequest(layout, new Dictionary<string, string?>
+            {
+                ["ParticipantName"] = certificate.Participant.FullName,
+                ["EventName"] = certificate.Event.Name,
+                ["EventDate"] = certificate.Event.EventDate.ToString("yyyy-MM-dd"),
+                ["CertificateNumber"] = certificate.CertificateNumber,
+                ["Jamaat"] = certificate.Participant.Jamaat,
+                ["Auxiliary"] = certificate.Participant.Auxiliary.ToString(),
+                ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
+            }, 
+            certificate.CertificateTemplate.Width > 0 ? certificate.CertificateTemplate.Width : 1122, 
+            certificate.CertificateTemplate.Height > 0 ? certificate.CertificateTemplate.Height : 793,
+            ResolveAssetPath(certificate.CertificateTemplate.BackgroundImagePath)));
+        }
+
+        if (requests.Count == 0)
+        {
+            return NotFound(new { message = "No printable certificates were found for this event." });
+        }
+
+        var bytes = _certificateRenderer.RenderPdfBatch(requests);
+        return File(bytes, "application/pdf", $"event-{eventId}-certificates.pdf");
+    }
+
+    private string? ResolveAssetPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        return Path.IsPathRooted(path) ? path : Path.Combine(_environment.ContentRootPath, path.Replace('/', Path.DirectorySeparatorChar));
     }
 }

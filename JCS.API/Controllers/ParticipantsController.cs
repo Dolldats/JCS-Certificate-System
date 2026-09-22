@@ -1,12 +1,15 @@
 using JCS.Application.DTOs.Participant;
 using JCS.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using JCS.Domain.Enum;
+using ClosedXML.Excel;
 
 namespace JCS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ParticipantsController : ControllerBase
 {
     private readonly IParticipantService _participantService;
@@ -22,6 +25,11 @@ public class ParticipantsController : ControllerBase
     public async Task<IActionResult> GetAllParticipants(CancellationToken token)
     {
         var participants = await _participantService.GetAllAsync(token);
+        if (User.IsInRole("Member"))
+        {
+            var membershipId = User.Identity?.Name;
+            participants = participants.Where(x => string.Equals(x.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
         return Ok(participants);
     }
 
@@ -42,6 +50,15 @@ public class ParticipantsController : ControllerBase
     {
         var participants = await _participantService.GetByEventIdAsync(eventId, token);
         return Ok(participants);
+    }
+
+    [HttpGet("my")]
+    public async Task<IActionResult> GetMyParticipations(CancellationToken token)
+    {
+        var membershipId = User.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(membershipId)) return Unauthorized();
+        var participants = await _participantService.GetAllAsync(token);
+        return Ok(participants.Where(x => string.Equals(x.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase)));
     }
 
     [HttpGet("verify/{membershipId}")]
@@ -145,6 +162,61 @@ public class ParticipantsController : ControllerBase
             if (verification.Status == VerificationStatus.Verified)
             {
                 var name = verification.FullName ?? (nameIndex >= 0 && nameIndex < values.Length ? values[nameIndex].Trim() : string.Empty);
+                await _participantService.CreateAsync(new CreateParticipantDto { EventId = eventId, MembershipId = membershipId, FullName = name, Auxiliary = auxiliary }, token);
+                result.Imported++;
+            }
+        }
+
+        return Ok(result);
+    }
+
+    [HttpPost("event/{eventId:guid}/upload-excel")]
+    public async Task<IActionResult> UploadExcel(Guid eventId, IFormFile file, [FromQuery] Auxiliary auxiliary, CancellationToken token)
+    {
+        if (eventId == Guid.Empty || file == null || file.Length == 0)
+        {
+            return BadRequest(new { message = "A valid eventId and non-empty Excel file are required." });
+        }
+
+        await using var stream = file.OpenReadStream();
+        using var workbook = new XLWorkbook(stream);
+        var sheet = workbook.Worksheets.FirstOrDefault();
+        if (sheet == null || sheet.RangeUsed() == null)
+        {
+            return BadRequest(new { message = "The Excel file contains no data." });
+        }
+
+        var range = sheet.RangeUsed()!;
+        var headers = range.FirstRow().Cells().Select(x => x.GetString().Trim().ToLowerInvariant()).ToList();
+        var membershipIndex = headers.IndexOf("membershipid");
+        var nameIndex = headers.IndexOf("fullname");
+        if (membershipIndex < 0)
+        {
+            return BadRequest(new { message = "Excel must contain a membershipId column." });
+        }
+
+        var result = new BulkParticipantImportResultDto();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in range.RowsUsed().Skip(1))
+        {
+            result.TotalRows++;
+            var cells = row.Cells().ToList();
+            var membershipId = membershipIndex < cells.Count ? cells[membershipIndex].GetString().Trim() : string.Empty;
+            MemberVerificationResultDto verification;
+            if (!seen.Add(membershipId))
+            {
+                verification = new MemberVerificationResultDto { MembershipId = membershipId, Status = VerificationStatus.Duplicate, Message = "Duplicate membership ID in the uploaded file." };
+            }
+            else
+            {
+                verification = await _jamaatMemberService.VerifyMemberAsync(membershipId, token);
+            }
+
+            result.Results.Add(verification);
+            result.StatusCounts[verification.Status] = result.StatusCounts.GetValueOrDefault(verification.Status) + 1;
+            if (verification.Status == VerificationStatus.Verified)
+            {
+                var name = verification.FullName ?? (nameIndex >= 0 && nameIndex < cells.Count ? cells[nameIndex].GetString().Trim() : string.Empty);
                 await _participantService.CreateAsync(new CreateParticipantDto { EventId = eventId, MembershipId = membershipId, FullName = name, Auxiliary = auxiliary }, token);
                 result.Imported++;
             }
