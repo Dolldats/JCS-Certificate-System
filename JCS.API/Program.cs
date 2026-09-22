@@ -42,6 +42,7 @@ namespace JCS.API
             builder.Services.AddSingleton<IPlaceholderEngine, PlaceholderEngine>();
             builder.Services.AddSingleton<ICertificateRenderer, CertificateRenderer>();
             builder.Services.AddScoped<IAssetStorageService>(_ => new AssetStorageService(builder.Environment.ContentRootPath));
+            builder.Services.AddSingleton<IJamaatMemberService, MockJamaatMemberService>();
 
             builder.Services.AddScoped<IAuditLogService, AuditLogService>();
             builder.Services.AddScoped<IAdminAssignmentService, AdminAssignmentService>();

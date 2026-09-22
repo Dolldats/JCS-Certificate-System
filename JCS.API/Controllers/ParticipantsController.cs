@@ -1,6 +1,7 @@
 using JCS.Application.DTOs.Participant;
 using JCS.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
+using JCS.Domain.Enum;
 
 namespace JCS.API.Controllers;
 
@@ -9,10 +10,12 @@ namespace JCS.API.Controllers;
 public class ParticipantsController : ControllerBase
 {
     private readonly IParticipantService _participantService;
+    private readonly IJamaatMemberService _jamaatMemberService;
 
-    public ParticipantsController(IParticipantService participantService)
+    public ParticipantsController(IParticipantService participantService, IJamaatMemberService jamaatMemberService)
     {
         _participantService = participantService;
+        _jamaatMemberService = jamaatMemberService;
     }
 
     [HttpGet]
@@ -39,6 +42,18 @@ public class ParticipantsController : ControllerBase
     {
         var participants = await _participantService.GetByEventIdAsync(eventId, token);
         return Ok(participants);
+    }
+
+    [HttpGet("verify/{membershipId}")]
+    public async Task<IActionResult> VerifyMember(string membershipId, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(membershipId))
+        {
+            return BadRequest(new { message = "Membership ID is required." });
+        }
+
+        var result = await _jamaatMemberService.VerifyMemberAsync(membershipId.Trim(), token);
+        return Ok(result);
     }
 
     [HttpPost]
@@ -80,5 +95,61 @@ public class ParticipantsController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    [HttpPost("event/{eventId:guid}/upload-csv")]
+    public async Task<IActionResult> UploadCsv(Guid eventId, IFormFile file, [FromQuery] Auxiliary auxiliary, CancellationToken token)
+    {
+        if (eventId == Guid.Empty || file == null || file.Length == 0)
+        {
+            return BadRequest(new { message = "A valid eventId and non-empty CSV file are required." });
+        }
+
+        var result = new BulkParticipantImportResultDto();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var stream = file.OpenReadStream();
+        using var reader = new StreamReader(stream);
+        var header = await reader.ReadLineAsync(token);
+        if (header == null)
+        {
+            return BadRequest(new { message = "The CSV file is empty." });
+        }
+
+        var columns = header.Split(',').Select(x => x.Trim().ToLowerInvariant()).ToArray();
+        var membershipIndex = Array.IndexOf(columns, "membershipid");
+        var nameIndex = Array.IndexOf(columns, "fullname");
+        if (membershipIndex < 0)
+        {
+            return BadRequest(new { message = "CSV must contain a membershipId column." });
+        }
+
+        string? line;
+        while ((line = await reader.ReadLineAsync(token)) != null)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            result.TotalRows++;
+            var values = line.Split(',');
+            var membershipId = membershipIndex < values.Length ? values[membershipIndex].Trim() : string.Empty;
+            MemberVerificationResultDto verification;
+            if (!seen.Add(membershipId))
+            {
+                verification = new MemberVerificationResultDto { MembershipId = membershipId, Status = VerificationStatus.Duplicate, Message = "Duplicate membership ID in the uploaded file." };
+            }
+            else
+            {
+                verification = await _jamaatMemberService.VerifyMemberAsync(membershipId, token);
+            }
+
+            result.Results.Add(verification);
+            result.StatusCounts[verification.Status] = result.StatusCounts.GetValueOrDefault(verification.Status) + 1;
+            if (verification.Status == VerificationStatus.Verified)
+            {
+                var name = verification.FullName ?? (nameIndex >= 0 && nameIndex < values.Length ? values[nameIndex].Trim() : string.Empty);
+                await _participantService.CreateAsync(new CreateParticipantDto { EventId = eventId, MembershipId = membershipId, FullName = name, Auxiliary = auxiliary }, token);
+                result.Imported++;
+            }
+        }
+
+        return Ok(result);
     }
 }

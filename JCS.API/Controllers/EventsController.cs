@@ -50,6 +50,11 @@ public class EventsController : ControllerBase
             return BadRequest(ModelState);
         }
 
+        if (dto.EndDate.HasValue && dto.EndDate.Value < dto.EventDate)
+        {
+            return BadRequest(new { message = "EndDate cannot be earlier than EventDate." });
+        }
+
         var result = await _eventService.CreateAsync(dto, token);
         return CreatedAtAction(nameof(GetEventById), new { id = result.Id }, result);
     }
@@ -60,6 +65,11 @@ public class EventsController : ControllerBase
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
+        }
+
+        if (dto.EndDate.HasValue && dto.EndDate.Value < dto.EventDate)
+        {
+            return BadRequest(new { message = "EndDate cannot be earlier than EventDate." });
         }
 
         var result = await _eventService.UpdateAsync(id, dto, token);
