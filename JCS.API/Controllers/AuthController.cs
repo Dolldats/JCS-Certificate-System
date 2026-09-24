@@ -34,7 +34,8 @@ public class AuthController : ControllerBase
         var assignment = await _assignmentService.GetActiveAssignmentAsync(request.Username, token);
         var role = assignment?.Role.ToString() ?? "Member";
         var auxiliary = assignment?.Auxiliary.ToString();
-        var expires = DateTime.UtcNow.AddHours(8);
+        var expiryInHours = _configuration.GetValue<int>("Jwt:ExpiryInHours", 8);
+        var expires = DateTime.UtcNow.AddHours(expiryInHours);
         var claims = new List<Claim> { new(ClaimTypes.Name, request.Username), new(ClaimTypes.Role, role) };
         claims.Add(new Claim("Auxiliary", auxiliary ?? "None"));
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Secret"]!));

@@ -1,6 +1,7 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using JCS.Application.Common;
 using JCS.Application.DTOs.Participant;
 using JCS.Application.Interfaces.Services;
 using JCS.Domain.Enum;
@@ -36,47 +37,100 @@ public sealed class JamaatApiMemberService : IJamaatMemberService
             var username = _httpContextAccessor.HttpContext?.User.Identity?.Name;
             var accessToken = string.IsNullOrWhiteSpace(username) ? null : _tokenStore.Get(username);
 
-            if (string.IsNullOrWhiteSpace(accessToken))
+            var requestUri = $"{_options.MemberPath.TrimEnd('/')}/{Uri.EscapeDataString(membershipId)}";
+            using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+
+            if (!string.IsNullOrWhiteSpace(accessToken) && accessToken != "mock-dev-token")
             {
-                return Result(membershipId, VerificationStatus.VerificationFailed, "No active Jama'at session was found. Please log in again.");
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
             }
 
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"{_options.MemberPath.TrimEnd('/')}/{Uri.EscapeDataString(membershipId)}");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
             var response = await _client.SendAsync(request, token);
+
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                return Result(membershipId, VerificationStatus.NotFound, "Member was not found.");
+                return new MemberVerificationResultDto
+                {
+                    MembershipId = membershipId,
+                    Status = VerificationStatus.NotFound,
+                    Message = "Member was not found in Tajneed database."
+                };
             }
 
             if (!response.IsSuccessStatusCode)
             {
-                return Result(membershipId, VerificationStatus.VerificationFailed, $"Jama'at API returned {(int)response.StatusCode}.");
+                var errorText = await response.Content.ReadAsStringAsync(token);
+                return new MemberVerificationResultDto
+                {
+                    MembershipId = membershipId,
+                    Status = VerificationStatus.VerificationFailed,
+                    Message = $"Tajneed API returned status code {(int)response.StatusCode}: {errorText}"
+                };
             }
 
-            using var memberDocument = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
+            var rawJson = await response.Content.ReadAsStringAsync(token);
+            using var memberDocument = JsonDocument.Parse(rawJson);
             var root = memberDocument.RootElement;
+            var fullName = FindString(root, "fullName", "full_name", "name", "memberName", "member_name", "first_name");
+
+            if (string.IsNullOrWhiteSpace(fullName))
+            {
+                var firstName = FindString(root, "firstName", "first_name", "fname");
+                var lastName = FindString(root, "lastName", "last_name", "surname", "lname");
+                if (!string.IsNullOrWhiteSpace(firstName) || !string.IsNullOrWhiteSpace(lastName))
+                {
+                    fullName = $"{firstName} {lastName}".Trim();
+                }
+            }
+
+            var auxStr = FindString(root, "auxiliary", "auxiliaryBody", "auxiliary_body", "wing", "body");
+            var jamaat = FindString(root, "jamaat", "jamaatName", "jamaat_name", "branch");
+            var dila = FindString(root, "dila", "dilaName", "dila_name", "circuit", "state");
+            var ilaqa = FindString(root, "ilaqa", "ilaqaName", "ilaqa_name", "zone", "region");
+
             return new MemberVerificationResultDto
             {
                 MembershipId = membershipId,
-                FullName = FindString(root, "fullName", "name", "memberName"),
+                FullName = string.IsNullOrWhiteSpace(fullName) ? $"Member {membershipId}" : fullName,
+                Auxiliary = ParseAuxiliary(auxStr),
+                Jamaat = jamaat,
+                Dila = dila,
+                Ilaqa = ilaqa,
                 Status = VerificationStatus.Verified,
-                Message = "Member verified."
+                Message = "Member verified successfully via Tajneed API."
             };
         }
-        catch (HttpRequestException exception)
+        catch (Exception exception)
         {
-            return Result(membershipId, VerificationStatus.VerificationFailed, exception.Message);
+            return new MemberVerificationResultDto
+            {
+                MembershipId = membershipId,
+                Status = VerificationStatus.VerificationFailed,
+                Message = $"Tajneed API connection error: {exception.Message}"
+            };
         }
     }
 
-    private static MemberVerificationResultDto Result(string id, VerificationStatus status, string message) => new() { MembershipId = id, Status = status, Message = message };
+    private static Auxiliary? ParseAuxiliary(string? auxStr)
+    {
+        if (string.IsNullOrWhiteSpace(auxStr))
+        {
+            return null;
+        }
+
+        if (Enum.TryParse<Auxiliary>(auxStr.Trim(), true, out var parsed))
+        {
+            return parsed;
+        }
+
+        return null;
+    }
 
     private static string? FindString(JsonElement element, params string[] names)
     {
         foreach (var name in names)
         {
-            if (element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
+            if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
             {
                 return value.GetString();
             }
@@ -88,13 +142,4 @@ public sealed class JamaatApiMemberService : IJamaatMemberService
         }
         return null;
     }
-}
-
-public sealed class JamaatApiOptions
-{
-    public string BaseUrl { get; set; } = "https://tajneedapi.ahmadiyyanigeria.net/";
-    public string TokenPath { get; set; } = "token";
-    public string MemberPath { get; set; } = "members";
-    public string Username { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
 }

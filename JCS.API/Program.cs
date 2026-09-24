@@ -1,19 +1,21 @@
 
-namespace JCS.API
-{
-    using JCS.Application.Interfaces.Repositories;
-    using JCS.Application.Interfaces.Services;
-    using JCS.Application.Services;
-    using JCS.Infastructure.Persistence;
-    using JCS.Infastructure.Repositories;
+using JCS.Application.Common;
+using JCS.Application.Interfaces.Repositories;
+using JCS.Application.Interfaces.Services;
+using JCS.Application.Services;
+using JCS.Infastructure.Persistence;
+using JCS.Infastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using JCS.API.Filters;
-    using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
+using Microsoft.OpenApi.Models;
+using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 
+namespace JCS.API
+{
     public class Program
     {
         public static void Main(string[] args)
@@ -32,7 +34,32 @@ using JCS.API.Filters;
             });
             builder.Services.AddProblemDetails();
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(options =>
+            {
+                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Enter JWT Bearer token"
+                });
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+            });
             var jwtSecret = builder.Configuration["Jwt:Secret"] ?? throw new InvalidOperationException("Jwt:Secret is not configured.");
             builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
             {
@@ -90,18 +117,17 @@ using JCS.API.Filters;
                     var initialSuperAdminMembershipId = builder.Configuration["InitialSuperAdminMembershipId"];
                     if (!string.IsNullOrWhiteSpace(initialSuperAdminMembershipId))
                     {
-                        var exists = db.AdminAssignments.Any(x =>
+                        var existing = db.AdminAssignments.FirstOrDefault(x =>
                             x.MembershipId == initialSuperAdminMembershipId &&
-                            x.Role == JCS.Domain.Enum.AdminRole.SuperAdmin &&
-                            x.Status == JCS.Domain.Enum.AdminStatus.Active);
+                            x.Role == JCS.Domain.Enum.AdminRole.SuperAdmin);
 
-                        if (!exists)
+                        if (existing == null)
                         {
                             db.AdminAssignments.Add(new JCS.Domain.Entities.AdminAssignment
                             {
                                 Id = Guid.NewGuid(),
                                 MembershipId = initialSuperAdminMembershipId.Trim(),
-                                Auxiliary = JCS.Domain.Enum.Auxiliary.Ansarullah,
+                                Auxiliary = JCS.Domain.Enum.Auxiliary.Khuddam,
                                 Role = JCS.Domain.Enum.AdminRole.SuperAdmin,
                                 Status = JCS.Domain.Enum.AdminStatus.Active,
                                 AssignedBy = "System",
@@ -109,6 +135,12 @@ using JCS.API.Filters;
                             });
                             db.SaveChanges();
                             logger.LogInformation("Initial Super Admin assignment was created.");
+                        }
+                        else if (existing.Auxiliary != JCS.Domain.Enum.Auxiliary.Khuddam)
+                        {
+                            existing.Auxiliary = JCS.Domain.Enum.Auxiliary.Khuddam;
+                            db.SaveChanges();
+                            logger.LogInformation("Updated initial Super Admin auxiliary to Khuddam.");
                         }
                     }
                 }

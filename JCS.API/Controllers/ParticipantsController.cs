@@ -1,4 +1,4 @@
-using JCS.Application.DTOs.Participant;
+﻿using JCS.Application.DTOs.Participant;
 using JCS.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
@@ -14,11 +14,13 @@ public class ParticipantsController : ControllerBase
 {
     private readonly IParticipantService _participantService;
     private readonly IJamaatMemberService _jamaatMemberService;
+    private readonly IEventService _eventService;
 
-    public ParticipantsController(IParticipantService participantService, IJamaatMemberService jamaatMemberService)
+    public ParticipantsController(IParticipantService participantService, IJamaatMemberService jamaatMemberService, IEventService eventService)
     {
         _participantService = participantService;
         _jamaatMemberService = jamaatMemberService;
+        _eventService = eventService;
     }
 
     [HttpGet]
@@ -115,11 +117,17 @@ public class ParticipantsController : ControllerBase
     }
 
     [HttpPost("event/{eventId:guid}/upload-csv")]
-    public async Task<IActionResult> UploadCsv(Guid eventId, IFormFile file, [FromQuery] Auxiliary auxiliary, CancellationToken token)
+    public async Task<IActionResult> UploadCsv(Guid eventId, IFormFile file, CancellationToken token)
     {
         if (eventId == Guid.Empty || file == null || file.Length == 0)
         {
             return BadRequest(new { message = "A valid eventId and non-empty CSV file are required." });
+        }
+
+        var targetEvent = await _eventService.GetByIdAsync(eventId, token);
+        if (targetEvent == null)
+        {
+            return NotFound(new { message = $"Event with id {eventId} was not found." });
         }
 
         var result = new BulkParticipantImportResultDto();
@@ -132,12 +140,13 @@ public class ParticipantsController : ControllerBase
             return BadRequest(new { message = "The CSV file is empty." });
         }
 
-        var columns = header.Split(',').Select(x => x.Trim().ToLowerInvariant()).ToArray();
-        var membershipIndex = Array.IndexOf(columns, "membershipid");
-        var nameIndex = Array.IndexOf(columns, "fullname");
+        var columns = header.Split(',').Select(x => x.Trim().ToLowerInvariant()).ToList();
+        var membershipIndex = FindHeaderIndex(columns, "membershipid", "membershipnumber", "membershipno", "memberid", "memberno", "chandano", "chandanumber");
+        var nameIndex = FindHeaderIndex(columns, "fullname", "name", "membername", "participantname");
+
         if (membershipIndex < 0)
         {
-            return BadRequest(new { message = "CSV must contain a membershipId column." });
+            return BadRequest(new { message = "CSV must contain a Membership ID or Membership Number column." });
         }
 
         string? line;
@@ -157,12 +166,27 @@ public class ParticipantsController : ControllerBase
                 verification = await _jamaatMemberService.VerifyMemberAsync(membershipId, token);
             }
 
+            if (verification.Status == VerificationStatus.Verified && verification.Auxiliary.HasValue && verification.Auxiliary.Value != targetEvent.Auxiliary)
+            {
+                verification.Status = VerificationStatus.Invalid;
+                verification.Message = $"Member auxiliary ({verification.Auxiliary}) does not match the event auxiliary ({targetEvent.Auxiliary}).";
+            }
+
             result.Results.Add(verification);
             result.StatusCounts[verification.Status] = result.StatusCounts.GetValueOrDefault(verification.Status) + 1;
             if (verification.Status == VerificationStatus.Verified)
             {
                 var name = verification.FullName ?? (nameIndex >= 0 && nameIndex < values.Length ? values[nameIndex].Trim() : string.Empty);
-                await _participantService.CreateAsync(new CreateParticipantDto { EventId = eventId, MembershipId = membershipId, FullName = name, Auxiliary = auxiliary }, token);
+                await _participantService.CreateAsync(new CreateParticipantDto
+                {
+                    EventId = eventId,
+                    MembershipId = membershipId,
+                    FullName = name,
+                    Jamaat = verification.Jamaat,
+                    Dila = verification.Dila,
+                    Ilaqa = verification.Ilaqa,
+                    Auxiliary = verification.Auxiliary ?? targetEvent.Auxiliary
+                }, token);
                 result.Imported++;
             }
         }
@@ -171,11 +195,17 @@ public class ParticipantsController : ControllerBase
     }
 
     [HttpPost("event/{eventId:guid}/upload-excel")]
-    public async Task<IActionResult> UploadExcel(Guid eventId, IFormFile file, [FromQuery] Auxiliary auxiliary, CancellationToken token)
+    public async Task<IActionResult> UploadExcel(Guid eventId, IFormFile file, CancellationToken token)
     {
         if (eventId == Guid.Empty || file == null || file.Length == 0)
         {
             return BadRequest(new { message = "A valid eventId and non-empty Excel file are required." });
+        }
+
+        var targetEvent = await _eventService.GetByIdAsync(eventId, token);
+        if (targetEvent == null)
+        {
+            return NotFound(new { message = $"Event with id {eventId} was not found." });
         }
 
         await using var stream = file.OpenReadStream();
@@ -188,11 +218,12 @@ public class ParticipantsController : ControllerBase
 
         var range = sheet.RangeUsed()!;
         var headers = range.FirstRow().Cells().Select(x => x.GetString().Trim().ToLowerInvariant()).ToList();
-        var membershipIndex = headers.IndexOf("membershipid");
-        var nameIndex = headers.IndexOf("fullname");
+        var membershipIndex = FindHeaderIndex(headers, "membershipid", "membershipnumber", "membershipno", "memberid", "memberno", "chandano", "chandanumber");
+        var nameIndex = FindHeaderIndex(headers, "fullname", "name", "membername", "participantname");
+
         if (membershipIndex < 0)
         {
-            return BadRequest(new { message = "Excel must contain a membershipId column." });
+            return BadRequest(new { message = "Excel must contain a Membership ID or Membership Number column." });
         }
 
         var result = new BulkParticipantImportResultDto();
@@ -212,16 +243,48 @@ public class ParticipantsController : ControllerBase
                 verification = await _jamaatMemberService.VerifyMemberAsync(membershipId, token);
             }
 
+            if (verification.Status == VerificationStatus.Verified && verification.Auxiliary.HasValue && verification.Auxiliary.Value != targetEvent.Auxiliary)
+            {
+                verification.Status = VerificationStatus.Invalid;
+                verification.Message = $"Member auxiliary ({verification.Auxiliary}) does not match the event auxiliary ({targetEvent.Auxiliary}).";
+            }
+
             result.Results.Add(verification);
             result.StatusCounts[verification.Status] = result.StatusCounts.GetValueOrDefault(verification.Status) + 1;
             if (verification.Status == VerificationStatus.Verified)
             {
                 var name = verification.FullName ?? (nameIndex >= 0 && nameIndex < cells.Count ? cells[nameIndex].GetString().Trim() : string.Empty);
-                await _participantService.CreateAsync(new CreateParticipantDto { EventId = eventId, MembershipId = membershipId, FullName = name, Auxiliary = auxiliary }, token);
+                await _participantService.CreateAsync(new CreateParticipantDto
+                {
+                    EventId = eventId,
+                    MembershipId = membershipId,
+                    FullName = name,
+                    Jamaat = verification.Jamaat,
+                    Dila = verification.Dila,
+                    Ilaqa = verification.Ilaqa,
+                    Auxiliary = verification.Auxiliary ?? targetEvent.Auxiliary
+                }, token);
                 result.Imported++;
             }
         }
 
         return Ok(result);
+    }
+
+    private static int FindHeaderIndex(List<string> headers, params string[] aliases)
+    {
+        for (int i = 0; i < headers.Count; i++)
+        {
+            var headerClean = headers[i].Replace(" ", "").Replace("_", "").Replace("-", "");
+            foreach (var alias in aliases)
+            {
+                var aliasClean = alias.Replace(" ", "").Replace("_", "").Replace("-", "");
+                if (string.Equals(headerClean, aliasClean, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i;
+                }
+            }
+        }
+        return -1;
     }
 }
