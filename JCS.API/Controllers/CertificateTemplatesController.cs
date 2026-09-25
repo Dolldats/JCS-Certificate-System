@@ -219,35 +219,46 @@ public class CertificateTemplatesController : ControllerBase
     {
         width = width <= 0 ? 1122 : width;
         height = height <= 0 ? 793 : height;
-        var svg = new StringBuilder($"<svg xmlns=\"https://www.w3.org/TR/SVG2/\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\">");
+        var svg = new StringBuilder("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\">");
         svg.Append("<rect width=\"100%\" height=\"100%\" fill=\"white\"/>");
         if (!string.IsNullOrWhiteSpace(backgroundImagePath))
         {
-            svg.Append($"<image href=\"{SecurityElement.Escape(backgroundImagePath)}\" x=\"0\" y=\"0\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"none\"/>");
+            svg.Append("<image href=\"{SecurityElement.Escape(backgroundImagePath)}\" x=\"0\" y=\"0\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"none\"/>");
         }
 
-        foreach (var image in layout.ImageElements)
+        if (layout.ImageElements != null)
         {
-            var source = SecurityElement.Escape(image.AssetKey) ?? string.Empty;
-            svg.Append($"<image href=\"{source}\" x=\"{image.X}\" y=\"{image.Y}\" width=\"{image.Width}\" height=\"{image.Height}\" preserveAspectRatio=\"xMidYMid meet\"/>");
+            foreach (var image in layout.ImageElements)
+            {
+                var source = SecurityElement.Escape(image.AssetKey) ?? string.Empty;
+                svg.Append("<image href=\"{source}\" x=\"{image.X}\" y=\"{image.Y}\" width=\"{image.Width}\" height=\"{image.Height}\" preserveAspectRatio=\"xMidYMid meet\"/>");
+            }
         }
 
-        foreach (var text in layout.TextElements)
+        if (layout.TextElements != null)
         {
-            var content = values.TryGetValue(text.Placeholder, out var value) ? value : text.Placeholder;
-            var escaped = SecurityElement.Escape(content ?? string.Empty);
-            var weight = text.Bold ? "font-weight=\"bold\"" : string.Empty;
-            var style = text.Italic ? "font-style=\"italic\"" : string.Empty;
-            svg.Append($"<text x=\"{text.X}\" y=\"{text.Y}\" fill=\"{SecurityElement.Escape(text.TextColor)}\" font-family=\"{SecurityElement.Escape(text.FontFamily)}\" font-size=\"{text.FontSize}\" text-anchor=\"{GetAnchor(text.Alignment)}\" {weight} {style}>{escaped}</text>");
+            foreach (var text in layout.TextElements)
+            {
+                var content = values.TryGetValue(text.Placeholder, out var value) ? value : text.Placeholder;
+                var escaped = SecurityElement.Escape(content ?? string.Empty);
+                var weight = text.Bold ? "font-weight=\"bold\"" : string.Empty;
+                var style = text.Italic ? "font-style=\"italic\"" : string.Empty;
+                var textColor = string.IsNullOrWhiteSpace(text.TextColor) ? "#000000" : text.TextColor;
+                var fontFamily = string.IsNullOrWhiteSpace(text.FontFamily) ? "Arial" : text.FontFamily;
+                var alignment = GetAnchor(text.Alignment);
+                var fontSize = text.FontSize > 0 ? text.FontSize : 12;
+
+                svg.Append("<text x=\"{text.X}\" y=\"{text.Y}\" fill=\"{SecurityElement.Escape(textColor)}\" font-family=\"{SecurityElement.Escape(fontFamily)}\" font-size=\"{fontSize}\" text-anchor=\"{alignment}\" {weight} {style}>{escaped}</text>");
+            }
         }
 
         svg.Append("</svg>");
         return svg.ToString();
     }
 
-    private static string GetAnchor(string alignment)
+    private static string GetAnchor(string? alignment)
     {
-        return alignment.ToLowerInvariant() switch
+        return (alignment?.ToLowerInvariant()) switch
         {
             "center" => "middle",
             "right" => "end",
@@ -269,3 +280,5 @@ public class UploadAssetRequest
     public IFormFile File { get; set; } = default!;
     public string Folder { get; set; } = "templates";
 }
+
+

@@ -193,6 +193,7 @@ public class ParticipantService : IParticipantService
     public async Task<bool> DeleteAsync(Guid id, CancellationToken token = default)
     {
         var participant = await _participantRepository.GetByIdAsync(id, token);
+
         if (participant == null)
         {
             return false;

@@ -1,10 +1,8 @@
 
 using JCS.Application.Common;
-using JCS.Application.Interfaces.Repositories;
-using JCS.Application.Interfaces.Services;
-using JCS.Application.Services;
+using JCS.Application;
 using JCS.Infastructure.Persistence;
-using JCS.Infastructure.Repositories;
+using JCS.Infastructure;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -69,43 +67,33 @@ namespace JCS.API
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
                     ValidateIssuer = false,
                     ValidateAudience = false,
-                    ValidateLifetime = true
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero
+                };
+                options.Events = new JwtBearerEvents
+                {
+                    OnChallenge = context =>
+                    {
+                        context.HandleResponse();
+                        context.Response.StatusCode = 401;
+                        context.Response.ContentType = "application/json";
+                        var isExpired = context.AuthenticateFailure is SecurityTokenExpiredException;
+                        var result = System.Text.Json.JsonSerializer.Serialize(new 
+                        { 
+                            message = isExpired ? "Token Expired" : "Unauthorized",
+                            isExpired = isExpired
+                        });
+                        return context.Response.WriteAsync(result);
+                    }
                 };
             });
             builder.Services.AddAuthorization();
             builder.Services.AddHttpContextAccessor();
-            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-                ?? throw new InvalidOperationException("DefaultConnection is not configured.");
-
-            builder.Services.AddDbContext<JcsDbContext>(options =>
-                options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
-            builder.Services.AddScoped<IAdminAssignmentRepository, AdminAssignmentRepository>();
-            builder.Services.AddScoped<IEventRepository, EventRepository>();
-            builder.Services.AddScoped<IParticipantRepository, ParticipantRepository>();
-            builder.Services.AddScoped<ICertificateRepository, CertificateRepository>();
-            builder.Services.AddScoped<ICertificateTemplateRepository, CertificateTemplateRepository>();
-            builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
-            builder.Services.AddScoped<IEventService, EventService>();
-            builder.Services.AddScoped<IParticipantService, ParticipantService>();
-            builder.Services.AddScoped<ICertificateService, CertificateService>();
-            builder.Services.AddScoped<ICertificateTemplateService, CertificateTemplateService>();
-            builder.Services.AddSingleton<IPlaceholderEngine, PlaceholderEngine>();
-            builder.Services.AddSingleton<ICertificateRenderer, CertificateRenderer>();
-            builder.Services.AddScoped<IAssetStorageService>(_ => new AssetStorageService(builder.Environment.ContentRootPath));
-            var jamaatOptions = builder.Configuration.GetSection("JamaatApi").Get<JamaatApiOptions>() ?? new JamaatApiOptions();
-            builder.Services.AddSingleton(jamaatOptions);
-            builder.Services.AddSingleton<IJamaatTokenStore, JamaatTokenStore>();
-            builder.Services.AddHttpClient<IJamaatAuthService, JamaatAuthService>();
-            builder.Services.AddHttpClient<IJamaatMemberService, JamaatApiMemberService>();
-
-            builder.Services.AddScoped<IAuditLogService, AuditLogService>();
-            builder.Services.AddScoped<IAdminAssignmentService, AdminAssignmentService>();
+            builder.Services
+                .AddApplicationServices(builder.Environment.ContentRootPath)
+                .AddInfrastructure(builder.Configuration);
 
             var app = builder.Build();
-
-            // Keep the database schema synchronized with the entity model before
-            // accepting requests. Without this, a pending migration can make
-            // every repository query fail with a generic HTTP 500.
             using (var scope = app.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<JcsDbContext>();

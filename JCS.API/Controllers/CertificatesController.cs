@@ -17,13 +17,15 @@ public class CertificatesController : ControllerBase
     private readonly ICertificateRepository _certificateRepository;
     private readonly ICertificateRenderer _certificateRenderer;
     private readonly IWebHostEnvironment _environment;
+    private readonly IParticipantService _participantService;
 
-    public CertificatesController(ICertificateService certificateService, ICertificateRepository certificateRepository, ICertificateRenderer certificateRenderer, IWebHostEnvironment environment)
+    public CertificatesController(ICertificateService certificateService, ICertificateRepository certificateRepository, ICertificateRenderer certificateRenderer, IWebHostEnvironment environment, IParticipantService participantService)
     {
         _certificateService = certificateService;
         _certificateRepository = certificateRepository;
         _certificateRenderer = certificateRenderer;
         _environment = environment;
+        _participantService = participantService;
     }
 
     [HttpGet]
@@ -98,6 +100,16 @@ public class CertificatesController : ControllerBase
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
+        }
+
+        if (User.IsInRole("GeneralAdmin"))
+        {
+            var participant = await _participantService.GetByIdAsync(dto.ParticipantId, token);
+            var userAux = User.FindFirst("Auxiliary")?.Value;
+            if (participant != null && userAux != "None" && !string.Equals(userAux, participant.Auxiliary.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return StatusCode(403, new { message = "General Admins can only create certificates for participants in their own auxiliary body." });
+            }
         }
 
         var result = await _certificateService.CreateAsync(dto, token);

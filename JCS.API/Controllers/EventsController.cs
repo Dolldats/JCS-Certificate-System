@@ -61,6 +61,15 @@ public class EventsController : ControllerBase
             return BadRequest(ModelState);
         }
 
+        if (User.IsInRole("GeneralAdmin"))
+        {
+            var userAuxiliaryStr = User.FindFirst("Auxiliary")?.Value;
+            if (userAuxiliaryStr != "None" && !string.Equals(userAuxiliaryStr, dto.Auxiliary.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return StatusCode(403, new { message = "General Admins can only create events for their own auxiliary body." });
+            }
+        }
+
         if (dto.EndDate.HasValue && dto.EndDate.Value < dto.EventDate)
         {
             return BadRequest(new { message = "EndDate cannot be earlier than EventDate." });
@@ -76,6 +85,15 @@ public class EventsController : ControllerBase
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
+        }
+
+        if (User.IsInRole("GeneralAdmin"))
+        {
+            var userAuxiliaryStr = User.FindFirst("Auxiliary")?.Value;
+            if (userAuxiliaryStr != "None" && !string.Equals(userAuxiliaryStr, dto.Auxiliary.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return StatusCode(403, new { message = "General Admins can only create events for their own auxiliary body." });
+            }
         }
 
         if (dto.EndDate.HasValue && dto.EndDate.Value < dto.EventDate)

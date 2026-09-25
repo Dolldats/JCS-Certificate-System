@@ -26,12 +26,18 @@ public class CertificateRenderer : ICertificateRenderer
                         {
                             layers.PrimaryLayer().Image(File.ReadAllBytes(request.BackgroundImagePath)).FitArea();
                         }
-                        foreach (var element in request.Layout.TextElements)
+                        if (request.Layout.TextElements != null)
                         {
-                            var content = request.Values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
-                            var text = layers.Layer().TranslateX((float)element.X).TranslateY((float)element.Y).Text(content ?? string.Empty).FontFamily(element.FontFamily).FontSize((float)element.FontSize).FontColor(element.TextColor);
-                            if (element.Bold) text.Bold();
-                            if (element.Italic) text.Italic();
+                            foreach (var element in request.Layout.TextElements)
+                            {
+                                var content = request.Values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
+                                var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
+                                var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
+                                var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
+                                var text = layers.Layer().TranslateX((float)element.X).TranslateY((float)element.Y).Text(content ?? string.Empty).FontFamily(fontFamily).FontSize(fontSize).FontColor(textColor);
+                                if (element.Bold) text.Bold();
+                                if (element.Italic) text.Italic();
+                            }
                         }
                     });
                 });
@@ -52,22 +58,28 @@ public class CertificateRenderer : ICertificateRenderer
                 page.Content().Layers(layers =>
                 {
                     layers.PrimaryLayer().Background(Colors.White);
-                    foreach (var element in layout.TextElements)
+                    if (layout.TextElements != null)
                     {
-                        var content = values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
-                        var text = layers.Layer().TranslateX((float)element.X).TranslateY((float)element.Y).Text(content ?? string.Empty)
-                            .FontFamily(element.FontFamily)
-                            .FontSize((float)element.FontSize)
-                            .FontColor(element.TextColor);
-
-                        if (element.Bold)
+                        foreach (var element in layout.TextElements)
                         {
-                            text.Bold();
-                        }
+                            var content = values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
+                            var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
+                            var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
+                            var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
+                            var text = layers.Layer().TranslateX((float)element.X).TranslateY((float)element.Y).Text(content ?? string.Empty)
+                                .FontFamily(fontFamily)
+                                .FontSize(fontSize)
+                                .FontColor(textColor);
 
-                        if (element.Italic)
-                        {
-                            text.Italic();
+                            if (element.Bold)
+                            {
+                                text.Bold();
+                            }
+
+                            if (element.Italic)
+                            {
+                                text.Italic();
+                            }
                         }
                     }
                 });

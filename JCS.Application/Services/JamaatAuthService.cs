@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
 using System.Text.Json;
 using JCS.Application.Common;
 using JCS.Application.Interfaces.Services;
@@ -45,8 +45,7 @@ public class JamaatAuthService : IJamaatAuthService
         {
         }
 
-        _tokenStore.Set(username, "system-session-token", DateTime.UtcNow.AddHours(8));
-        return true;
+        return false;
     }
 
     private static string? FindToken(JsonElement root)

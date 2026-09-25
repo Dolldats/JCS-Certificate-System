@@ -1,4 +1,4 @@
-﻿using JCS.Application.DTOs.Participant;
+using JCS.Application.DTOs.Participant;
 using JCS.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
@@ -83,6 +83,39 @@ public class ParticipantsController : ControllerBase
             return BadRequest(ModelState);
         }
 
+        var verification = await _jamaatMemberService.VerifyMemberAsync(dto.MembershipId, token);
+        if (verification.Status == VerificationStatus.Verified)
+        {
+            dto.FullName = verification.FullName ?? dto.FullName;
+            dto.Jamaat = verification.Jamaat;
+            dto.Dila = verification.Dila;
+            dto.Ilaqa = verification.Ilaqa;
+            if (verification.Auxiliary.HasValue)
+            {
+                dto.Auxiliary = verification.Auxiliary.Value;
+            }
+        }
+
+        var targetEvent = await _eventService.GetByIdAsync(dto.EventId, token);
+        if (targetEvent == null)
+        {
+            return NotFound(new { message = $"Event with id {dto.EventId} was not found." });
+        }
+
+        if (User.IsInRole("GeneralAdmin"))
+        {
+            var userAux = User.FindFirst("Auxiliary")?.Value;
+            if (userAux != "None" && !string.Equals(userAux, targetEvent.Auxiliary.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return StatusCode(403, new { message = "General Admins can only add participants to events matching their own auxiliary body." });
+            }
+        }
+
+        if (targetEvent.Auxiliary != dto.Auxiliary)
+        {
+             return BadRequest(new { message = "Participant's auxiliary body does not match the event's auxiliary body." });
+        }
+
         var result = await _participantService.CreateAsync(dto, token);
         return CreatedAtAction(nameof(GetParticipantById), new { id = result.Id }, result);
     }
@@ -128,6 +161,15 @@ public class ParticipantsController : ControllerBase
         if (targetEvent == null)
         {
             return NotFound(new { message = $"Event with id {eventId} was not found." });
+        }
+        
+        if (User.IsInRole("GeneralAdmin"))
+        {
+            var userAux = User.FindFirst("Auxiliary")?.Value;
+            if (userAux != "None" && !string.Equals(userAux, targetEvent.Auxiliary.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return StatusCode(403, new { message = "General Admins can only upload participants to events matching their own auxiliary body." });
+            }
         }
 
         var result = new BulkParticipantImportResultDto();
@@ -206,6 +248,15 @@ public class ParticipantsController : ControllerBase
         if (targetEvent == null)
         {
             return NotFound(new { message = $"Event with id {eventId} was not found." });
+        }
+        
+        if (User.IsInRole("GeneralAdmin"))
+        {
+            var userAux = User.FindFirst("Auxiliary")?.Value;
+            if (userAux != "None" && !string.Equals(userAux, targetEvent.Auxiliary.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return StatusCode(403, new { message = "General Admins can only upload participants to events matching their own auxiliary body." });
+            }
         }
 
         await using var stream = file.OpenReadStream();
