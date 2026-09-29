@@ -16,7 +16,7 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("DefaultConnection is not configured.");
 
         services.AddDbContext<JcsDbContext>(options =>
-            options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+            options.UseNpgsql(connectionString));
 
         services.AddScoped<IAdminAssignmentRepository, AdminAssignmentRepository>();
         services.AddScoped<IEventRepository, EventRepository>();
