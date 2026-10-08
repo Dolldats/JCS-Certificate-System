@@ -86,8 +86,8 @@ public sealed class JamaatApiMemberService : IJamaatMemberService
 
             var auxStr = FindString(root, "auxiliary", "auxiliaryBody", "auxiliary_body", "wing", "body");
             var jamaat = FindString(root, "jamaat", "jamaatName", "jamaat_name", "branch");
-            var dila = FindString(root, "dila", "dilaName", "dila_name", "circuit", "state");
-            var ilaqa = FindString(root, "ilaqa", "ilaqaName", "ilaqa_name", "zone", "region");
+            var dila = FindString(root, "dila", "dilaName", "dila_name", "circuit", "state", "district", "division");
+            var ilaqa = FindString(root, "ilaqa", "ilaqaName", "ilaqa_name", "zone", "region", "area", "territory");
 
             return new MemberVerificationResultDto
             {
@@ -155,9 +155,9 @@ public sealed class JamaatApiMemberService : IJamaatMemberService
         return normalized switch
         {
             "ansar" or "ansarullah" => Auxiliary.Ansarullah,
-            "khuddam" or "khuddamul ahmadiyya" => Auxiliary.Khuddam,
+            "khuddam" or "khuddamulahmadiyya" => Auxiliary.Khuddam,
             "lajna" or "lajnaimaillah" => Auxiliary.Lajna,
-            "atfal" or "atfalul ahmadiyya" => Auxiliary.Atfal,
+            "atfal" or "atfalulahmadiyya" => Auxiliary.Atfal,
             "nasirat" or "nasra" => Auxiliary.Nasra,
             _ => null
         };
@@ -169,9 +169,38 @@ public sealed class JamaatApiMemberService : IJamaatMemberService
         {
             if (TryFindProperty(element, name, out var value))
             {
-                return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
+                var text = ExtractDisplayValue(value);
+                if (!string.IsNullOrWhiteSpace(text)) return text;
             }
         }
+        return null;
+    }
+
+    private static string? ExtractDisplayValue(JsonElement value)
+    {
+        if (value.ValueKind == JsonValueKind.String || value.ValueKind == JsonValueKind.Number)
+            return value.ToString();
+
+        if (value.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var name in new[] { "name", "fullName", "displayName", "label", "title", "value", "text", "description" })
+            {
+                if (TryFindProperty(value, name, out var nested))
+                {
+                    var text = ExtractDisplayValue(nested);
+                    if (!string.IsNullOrWhiteSpace(text)) return text;
+                }
+            }
+        }
+
+        if (value.ValueKind == JsonValueKind.Array)
+        {
+            var values = value.EnumerateArray()
+                .Select(ExtractDisplayValue)
+                .Where(x => !string.IsNullOrWhiteSpace(x));
+            return string.Join(", ", values);
+        }
+
         return null;
     }
 
