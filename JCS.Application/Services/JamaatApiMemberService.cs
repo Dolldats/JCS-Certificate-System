@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using System.Net.Http;
 using System.Text.Json;
 using JCS.Application.Common;
 using JCS.Application.DTOs.Participant;
@@ -25,7 +26,7 @@ public sealed class JamaatApiMemberService : IJamaatMemberService
         _client.BaseAddress = new Uri(_options.BaseUrl);
     }
 
-    public async Task<MemberVerificationResultDto> VerifyMemberAsync(string membershipId, CancellationToken token = default)
+    public async Task<MemberVerificationResultDto> VerifyMemberAsync(string membershipId, CancellationToken token = default, string? authenticatedUsername = null)
     {
         if (string.IsNullOrWhiteSpace(membershipId))
         {
@@ -34,7 +35,7 @@ public sealed class JamaatApiMemberService : IJamaatMemberService
 
         try
         {
-            var username = _httpContextAccessor.HttpContext?.User.Identity?.Name;
+            var username = authenticatedUsername ?? _httpContextAccessor.HttpContext?.User.Identity?.Name;
             var accessToken = string.IsNullOrWhiteSpace(username) ? null : _tokenStore.Get(username);
 
             var requestUri = $"{_options.MemberPath.TrimEnd('/')}/{Uri.EscapeDataString(membershipId)}";
@@ -100,13 +101,40 @@ public sealed class JamaatApiMemberService : IJamaatMemberService
                 Message = "Member verified successfully via Tajneed API."
             };
         }
-        catch (Exception exception)
+        catch (OperationCanceledException) when (!token.IsCancellationRequested)
         {
             return new MemberVerificationResultDto
             {
                 MembershipId = membershipId,
                 Status = VerificationStatus.VerificationFailed,
-                Message = $"Tajneed API connection error: {exception.Message}"
+                Message = "Tajneed API timed out. Please try again later."
+            };
+        }
+        catch (HttpRequestException)
+        {
+            return new MemberVerificationResultDto
+            {
+                MembershipId = membershipId,
+                Status = VerificationStatus.VerificationFailed,
+                Message = "Tajneed API is currently unavailable. Please try again later."
+            };
+        }
+        catch (JsonException)
+        {
+            return new MemberVerificationResultDto
+            {
+                MembershipId = membershipId,
+                Status = VerificationStatus.VerificationFailed,
+                Message = "Tajneed API returned an invalid response."
+            };
+        }
+        catch (Exception)
+        {
+            return new MemberVerificationResultDto
+            {
+                MembershipId = membershipId,
+                Status = VerificationStatus.VerificationFailed,
+                Message = "Tajneed API verification failed. Please try again later."
             };
         }
     }
@@ -123,23 +151,60 @@ public sealed class JamaatApiMemberService : IJamaatMemberService
             return parsed;
         }
 
-        return null;
+        var normalized = auxStr.Trim().Replace(" ", string.Empty).Replace("-", string.Empty).ToLowerInvariant();
+        return normalized switch
+        {
+            "ansar" or "ansarullah" => Auxiliary.Ansarullah,
+            "khuddam" or "khuddamul ahmadiyya" => Auxiliary.Khuddam,
+            "lajna" or "lajnaimaillah" => Auxiliary.Lajna,
+            "atfal" or "atfalul ahmadiyya" => Auxiliary.Atfal,
+            "nasirat" or "nasra" => Auxiliary.Nasra,
+            _ => null
+        };
     }
 
     private static string? FindString(JsonElement element, params string[] names)
     {
         foreach (var name in names)
         {
-            if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
+            if (TryFindProperty(element, name, out var value))
             {
-                return value.GetString();
-            }
-
-            if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object && data.TryGetProperty(name, out value) && value.ValueKind == JsonValueKind.String)
-            {
-                return value.GetString();
+                return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
             }
         }
         return null;
+    }
+
+    private static bool TryFindProperty(JsonElement element, string name, out JsonElement value)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = property.Value;
+                    return true;
+                }
+            }
+
+            foreach (var property in element.EnumerateObject())
+            {
+                if (property.Value.ValueKind is JsonValueKind.Object or JsonValueKind.Array && TryFindProperty(property.Value, name, out value))
+                {
+                    return true;
+                }
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                if (TryFindProperty(item, name, out value)) return true;
+            }
+        }
+
+        value = default;
+        return false;
     }
 }

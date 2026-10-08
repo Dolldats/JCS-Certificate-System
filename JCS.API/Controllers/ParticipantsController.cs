@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using JCS.Domain.Enum;
 using ClosedXML.Excel;
+using JCS.Infastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using JCS.API.Common;
 
 namespace JCS.API.Controllers;
 
@@ -12,19 +15,23 @@ namespace JCS.API.Controllers;
 [Authorize]
 public class ParticipantsController : ControllerBase
 {
+    private const long MaxImportFileBytes = 10 * 1024 * 1024;
+    private const int MaxImportRows = 10_000;
     private readonly IParticipantService _participantService;
     private readonly IJamaatMemberService _jamaatMemberService;
     private readonly IEventService _eventService;
+    private readonly JcsDbContext _db;
 
-    public ParticipantsController(IParticipantService participantService, IJamaatMemberService jamaatMemberService, IEventService eventService)
+    public ParticipantsController(IParticipantService participantService, IJamaatMemberService jamaatMemberService, IEventService eventService, JcsDbContext db)
     {
         _participantService = participantService;
         _jamaatMemberService = jamaatMemberService;
         _eventService = eventService;
+        _db = db;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAllParticipants(CancellationToken token)
+    public async Task<IActionResult> GetAllParticipants([FromQuery] PageQuery query, CancellationToken token)
     {
         var participants = await _participantService.GetAllAsync(token);
         if (User.IsInRole("Member"))
@@ -32,7 +39,16 @@ public class ParticipantsController : ControllerBase
             var membershipId = User.Identity?.Name;
             participants = participants.Where(x => string.Equals(x.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).ToList();
         }
-        return Ok(participants);
+        else if (User.IsInRole("GeneralAdmin") && TryGetAuxiliary(out var auxiliary))
+        {
+            participants = participants.Where(x => x.Auxiliary == auxiliary).ToList();
+        }
+        if (query.EventId.HasValue) participants = participants.Where(x => x.EventId == query.EventId.Value).ToList();
+        if (!string.IsNullOrWhiteSpace(query.Search)) participants = participants.Where(x => x.MembershipId.Contains(query.Search, StringComparison.OrdinalIgnoreCase) || x.FullName.Contains(query.Search, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (!string.IsNullOrWhiteSpace(query.Status) && Enum.TryParse<VerificationStatus>(query.Status, true, out var verificationStatus)) participants = participants.Where(x => x.VerificationStatus == verificationStatus).ToList();
+        var total = participants.Count;
+        var items = participants.OrderBy(x => x.FullName).Skip((query.SafePage - 1) * query.SafePageSize).Take(query.SafePageSize).ToList();
+        return Ok(new PagedResult<ParticipantDto>(items, query.SafePage, query.SafePageSize, total));
     }
 
     [HttpGet("{id:guid}")]
@@ -44,6 +60,8 @@ public class ParticipantsController : ControllerBase
             return NotFound(new { message = $"Participant with id {id} not found." });
         }
 
+        if (!CanAccessParticipant(result)) return Forbid();
+
         return Ok(result);
     }
 
@@ -51,6 +69,10 @@ public class ParticipantsController : ControllerBase
     public async Task<IActionResult> GetParticipantsByEvent(Guid eventId, CancellationToken token)
     {
         var participants = await _participantService.GetByEventIdAsync(eventId, token);
+        if (User.IsInRole("Member"))
+            participants = participants.Where(x => string.Equals(x.MembershipId, User.Identity?.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+        else if (User.IsInRole("GeneralAdmin") && TryGetAuxiliary(out var auxiliary))
+            participants = participants.Where(x => x.Auxiliary == auxiliary).ToList();
         return Ok(participants);
     }
 
@@ -64,6 +86,7 @@ public class ParticipantsController : ControllerBase
     }
 
     [HttpGet("verify/{membershipId}")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> VerifyMember(string membershipId, CancellationToken token)
     {
         if (string.IsNullOrWhiteSpace(membershipId))
@@ -76,6 +99,7 @@ public class ParticipantsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> CreateParticipant([FromBody] CreateParticipantDto dto, CancellationToken token)
     {
         if (!ModelState.IsValid)
@@ -121,12 +145,17 @@ public class ParticipantsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> UpdateParticipant(Guid id, [FromBody] UpdateParticipantDto dto, CancellationToken token)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
+
+        var existing = await _participantService.GetByIdAsync(id, token);
+        if (existing == null) return NotFound(new { message = $"Participant with id {id} not found." });
+        if (!CanAccessParticipant(existing) || (User.IsInRole("GeneralAdmin") && !CanAccessAuxiliary(dto.Auxiliary))) return Forbid();
 
         var result = await _participantService.UpdateAsync(id, dto, token);
         if (result == null)
@@ -138,8 +167,12 @@ public class ParticipantsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> DeleteParticipant(Guid id, CancellationToken token)
     {
+        var existing = await _participantService.GetByIdAsync(id, token);
+        if (existing == null) return NotFound(new { message = $"Participant with id {id} not found." });
+        if (!CanAccessParticipant(existing)) return Forbid();
         var deleted = await _participantService.DeleteAsync(id, token);
         if (!deleted)
         {
@@ -150,12 +183,15 @@ public class ParticipantsController : ControllerBase
     }
 
     [HttpPost("event/{eventId:guid}/upload-csv")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> UploadCsv(Guid eventId, IFormFile file, CancellationToken token)
     {
-        if (eventId == Guid.Empty || file == null || file.Length == 0)
+        if (eventId == Guid.Empty || file == null || file.Length == 0 || file.Length > MaxImportFileBytes)
         {
             return BadRequest(new { message = "A valid eventId and non-empty CSV file are required." });
         }
+        if (!string.Equals(Path.GetExtension(file.FileName), ".csv", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "Only .csv files are accepted." });
 
         var targetEvent = await _eventService.GetByIdAsync(eventId, token);
         if (targetEvent == null)
@@ -182,7 +218,7 @@ public class ParticipantsController : ControllerBase
             return BadRequest(new { message = "The CSV file is empty." });
         }
 
-        var columns = header.Split(',').Select(x => x.Trim().ToLowerInvariant()).ToList();
+        var columns = ParseCsvLine(header).Select(x => x.Trim().ToLowerInvariant()).ToList();
         var membershipIndex = FindHeaderIndex(columns, "membershipid", "membershipnumber", "membershipno", "memberid", "memberno", "chandano", "chandanumber");
         var nameIndex = FindHeaderIndex(columns, "fullname", "name", "membername", "participantname");
 
@@ -191,15 +227,24 @@ public class ParticipantsController : ControllerBase
             return BadRequest(new { message = "CSV must contain a Membership ID or Membership Number column." });
         }
 
+        await using var transaction = await _db.Database.BeginTransactionAsync(token);
         string? line;
         while ((line = await reader.ReadLineAsync(token)) != null)
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
             result.TotalRows++;
-            var values = line.Split(',');
-            var membershipId = membershipIndex < values.Length ? values[membershipIndex].Trim() : string.Empty;
+            if (result.TotalRows > MaxImportRows) return BadRequest(new { message = $"CSV cannot contain more than {MaxImportRows} data rows." });
+            var values = ParseCsvLine(line);
+            var membershipId = membershipIndex < values.Count ? values[membershipIndex].Trim() : string.Empty;
+            if (string.IsNullOrWhiteSpace(membershipId)) continue;
             MemberVerificationResultDto verification;
-            if (!seen.Add(membershipId))
+            var alreadyImported = (await _participantService.GetByEventIdAsync(eventId, token))
+                .Any(x => string.Equals(x.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase));
+            if (alreadyImported)
+            {
+                verification = new MemberVerificationResultDto { MembershipId = membershipId, Status = VerificationStatus.Duplicate, Message = "Membership ID is already registered for this event." };
+            }
+            else if (!seen.Add(membershipId))
             {
                 verification = new MemberVerificationResultDto { MembershipId = membershipId, Status = VerificationStatus.Duplicate, Message = "Duplicate membership ID in the uploaded file." };
             }
@@ -218,7 +263,7 @@ public class ParticipantsController : ControllerBase
             result.StatusCounts[verification.Status] = result.StatusCounts.GetValueOrDefault(verification.Status) + 1;
             if (verification.Status == VerificationStatus.Verified)
             {
-                var name = verification.FullName ?? (nameIndex >= 0 && nameIndex < values.Length ? values[nameIndex].Trim() : string.Empty);
+                var name = verification.FullName ?? (nameIndex >= 0 && nameIndex < values.Count ? values[nameIndex].Trim() : string.Empty);
                 await _participantService.CreateAsync(new CreateParticipantDto
                 {
                     EventId = eventId,
@@ -233,16 +278,21 @@ public class ParticipantsController : ControllerBase
             }
         }
 
+        await transaction.CommitAsync(token);
         return Ok(result);
     }
 
     [HttpPost("event/{eventId:guid}/upload-excel")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> UploadExcel(Guid eventId, IFormFile file, CancellationToken token)
     {
-        if (eventId == Guid.Empty || file == null || file.Length == 0)
+        if (eventId == Guid.Empty || file == null || file.Length == 0 || file.Length > MaxImportFileBytes)
         {
             return BadRequest(new { message = "A valid eventId and non-empty Excel file are required." });
         }
+        var extension = Path.GetExtension(file.FileName);
+        if (!string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase) && !string.Equals(extension, ".xlsm", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "Only .xlsx or .xlsm files are accepted." });
 
         var targetEvent = await _eventService.GetByIdAsync(eventId, token);
         if (targetEvent == null)
@@ -279,13 +329,22 @@ public class ParticipantsController : ControllerBase
 
         var result = new BulkParticipantImportResultDto();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var transaction = await _db.Database.BeginTransactionAsync(token);
         foreach (var row in range.RowsUsed().Skip(1))
         {
             result.TotalRows++;
+            if (result.TotalRows > MaxImportRows) return BadRequest(new { message = $"Excel cannot contain more than {MaxImportRows} data rows." });
             var cells = row.Cells().ToList();
             var membershipId = membershipIndex < cells.Count ? cells[membershipIndex].GetString().Trim() : string.Empty;
+            if (string.IsNullOrWhiteSpace(membershipId)) continue;
             MemberVerificationResultDto verification;
-            if (!seen.Add(membershipId))
+            var alreadyImported = (await _participantService.GetByEventIdAsync(eventId, token))
+                .Any(x => string.Equals(x.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase));
+            if (alreadyImported)
+            {
+                verification = new MemberVerificationResultDto { MembershipId = membershipId, Status = VerificationStatus.Duplicate, Message = "Membership ID is already registered for this event." };
+            }
+            else if (!seen.Add(membershipId))
             {
                 verification = new MemberVerificationResultDto { MembershipId = membershipId, Status = VerificationStatus.Duplicate, Message = "Duplicate membership ID in the uploaded file." };
             }
@@ -319,6 +378,7 @@ public class ParticipantsController : ControllerBase
             }
         }
 
+        await transaction.CommitAsync(token);
         return Ok(result);
     }
 
@@ -338,4 +398,34 @@ public class ParticipantsController : ControllerBase
         }
         return -1;
     }
+
+    private static List<string> ParseCsvLine(string line)
+    {
+        var values = new List<string>();
+        var value = new System.Text.StringBuilder();
+        var quoted = false;
+        for (var i = 0; i < line.Length; i++)
+        {
+            var character = line[i];
+            if (character == '"')
+            {
+                if (quoted && i + 1 < line.Length && line[i + 1] == '"') { value.Append('"'); i++; }
+                else quoted = !quoted;
+            }
+            else if (character == ',' && !quoted) { values.Add(value.ToString()); value.Clear(); }
+            else value.Append(character);
+        }
+        values.Add(value.ToString());
+        return values;
+    }
+
+    private bool CanAccessParticipant(ParticipantDto participant) =>
+        (!User.IsInRole("Member") || string.Equals(participant.MembershipId, User.Identity?.Name, StringComparison.OrdinalIgnoreCase)) &&
+        (!User.IsInRole("GeneralAdmin") || (TryGetAuxiliary(out var auxiliary) && participant.Auxiliary == auxiliary));
+
+    private bool CanAccessAuxiliary(Auxiliary auxiliary) =>
+        !User.IsInRole("GeneralAdmin") || (TryGetAuxiliary(out var userAuxiliary) && userAuxiliary == auxiliary);
+
+    private bool TryGetAuxiliary(out Auxiliary auxiliary) =>
+        Enum.TryParse(User.FindFirst("Auxiliary")?.Value, true, out auxiliary);
 }

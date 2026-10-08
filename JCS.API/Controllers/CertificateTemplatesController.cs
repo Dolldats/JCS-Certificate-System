@@ -29,6 +29,8 @@ public class CertificateTemplatesController : ControllerBase
     public async Task<IActionResult> GetAllTemplates(CancellationToken token)
     {
         var templates = await _certificateTemplateService.GetAllAsync(token);
+        if (User.IsInRole("GeneralAdmin") && TryGetAuxiliary(out var auxiliary))
+            templates = templates.Where(x => x.Auxiliary == null || x.Auxiliary == auxiliary).ToList();
         return Ok(templates);
     }
 
@@ -48,16 +50,21 @@ public class CertificateTemplatesController : ControllerBase
             return NotFound(new { message = $"Template with id {id} not found." });
         }
 
+        if (User.IsInRole("GeneralAdmin") && result.Auxiliary.HasValue && !CanAccessAuxiliary(result.Auxiliary.Value)) return Forbid();
+
         return Ok(result);
     }
 
     [HttpPost]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> CreateTemplate([FromBody] CreateCertificateTemplateDto dto, CancellationToken token)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
+
+        if (User.IsInRole("GeneralAdmin") && (!dto.Auxiliary.HasValue || !CanAccessAuxiliary(dto.Auxiliary.Value))) return Forbid();
 
         if (!IsValidLayout(dto.ConfigurationJson, out var error))
         {
@@ -69,12 +76,17 @@ public class CertificateTemplatesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> UpdateTemplate(Guid id, [FromBody] UpdateCertificateTemplateDto dto, CancellationToken token)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
+
+        var existing = await _certificateTemplateService.GetByIdAsync(id, token);
+        if (existing == null) return NotFound(new { message = $"Template with id {id} not found." });
+        if (User.IsInRole("GeneralAdmin") && (existing.Auxiliary.HasValue && !CanAccessAuxiliary(existing.Auxiliary.Value) || !dto.Auxiliary.HasValue || !CanAccessAuxiliary(dto.Auxiliary.Value))) return Forbid();
 
         if (!IsValidLayout(dto.ConfigurationJson, out var error))
         {
@@ -91,8 +103,12 @@ public class CertificateTemplatesController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> DeleteTemplate(Guid id, CancellationToken token)
     {
+        var existing = await _certificateTemplateService.GetByIdAsync(id, token);
+        if (existing == null) return NotFound(new { message = $"Template with id {id} not found." });
+        if (User.IsInRole("GeneralAdmin") && existing.Auxiliary.HasValue && !CanAccessAuxiliary(existing.Auxiliary.Value)) return Forbid();
         var deleted = await _certificateTemplateService.DeleteAsync(id, token);
         if (!deleted)
         {
@@ -103,6 +119,7 @@ public class CertificateTemplatesController : ControllerBase
     }
 
     [HttpPost("assets")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> UploadAssets([FromForm] UploadAssetRequest request, CancellationToken token = default)
     {
         if (request.File == null || request.File.Length == 0)
@@ -116,6 +133,12 @@ public class CertificateTemplatesController : ControllerBase
         if (string.IsNullOrEmpty(folder))
         {
             return BadRequest(new { message = "Folder must be templates, signatures, or logos." });
+        }
+
+        if (User.IsInRole("GeneralAdmin"))
+        {
+            if (!TryGetAuxiliary(out var auxiliary)) return Forbid();
+            folder = Path.Combine("auxiliaries", auxiliary.ToString().ToLowerInvariant(), folder);
         }
 
         var path = await _assetStorageService.SaveAsync(request.File.OpenReadStream(), request.File.FileName, folder, token);
@@ -265,6 +288,13 @@ public class CertificateTemplatesController : ControllerBase
             _ => "start"
         };
     }
+
+    private bool CanAccessAuxiliary(Auxiliary auxiliary) =>
+        !User.IsInRole("GeneralAdmin") ||
+        (TryGetAuxiliary(out var userAuxiliary) && userAuxiliary == auxiliary);
+
+    private bool TryGetAuxiliary(out Auxiliary auxiliary) =>
+        Enum.TryParse(User.FindFirst("Auxiliary")?.Value, true, out auxiliary);
 }
 
 public class TemplatePreviewRequest

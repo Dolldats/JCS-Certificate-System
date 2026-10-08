@@ -40,7 +40,7 @@ public class AuthController : ControllerBase
         }
 
         var assignment = await _assignmentService.GetActiveAssignmentAsync(request.Username, token);
-        var memberProfile = await _memberService.VerifyMemberAsync(request.Username, token);
+        var memberProfile = await _memberService.VerifyMemberAsync(request.Username, token, request.Username);
         
         var role = assignment?.Role.ToString() ?? "Member";
         var auxiliary = assignment?.Auxiliary.ToString() ?? memberProfile?.Auxiliary?.ToString();

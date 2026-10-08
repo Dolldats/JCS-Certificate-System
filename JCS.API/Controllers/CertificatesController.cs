@@ -5,6 +5,7 @@ using JCS.Application.Interfaces.Repositories;
 using System.Text.Json;
 using JCS.Application.DTOs.CertificateTemplate;
 using Microsoft.AspNetCore.Authorization;
+using JCS.API.Common;
 
 namespace JCS.API.Controllers;
 
@@ -29,7 +30,7 @@ public class CertificatesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAllCertificates(CancellationToken token)
+    public async Task<IActionResult> GetAllCertificates([FromQuery] PageQuery query, CancellationToken token)
     {
         var certificates = await _certificateService.GetAllAsync(token);
         if (User.IsInRole("Member"))
@@ -37,7 +38,22 @@ public class CertificatesController : ControllerBase
             var membershipId = User.Identity?.Name;
             certificates = certificates.Where(x => string.Equals(x.ParticipantMembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).ToList();
         }
-        return Ok(certificates);
+        else if (User.IsInRole("GeneralAdmin"))
+        {
+            var allowed = new List<CertificateDto>();
+            foreach (var certificate in certificates)
+            {
+                var participant = await _participantService.GetByIdAsync(certificate.ParticipantId, token);
+                if (participant != null && CanAccessAuxiliary(participant.Auxiliary)) allowed.Add(certificate);
+            }
+            certificates = allowed;
+        }
+        if (query.EventId.HasValue) certificates = certificates.Where(x => x.EventId == query.EventId.Value).ToList();
+        if (!string.IsNullOrWhiteSpace(query.Search)) certificates = certificates.Where(x => x.CertificateNumber.Contains(query.Search, StringComparison.OrdinalIgnoreCase) || (x.ParticipantName?.Contains(query.Search, StringComparison.OrdinalIgnoreCase) ?? false)).ToList();
+        if (!string.IsNullOrWhiteSpace(query.Status) && Enum.TryParse<JCS.Domain.Enum.CertificateStatus>(query.Status, true, out var certificateStatus)) certificates = certificates.Where(x => x.Status == certificateStatus).ToList();
+        var total = certificates.Count;
+        var items = certificates.OrderByDescending(x => x.GeneratedAt).Skip((query.SafePage - 1) * query.SafePageSize).Take(query.SafePageSize).ToList();
+        return Ok(new PagedResult<CertificateDto>(items, query.SafePage, query.SafePageSize, total));
     }
 
     [HttpGet("{id:guid}")]
@@ -49,10 +65,13 @@ public class CertificatesController : ControllerBase
             return NotFound(new { message = $"Certificate with id {id} not found." });
         }
 
+        if (!await CanAccessCertificateAsync(result, token)) return Forbid();
+
         return Ok(result);
     }
 
     [HttpGet("verify/{certificateNumber}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetByCertificateNumber(string certificateNumber, CancellationToken token)
     {
         var result = await _certificateService.GetByCertificateNumberAsync(certificateNumber, token);
@@ -72,6 +91,18 @@ public class CertificatesController : ControllerBase
     public async Task<IActionResult> GetCertificatesByEvent(Guid eventId, CancellationToken token)
     {
         var certificates = await _certificateService.GetByEventIdAsync(eventId, token);
+        if (User.IsInRole("Member"))
+            certificates = certificates.Where(x => string.Equals(x.ParticipantMembershipId, User.Identity?.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+        else if (User.IsInRole("GeneralAdmin"))
+        {
+            var allowed = new List<CertificateDto>();
+            foreach (var certificate in certificates)
+            {
+                var participant = await _participantService.GetByIdAsync(certificate.ParticipantId, token);
+                if (participant != null && CanAccessAuxiliary(participant.Auxiliary)) allowed.Add(certificate);
+            }
+            certificates = allowed;
+        }
         return Ok(certificates);
     }
 
@@ -95,6 +126,7 @@ public class CertificatesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> CreateCertificate([FromBody] CreateCertificateDto dto, CancellationToken token)
     {
         if (!ModelState.IsValid)
@@ -117,6 +149,7 @@ public class CertificatesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> UpdateCertificate(Guid id, [FromBody] UpdateCertificateDto dto, CancellationToken token)
     {
         if (!ModelState.IsValid)
@@ -124,7 +157,19 @@ public class CertificatesController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var result = await _certificateService.UpdateAsync(id, dto, token);
+        var existing = await _certificateService.GetByIdAsync(id, token);
+        if (existing == null) return NotFound(new { message = $"Certificate with id {id} not found." });
+        if (!await CanAccessCertificateAsync(existing, token)) return Forbid();
+
+        CertificateDto? result;
+        try
+        {
+            result = await _certificateService.UpdateAsync(id, dto, token);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
         if (result == null)
         {
             return NotFound(new { message = $"Certificate with id {id} not found." });
@@ -134,8 +179,12 @@ public class CertificatesController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> DeleteCertificate(Guid id, CancellationToken token)
     {
+        var existing = await _certificateService.GetByIdAsync(id, token);
+        if (existing == null) return NotFound(new { message = $"Certificate with id {id} not found." });
+        if (!await CanAccessCertificateAsync(existing, token)) return Forbid();
         var deleted = await _certificateService.DeleteAsync(id, token);
         if (!deleted)
         {
@@ -154,6 +203,8 @@ public class CertificatesController : ControllerBase
             return NotFound(new { message = $"Certificate with id {id} not found." });
         }
 
+        if (!await CanAccessCertificateAsync(certificate, token)) return Forbid();
+
         if (string.IsNullOrWhiteSpace(certificate.FilePath) || !System.IO.File.Exists(certificate.FilePath))
         {
             return NotFound(new { message = "The certificate file has not been generated yet." });
@@ -171,6 +222,7 @@ public class CertificatesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/generate")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> GenerateCertificate(Guid id, CancellationToken token)
     {
         var certificate = await _certificateRepository.GetByIdAsync(id, token);
@@ -178,6 +230,7 @@ public class CertificatesController : ControllerBase
         {
             return NotFound(new { message = "Certificate, participant, event, or template was not found." });
         }
+        if (!CanAccessAuxiliary(certificate.Participant.Auxiliary)) return Forbid();
 
         var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson)
             ? new TemplateLayoutDto()
@@ -214,9 +267,12 @@ public class CertificatesController : ControllerBase
     }
 
     [HttpPost("event/{eventId:guid}/generate-all")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
     public async Task<IActionResult> GenerateEventCertificates(Guid eventId, CancellationToken token)
     {
         var certificates = await _certificateRepository.GetByEventIdAsync(eventId, token);
+        if (User.IsInRole("GeneralAdmin"))
+            certificates = certificates.Where(x => x.Participant != null && CanAccessAuxiliary(x.Participant.Auxiliary)).ToList();
         var generated = 0;
         foreach (var certificate in certificates)
         {
@@ -262,6 +318,10 @@ public class CertificatesController : ControllerBase
     public async Task<IActionResult> DownloadAllPdf(Guid eventId, CancellationToken token)
     {
         var certificates = await _certificateRepository.GetByEventIdAsync(eventId, token);
+        if (User.IsInRole("Member"))
+            certificates = certificates.Where(x => string.Equals(x.Participant?.MembershipId, User.Identity?.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+        else if (User.IsInRole("GeneralAdmin"))
+            certificates = certificates.Where(x => x.Participant != null && CanAccessAuxiliary(x.Participant.Auxiliary)).ToList();
 
         var requests = new List<CertificateRenderRequest>();
         foreach (var certificate in certificates)
@@ -305,4 +365,22 @@ public class CertificatesController : ControllerBase
 
         return Path.IsPathRooted(path) ? path : Path.Combine(_environment.ContentRootPath, path.Replace('/', Path.DirectorySeparatorChar));
     }
+
+    private async Task<bool> CanAccessCertificateAsync(CertificateDto certificate, CancellationToken token)
+    {
+        if (User.IsInRole("Member"))
+            return string.Equals(certificate.ParticipantMembershipId, User.Identity?.Name, StringComparison.OrdinalIgnoreCase);
+
+        if (User.IsInRole("GeneralAdmin"))
+        {
+            var participant = await _participantService.GetByIdAsync(certificate.ParticipantId, token);
+            return participant != null && CanAccessAuxiliary(participant.Auxiliary);
+        }
+
+        return User.IsInRole("SuperAdmin");
+    }
+
+    private bool CanAccessAuxiliary(JCS.Domain.Enum.Auxiliary auxiliary) =>
+        !User.IsInRole("GeneralAdmin") ||
+        (Enum.TryParse(User.FindFirst("Auxiliary")?.Value, true, out JCS.Domain.Enum.Auxiliary userAuxiliary) && userAuxiliary == auxiliary);
 }

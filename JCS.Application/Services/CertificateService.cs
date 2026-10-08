@@ -45,6 +45,16 @@ public class CertificateService : ICertificateService
         };
     }
 
+    private static bool IsValidTransition(CertificateStatus current, CertificateStatus next) =>
+        current == next || (current, next) switch
+        {
+            (CertificateStatus.Draft, CertificateStatus.Generated) => true,
+            (CertificateStatus.Generated, CertificateStatus.Issued) => true,
+            (CertificateStatus.Generated, CertificateStatus.Revoked) => true,
+            (CertificateStatus.Issued, CertificateStatus.Revoked) => true,
+            _ => false
+        };
+
     public async Task<CertificateDto?> GetByCertificateNumberAsync(string certificateNumber, CancellationToken token = default)
     {
         var certificate = await _certificateRepository.GetByCertificateNumberAsync(certificateNumber, token);
@@ -184,6 +194,9 @@ public class CertificateService : ICertificateService
         {
             return null;
         }
+
+        if (!IsValidTransition(certificate.Status, dto.Status))
+            throw new InvalidOperationException($"Invalid certificate status transition: {certificate.Status} to {dto.Status}.");
 
         certificate.Status = dto.Status;
         certificate.FilePath = dto.FilePath;

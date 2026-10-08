@@ -19,7 +19,6 @@ public class Participant
     public string? VerificationMessage { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? VerifiedAt { get; set; }
-
     public Event? Event { get; set; }
     public ICollection<Certificate> Certificates { get; set; } = new List<Certificate>();
 }
