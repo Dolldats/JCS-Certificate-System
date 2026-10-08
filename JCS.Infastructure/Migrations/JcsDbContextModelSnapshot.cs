@@ -3,8 +3,8 @@ using System;
 using JCS.Infastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -17,235 +17,384 @@ namespace JCS.Infastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.0")
-                .HasAnnotation("Relational:MaxIdentifierLength", 64);
+                .HasAnnotation("ProductVersion", "9.0.1")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
-            MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("JCS.Domain.Entities.AdminAssignment", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("AssignedAt")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("AssignedBy")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<int>("Auxiliary")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("MembershipId")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTime?>("RevokedAt")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("RevokedBy")
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
 
                     b.Property<int>("Status")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
                     b.HasIndex("MembershipId", "Status");
 
-                    b.ToTable("AdminAssignments", (string)null);
+                    b.ToTable("AdminAssignments");
                 });
 
             modelBuilder.Entity("JCS.Domain.Entities.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Action")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("Auxiliary")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Details")
-                        .HasColumnType("longtext");
+                        .HasColumnType("text");
 
                     b.Property<string>("EntityId")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("EntityName")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTime>("PerformedAt")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("PerformedBy")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Action");
+
                     b.HasIndex("PerformedAt");
 
-                    b.ToTable("AuditLogs", (string)null);
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("JCS.Domain.Entities.Certificate", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("CertificateNumber")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<Guid>("CertificateTemplateId")
-                        .HasColumnType("char(36)");
+                        .HasColumnType("uuid");
 
-                    b.Property<string>("CertificateType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                    b.Property<int>("CertificateType")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("EventId")
-                        .HasColumnType("char(36)");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("FilePath")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTime>("GeneratedAt")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("IssuedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("ParticipantId")
-                        .HasColumnType("char(36)");
+                        .HasColumnType("uuid");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                    b.Property<string>("RevocationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RevokedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CertificateNumber")
                         .IsUnique();
 
-                    b.ToTable("Certificates", (string)null);
+                    b.HasIndex("CertificateTemplateId");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("ParticipantId");
+
+                    b.ToTable("Certificates");
                 });
 
             modelBuilder.Entity("JCS.Domain.Entities.CertificateTemplate", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("Auxiliary")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("BackgroundImagePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("ConfigurationJson")
-                        .HasColumnType("longtext");
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .HasColumnType("longtext");
+                        .HasColumnType("text");
 
                     b.Property<string>("FilePath")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal>("Height")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Orientation")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("PageSize")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("Width")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("CertificateTemplates", (string)null);
+                    b.ToTable("CertificateTemplates");
                 });
 
             modelBuilder.Entity("JCS.Domain.Entities.Event", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("Auxiliary")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .HasColumnType("longtext");
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("EventDate")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("EventType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                    b.Property<int>("EventType")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("OrganizationalLevel")
+                        .HasColumnType("integer");
 
                     b.Property<string>("OrganizationalUnit")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("character varying(50)");
 
                     b.Property<string>("Venue")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Events", (string)null);
+                    b.ToTable("Events");
                 });
 
             modelBuilder.Entity("JCS.Domain.Entities.Participant", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Auxiliary")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Dila")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
 
                     b.Property<string>("Email")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Ilaqa")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
 
                     b.Property<bool>("IsVerified")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Jamaat")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
 
                     b.Property<string>("MembershipId")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
 
-                    b.Property<string>("VerificationStatus")
-                        .IsRequired()
+                    b.Property<string>("Phone")
                         .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("VerificationMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("VerificationStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("MembershipId")
+                    b.HasIndex("EventId", "MembershipId")
                         .IsUnique();
 
-                    b.ToTable("Participants", (string)null);
+                    b.ToTable("Participants");
+                });
+
+            modelBuilder.Entity("JCS.Domain.Entities.Certificate", b =>
+                {
+                    b.HasOne("JCS.Domain.Entities.CertificateTemplate", "CertificateTemplate")
+                        .WithMany("Certificates")
+                        .HasForeignKey("CertificateTemplateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("JCS.Domain.Entities.Event", "Event")
+                        .WithMany("Certificates")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("JCS.Domain.Entities.Participant", "Participant")
+                        .WithMany("Certificates")
+                        .HasForeignKey("ParticipantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CertificateTemplate");
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Participant");
+                });
+
+            modelBuilder.Entity("JCS.Domain.Entities.Participant", b =>
+                {
+                    b.HasOne("JCS.Domain.Entities.Event", "Event")
+                        .WithMany("Participants")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("JCS.Domain.Entities.CertificateTemplate", b =>
+                {
+                    b.Navigation("Certificates");
+                });
+
+            modelBuilder.Entity("JCS.Domain.Entities.Event", b =>
+                {
+                    b.Navigation("Certificates");
+
+                    b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("JCS.Domain.Entities.Participant", b =>
+                {
+                    b.Navigation("Certificates");
                 });
 #pragma warning restore 612, 618
         }
