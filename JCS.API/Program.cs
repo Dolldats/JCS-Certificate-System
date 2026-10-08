@@ -140,14 +140,11 @@ namespace JCS.API
 
 
             // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
+            app.UseSwagger(c =>
             {
-                app.UseSwagger(c =>
-                {
-                    c.SerializeAsV2 = false;
-                });
-                app.UseSwaggerUI();
-            }
+                c.SerializeAsV2 = false;
+            });
+            app.UseSwaggerUI();
 
             app.UseExceptionHandler();
 
