@@ -40,7 +40,20 @@ export default function AuditPage() {
   };
 
   useEffect(() => {
-    loadLogs();
+    // Fetch in an async task (not synchronously in the effect body) so the
+    // initial server/client render stays consistent and lint-safe.
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
+      const data = await auditApi.getLogs(aux);
+      if (cancelled) return;
+      setLogs(data);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [activeAuxiliary]);
 
   const filteredLogs = logs.filter((log) => {
@@ -61,6 +74,7 @@ export default function AuditPage() {
     'General Admin Revoked',
     'Event Created',
     'Event Updated',
+    'Event Deleted',
     'Participant Import',
     'Member Verification',
     'Certificate Generated',

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Certificate, CertificateTemplate, CertificateType } from '../../types';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
@@ -8,7 +8,6 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { CertificatePreview } from './CertificatePreview';
 import { getRegionLabel } from './certificateText';
-import { INITIAL_TEMPLATES } from '../../services/mockData';
 import { PencilLine, Save } from 'lucide-react';
 
 interface EditCertificateModalProps {
@@ -65,33 +64,34 @@ export function EditCertificateModal({
     templateId: '',
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [prevCertificate, setPrevCertificate] = useState<Certificate | null>(null);
 
-  useEffect(() => {
-    if (certificate && isOpen) {
-      setForm({
-        participantName: certificate.participantName,
-        dila: certificate.dila,
-        ilaqa: certificate.ilaqa || '',
-        jamaat: certificate.jamaat,
-        eventName: certificate.eventName,
-        eventDate: certificate.eventDate,
-        venue: certificate.venue || '',
-        theme: certificate.theme || '',
-        type: certificate.type,
-        templateId: certificate.templateId,
-      });
-    }
-  }, [certificate, isOpen]);
+  // Sync the form when a (new) certificate is opened for editing. This runs
+  // during render (not in an effect) so edits always start from fresh data.
+  if (certificate && isOpen && certificate !== prevCertificate) {
+    setPrevCertificate(certificate);
+    setForm({
+      participantName: certificate.participantName,
+      dila: certificate.dila,
+      ilaqa: certificate.ilaqa || '',
+      jamaat: certificate.jamaat,
+      eventName: certificate.eventName,
+      eventDate: certificate.eventDate,
+      venue: certificate.venue || '',
+      theme: certificate.theme || '',
+      type: certificate.type,
+      templateId: certificate.templateId,
+    });
+  }
 
   if (!certificate) return null;
 
   const set = (key: keyof typeof form, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const previewTemplate: CertificateTemplate =
+  const previewTemplate: CertificateTemplate | undefined =
     templates.find((t) => t.id === form.templateId) ||
-    INITIAL_TEMPLATES.find((t) => t.id === form.templateId) ||
-    INITIAL_TEMPLATES[0];
+    templates[0];
 
   const handleSave = async () => {
     if (!form.participantName.trim()) return;

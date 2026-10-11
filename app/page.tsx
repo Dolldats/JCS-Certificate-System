@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 import {
   ArrowRight,
   Award,
@@ -74,7 +75,7 @@ const STEPS = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="landing-page min-h-screen text-slate-900">
       {/* Top nav */}
       <header className="sticky top-0 z-50 border-b border-white/10 bg-emerald-950/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
@@ -107,6 +108,7 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Link
               href="/login"
               className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-2 text-sm font-semibold text-emerald-950 shadow-sm transition-colors hover:bg-amber-400"

@@ -9,38 +9,27 @@ import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { switchUser, availableUsers } = useAuth();
-  const [memberId, setMemberId] = useState('ATF-60201');
-  const [password, setPassword] = useState('••••••••••••');
+  const { login } = useAuth();
+  const [memberId, setMemberId] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const inputClass =
     'w-full text-xs rounded-lg bg-slate-100 border border-transparent p-2.5 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-colors placeholder:text-slate-400';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-
-    const matching = availableUsers.find(
-      (u) => u.memberId.toUpperCase() === memberId.trim().toUpperCase()
-    );
-
-    if (matching) {
-      await switchUser(matching.id);
-    } else if (availableUsers.length > 0) {
-      await switchUser(availableUsers[0].id);
+    try {
+      await login(memberId, password);
+      router.push('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+      setLoading(false);
     }
-
-    setLoading(false);
-    router.push('/dashboard');
-  };
-
-  const handleQuickLogin = async (userId: string) => {
-    setLoading(true);
-    await switchUser(userId);
-    setLoading(false);
-    router.push('/dashboard');
   };
 
   return (
@@ -85,6 +74,8 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {error && <p className="text-3xs text-rose-600 font-medium text-center">{error}</p>}
+
         <Button
           type="submit"
           className="w-full bg-gradient-to-r from-emerald-700 to-green-600 hover:from-emerald-800 hover:to-green-700"
@@ -95,24 +86,6 @@ export default function LoginPage() {
           Sign In
         </Button>
       </form>
-
-      {/* Quick test access */}
-      <div className="mt-5 border-t border-slate-100 pt-4">
-        <p className="text-center text-3xs text-slate-400 mb-2.5">Quick test access</p>
-        <div className="flex items-center justify-center gap-2 flex-wrap">
-          {availableUsers.map((u) => (
-            <button
-              key={u.id}
-              type="button"
-              title={`${u.fullName} (${u.memberId})`}
-              onClick={() => handleQuickLogin(u.id)}
-              className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-colors cursor-pointer"
-            >
-              {u.fullName.charAt(0)}
-            </button>
-          ))}
-        </div>
-      </div>
     </AuthSplitShell>
   );
 }

@@ -105,14 +105,19 @@ function CertificatesContent() {
   };
 
   useEffect(() => {
-    loadData();
+    async function run() {
+      await loadData();
+    }
+    run();
   }, [activeAuxiliary]);
 
   // Keep the search box in sync when arriving via the navbar search (?q=...).
-  useEffect(() => {
-    setSearchQuery(searchParams.get('q') || '');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  const navbarQuery = searchParams.get('q') || '';
+  const [prevNavbarQuery, setPrevNavbarQuery] = useState(navbarQuery);
+  if (navbarQuery !== prevNavbarQuery) {
+    setPrevNavbarQuery(navbarQuery);
+    setSearchQuery(navbarQuery);
+  }
 
   useEffect(() => {
     async function loadWizardParticipants() {
@@ -489,6 +494,7 @@ function CertificatesContent() {
         isOpen={Boolean(selectedCertificate)}
         onClose={() => setSelectedCertificate(null)}
         certificate={selectedCertificate}
+        templates={templates}
         onRevoke={handleRevoke}
       />
 

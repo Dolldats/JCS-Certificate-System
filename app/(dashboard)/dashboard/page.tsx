@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   Plus,
   ArrowRight,
-  Sparkles,
   Clock,
   TrendingUp,
 } from 'lucide-react';
@@ -58,14 +57,6 @@ export default function DashboardPage() {
           <Award className="w-64 h-64 text-amber-400" />
         </div>
         <div className="relative z-10 max-w-2xl space-y-2">
-          <div className="inline-flex items-center gap-2 bg-emerald-700/60 border border-emerald-600/60 px-2.5 py-1 rounded-full text-2xs font-semibold text-amber-300">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>
-              {user?.role === 'SUPER_ADMIN'
-                ? 'Central Headquarters Overview'
-                : `${user?.assignedAuxiliary} Majlis Administration`}
-            </span>
-          </div>
           <h1 className="text-xl sm:text-3xl font-bold tracking-tight">
             Welcome, {user?.fullName}
           </h1>

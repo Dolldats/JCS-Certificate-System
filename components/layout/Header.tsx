@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
+import { ThemeToggle } from '../ui/ThemeToggle';
 import { Auxiliary } from '../../types';
 import {
   Menu,
@@ -47,7 +48,7 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
 
   return (
     <div className="px-4 sm:px-6 pt-4 shrink-0 z-30">
-      <header className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-lg shadow-slate-200/50 border border-white/60 px-3 sm:px-5 py-2.5 flex items-center gap-2 sm:gap-3">
+      <header className="theme-header rounded-2xl px-3 sm:px-5 py-2.5 flex items-center gap-2 sm:gap-3">
         {/* Mobile menu */}
         <button
           onClick={onOpenMobileMenu}
@@ -133,6 +134,8 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
           <Bell className="w-[18px] h-[18px]" />
           <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-rose-500 border border-white" />
         </Link>
+
+        <ThemeToggle />
 
         {/* Profile + logout */}
         <div className="relative shrink-0">

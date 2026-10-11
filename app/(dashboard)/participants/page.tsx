@@ -4,7 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
 import { eventsApi, participantsApi } from '../../../services/api';
-import { Event, Participant, Auxiliary } from '../../../types';
+import { Event, Participant, Auxiliary, BulkVerificationResult } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -46,13 +46,15 @@ function ParticipantsContent() {
   const [isSingleAddOpen, setIsSingleAddOpen] = useState(false);
   const [singleMemberId, setSingleMemberId] = useState('');
   const [isVerifyingSingle, setIsVerifyingSingle] = useState(false);
-  const [singleVerificationResult, setSingleVerificationResult] = useState<any>(null);
+  const [singleVerificationResult, setSingleVerificationResult] = useState<Participant | null>(null);
 
   // Bulk Upload Modal
   const [isBulkOpen, setIsBulkOpen] = useState(false);
+  const [bulkMode, setBulkMode] = useState<'paste' | 'file'>('paste');
   const [bulkInputText, setBulkInputText] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
-  const [bulkSummary, setBulkSummary] = useState<any>(null);
+  const [bulkSummary, setBulkSummary] = useState<BulkVerificationResult | null>(null);
 
   useEffect(() => {
     async function initEvents() {
@@ -76,9 +78,12 @@ function ParticipantsContent() {
   };
 
   useEffect(() => {
-    if (selectedEventId) {
-      loadParticipants();
+    async function run() {
+      if (selectedEventId) {
+        await loadParticipants();
+      }
     }
+    run();
   }, [selectedEventId]);
 
   const activeEvent = events.find((e) => e.id === selectedEventId);
@@ -121,6 +126,21 @@ function ParticipantsContent() {
       await loadParticipants();
     } catch (err) {
       console.error('Failed to process bulk upload', err);
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const handleFileUploadSubmit = async () => {
+    if (!selectedEventId || !user || !selectedFile) return;
+    setIsBulkProcessing(true);
+    try {
+      await participantsApi.uploadFile(selectedEventId, selectedFile, user);
+      await loadParticipants();
+      setIsBulkOpen(false);
+      setSelectedFile(null);
+    } catch (err) {
+      console.error('Failed to upload roster file', err);
     } finally {
       setIsBulkProcessing(false);
     }
@@ -413,26 +433,90 @@ function ParticipantsContent() {
         <div className="space-y-4">
           {!bulkSummary ? (
             <>
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-semibold text-slate-700">
-                  Paste Member IDs (one per line or comma-separated)
-                </label>
+              {/* Mode Switcher */}
+              <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
                 <button
                   type="button"
-                  onClick={handleSampleBulkFill}
-                  className="text-2xs text-emerald-700 font-bold hover:underline cursor-pointer"
+                  onClick={() => setBulkMode('paste')}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    bulkMode === 'paste'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
                 >
-                  ⚡ Insert Demo Test Batch
+                  Paste Member IDs
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkMode('file')}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    bulkMode === 'file'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Upload File (.csv / .xlsx)
                 </button>
               </div>
 
-              <textarea
-                value={bulkInputText}
-                onChange={(e) => setBulkInputText(e.target.value)}
-                placeholder="ATF-2025-01&#10;ATF-2025-02&#10;ATF-2025-03&#10;..."
-                rows={7}
-                className="w-full rounded-xl border border-slate-300 p-3 font-mono text-xs focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none"
-              />
+              {bulkMode === 'paste' ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Paste Member IDs (one per line or comma-separated)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleSampleBulkFill}
+                      className="text-2xs text-emerald-700 font-bold hover:underline cursor-pointer"
+                    >
+                      ⚡ Insert Demo Test Batch
+                    </button>
+                  </div>
+
+                  <textarea
+                    value={bulkInputText}
+                    onChange={(e) => setBulkInputText(e.target.value)}
+                    placeholder="ATF-2025-01&#10;ATF-2025-02&#10;ATF-2025-03&#10;..."
+                    rows={6}
+                    className="w-full rounded-xl border border-slate-300 p-3 font-mono text-xs focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none"
+                  />
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Upload CSV or Excel Roster
+                  </label>
+                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-emerald-500 transition-colors bg-slate-50/50">
+                    <input
+                      type="file"
+                      accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setSelectedFile(file);
+                      }}
+                      className="hidden"
+                      id="roster-file-input"
+                    />
+                    <label
+                      htmlFor="roster-file-input"
+                      className="cursor-pointer space-y-2 block"
+                    >
+                      <FileSpreadsheet className="w-8 h-8 text-emerald-600 mx-auto" />
+                      <div className="text-xs font-semibold text-slate-700">
+                        {selectedFile ? (
+                          <span className="text-emerald-700 font-bold">{selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+                        ) : (
+                          'Click to select .CSV or .XLSX roster file'
+                        )}
+                      </div>
+                      <p className="text-3xs text-slate-400">
+                        File should contain Member IDs and participant details.
+                      </p>
+                    </label>
+                  </div>
+                </div>
+              )}
 
               <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-xl flex items-start gap-2.5 text-xs text-emerald-900">
                 <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -445,16 +529,19 @@ function ParticipantsContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsBulkOpen(false)}
+                  onClick={() => {
+                    setIsBulkOpen(false);
+                    setSelectedFile(null);
+                  }}
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="primary"
                   size="sm"
-                  onClick={handleBulkSubmit}
+                  onClick={bulkMode === 'paste' ? handleBulkSubmit : handleFileUploadSubmit}
                   isLoading={isBulkProcessing}
-                  disabled={!bulkInputText.trim()}
+                  disabled={bulkMode === 'paste' ? !bulkInputText.trim() : !selectedFile}
                   leftIcon={<Upload className="w-4 h-4" />}
                 >
                   Run Central Verification

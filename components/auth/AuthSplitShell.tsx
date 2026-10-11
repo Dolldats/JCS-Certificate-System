@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { BadgeCheck, FileBadge, History } from 'lucide-react';
+import { ThemeToggle } from '../ui/ThemeToggle';
 
 interface AuthSplitShellProps {
   children: React.ReactNode;
@@ -64,19 +65,20 @@ export function AuthSplitShell({ children }: AuthSplitShellProps) {
         </p>
       </div>
 
-      {/* Right — light form side */}
-      <div className="flex items-center justify-center bg-[#eef1f7] px-5 py-10">
+      {/* Theme-aware form side */}
+      <div className="auth-form-area relative flex items-center justify-center px-5 py-10">
+        <ThemeToggle className="absolute right-5 top-5 sm:right-8 sm:top-8" />
         <div className="w-full max-w-sm">
           {/* Mobile brand row */}
           <div className="lg:hidden flex items-center justify-center gap-2.5 mb-6">
-            <div className="w-9 h-9 rounded-xl bg-white shadow-sm border border-slate-200/70 p-1 overflow-hidden flex items-center justify-center">
+            <div className="theme-logo-tile w-9 h-9 rounded-xl shadow-sm border p-1 overflow-hidden flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/ahmadiyyah_logo.png" alt="Ahmadiyyah logo" className="w-full h-full object-contain" />
             </div>
-            <span className="text-xs font-bold tracking-[0.18em] text-slate-800">JAMA&apos;AT CERTIFY</span>
+            <span className="text-xs font-bold tracking-[0.18em] theme-text">JAMA&apos;AT CERTIFY</span>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/70 border border-slate-100 px-6 sm:px-8 py-8">
+          <div className="auth-card rounded-2xl px-6 sm:px-8 py-8">
             {children}
           </div>
         </div>

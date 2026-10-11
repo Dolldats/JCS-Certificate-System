@@ -13,7 +13,6 @@ import {
   Palette,
   ShieldAlert,
   ClipboardList,
-  Sparkles,
   PanelLeftClose,
 } from 'lucide-react';
 // Main brand logo — public/ahmadiyyah_logo.png
@@ -75,14 +74,14 @@ export function Sidebar({ onCloseMobile, collapsed = false, onToggleCollapse }: 
   return (
     <aside
       className={cn(
-        'bg-slate-900/80 backdrop-blur-xl text-slate-100 flex flex-col h-full shrink-0 select-none border-r border-white/10 shadow-2xl shadow-slate-900/20 transition-[width] duration-200',
+        'sidebar-surface flex flex-col h-full shrink-0 select-none border-r transition-[width] duration-200',
         collapsed ? 'w-[76px]' : 'w-64'
       )}
     >
       {/* Brand Header */}
       <div
         className={cn(
-          'border-b border-white/10',
+          'border-b sidebar-divider',
           collapsed ? 'p-3 flex flex-col items-center gap-2' : 'p-5 flex items-center gap-3'
         )}
       >
@@ -113,14 +112,11 @@ export function Sidebar({ onCloseMobile, collapsed = false, onToggleCollapse }: 
         {!collapsed && (
           <div className="overflow-hidden flex-1">
             <div className="flex items-center gap-1.5">
-              <h1 className="text-sm font-bold text-white tracking-wide truncate">
+              <h1 className="text-sm font-bold sidebar-heading tracking-wide truncate">
                 Jama&apos;at Certify
               </h1>
-              <span className="bg-amber-500/20 text-amber-300 border border-amber-400/30 text-3xs font-semibold px-1 py-0.5 rounded">
-                v1.0
-              </span>
             </div>
-            <p className="text-2xs text-slate-400 truncate">Certificate System</p>
+            <p className="text-2xs sidebar-muted truncate">Certificate System</p>
           </div>
         )}
         {onToggleCollapse && !collapsed && (
@@ -128,7 +124,7 @@ export function Sidebar({ onCloseMobile, collapsed = false, onToggleCollapse }: 
             onClick={onToggleCollapse}
             title="Collapse sidebar"
             aria-label="Collapse sidebar"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+            className="p-1.5 rounded-lg sidebar-muted hover:text-emerald-700 hover:bg-black/5 transition-colors cursor-pointer shrink-0"
           >
             <PanelLeftClose className="w-4 h-4" />
           </button>
@@ -138,7 +134,7 @@ export function Sidebar({ onCloseMobile, collapsed = false, onToggleCollapse }: 
       {/* Nav Links */}
       <nav className={cn('flex-1 py-4 space-y-1 overflow-y-auto', collapsed ? 'px-2' : 'px-3')}>
         {!collapsed && (
-          <div className="px-3 pb-2 text-3xs font-semibold text-slate-400 uppercase tracking-wider">
+          <div className="px-3 pb-2 text-3xs font-semibold sidebar-muted uppercase tracking-wider">
             Menus
           </div>
         )}
@@ -159,14 +155,14 @@ export function Sidebar({ onCloseMobile, collapsed = false, onToggleCollapse }: 
                 collapsed ? 'justify-center px-0 py-3' : 'gap-3 px-3 py-2.5',
                 isActive
                   ? 'bg-emerald-600 text-white font-semibold shadow-xs'
-                  : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                  : 'sidebar-link'
               )}
             >
               <Icon
                 className={cn(
                   'shrink-0',
                   collapsed ? 'w-5 h-5' : 'w-4 h-4',
-                  isActive ? 'text-amber-300' : 'text-slate-400'
+                  isActive ? 'text-white' : 'sidebar-icon'
                 )}
               />
               {!collapsed && <span className="truncate">{item.label}</span>}
@@ -174,21 +170,6 @@ export function Sidebar({ onCloseMobile, collapsed = false, onToggleCollapse }: 
           );
         })}
       </nav>
-
-      {/* Quick Info Footer */}
-      {!collapsed && (
-        <div className="p-3 border-t border-white/10 bg-black/20 space-y-3">
-          <div className="rounded-lg bg-white/5 p-2.5 border border-white/10 backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-2xs text-amber-300 font-semibold mb-1">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Jama&apos;at API Ready</span>
-            </div>
-            <p className="text-3xs text-slate-400 leading-relaxed">
-              Member ID verifications check live against central records.
-            </p>
-          </div>
-        </div>
-      )}
     </aside>
   );
 }

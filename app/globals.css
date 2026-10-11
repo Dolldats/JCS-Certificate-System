@@ -1,8 +1,43 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  color-scheme: light;
+  --background: #f3f7f4;
+  --foreground: #17231d;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-muted: #f5f8f6;
+  --text-primary: #17231d;
+  --text-secondary: #52635a;
+  --text-muted: #77867d;
+  --line: #dfe8e2;
+  --accent: #087452;
+  --accent-soft: #e8f4ed;
+  --sidebar: #ffffff;
+  --sidebar-text: #24342b;
+  --sidebar-muted: #75837a;
+  --sidebar-line: #e5ece7;
+  --shadow-color: 20 50 34;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #111a16;
+  --foreground: #e8f0eb;
+  --surface: #18231d;
+  --surface-raised: #1d2b23;
+  --surface-muted: #202d26;
+  --text-primary: #e8f0eb;
+  --text-secondary: #c0cec5;
+  --text-muted: #93a399;
+  --line: #34453b;
+  --accent: #55c797;
+  --accent-soft: #1b382b;
+  --sidebar: #17211b;
+  --sidebar-text: #e1ece5;
+  --sidebar-muted: #91a197;
+  --sidebar-line: #2d3c33;
+  --shadow-color: 0 0 0;
 }
 
 @theme inline {
@@ -16,6 +51,155 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+button, input, select, textarea { font: inherit; }
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 58%, transparent);
+  outline-offset: 2px;
+}
+
+.app-background {
+  background:
+    radial-gradient(ellipse at 88% 0%, rgba(16, 125, 81, .055), transparent 36%),
+    linear-gradient(145deg, #f7faf8 0%, #f1f6f2 55%, #edf4ef 100%);
+  color: var(--text-primary);
+}
+.landing-page {
+  background:
+    radial-gradient(ellipse at 88% 5%, rgba(16, 125, 81, .05), transparent 35%),
+    #f3f7f4;
+  color: var(--text-primary);
+}
+html[data-theme='dark'] .landing-page {
+  background:
+    radial-gradient(ellipse at 88% 5%, rgba(33, 120, 83, .1), transparent 35%),
+    #111a16;
+}
+
+html[data-theme='dark'] .app-background {
+  background:
+    radial-gradient(ellipse at 88% 0%, rgba(33, 120, 83, .12), transparent 36%),
+    linear-gradient(145deg, #111a16 0%, #141e19 58%, #17241d 100%);
+}
+
+.theme-main { color: var(--text-primary); }
+.surface-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 5px 20px rgb(var(--shadow-color) / .045);
+}
+.theme-header {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px rgb(var(--shadow-color) / .055);
+  backdrop-filter: blur(18px);
+}
+.auth-form-area { background: var(--background); color: var(--text-primary); }
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 55px rgb(var(--shadow-color) / .11);
+}
+.theme-logo-tile { background: var(--surface); border-color: var(--line); }
+.theme-text { color: var(--text-primary); }
+.theme-toggle {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.theme-toggle:hover { color: var(--accent); border-color: var(--accent); box-shadow: 0 3px 10px rgb(var(--shadow-color) / .08); }
+.sidebar-surface { background: var(--sidebar); color: var(--sidebar-text); border-color: var(--sidebar-line); box-shadow: 8px 0 26px rgb(var(--shadow-color) / .035); }
+.sidebar-drawer { background: var(--sidebar); color: var(--sidebar-text); }
+.sidebar-divider { border-color: var(--sidebar-line); }
+.sidebar-heading { color: var(--text-primary); }
+.sidebar-muted, .sidebar-icon { color: var(--sidebar-muted); }
+.sidebar-link { color: var(--sidebar-text); }
+.sidebar-link:hover { color: var(--accent); background: var(--accent-soft); }
+
+/* Map the app's existing Tailwind palette to semantic dark surfaces. The
+   certificate artwork is excluded so its printed colors stay true. */
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-white'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-white/'] {
+  background-color: var(--surface) !important;
+}
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-slate-50'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-slate-50/'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-slate-100'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-gray-50'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-gray-50/'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-gray-100'] {
+  background-color: var(--surface-muted) !important;
+}
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-emerald-50'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-emerald-50/'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-green-50'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-green-50/'] {
+  background-color: var(--accent-soft) !important;
+}
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-emerald-100'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-green-100'] {
+  background-color: #244334 !important;
+}
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-rose-50'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-rose-50/'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-red-50'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-red-50/'] { background-color: #3b2428 !important; }
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-rose-900'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-rose-800'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-rose-700'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-red-900'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-red-800'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-red-700'] { color: #fda4af !important; }
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-rose-200'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-red-200'] { border-color: #63373e !important; }
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-slate-900'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-slate-800'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-gray-900'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-gray-800'] { color: var(--text-primary) !important; }
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-slate-700'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-slate-600'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-gray-700'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-gray-600'] { color: var(--text-secondary) !important; }
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-slate-500'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-slate-400'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-gray-500'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-gray-400'] { color: var(--text-muted) !important; }
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-emerald-900'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-emerald-800'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-emerald-700'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-emerald-600'] { color: #83d9b1 !important; }
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-slate-100'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-slate-200'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-slate-300'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-gray-100'],
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-gray-200'] { border-color: var(--line) !important; }
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-white/'] { border-color: var(--line) !important; }
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-slate-50']:hover,
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-slate-50/']:hover,
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-gray-50']:hover,
+html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-gray-50/']:hover { background-color: var(--surface-raised) !important; }
+html[data-theme='dark'] body input::placeholder,
+html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
 /* ============================================================

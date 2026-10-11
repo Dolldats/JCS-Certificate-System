@@ -35,6 +35,35 @@ const AUXILIARY_OPTIONS: Auxiliary[] = [
   'Atfal',
 ];
 
+const HONORIFICS = new Set([
+  'alhaj', 'alhaji', 'brother', 'dr', 'hafiz', 'haji', 'maulana', 'mr', 'mrs', 'sister',
+]);
+
+function getAdminFirstName(admin: User): string | null {
+  const fullName = admin.fullName.trim();
+  if (!fullName || /^name unavailable$/i.test(fullName) || /^brother\s+\d+$/i.test(fullName)) {
+    return null;
+  }
+
+  const firstName = fullName
+    .split(/\s+/)
+    .find((part) => !HONORIFICS.has(part.replace(/\./g, '').toLowerCase()));
+  return firstName || null;
+}
+
+function getAdminDisplayName(admin: User): string {
+  const firstName = getAdminFirstName(admin);
+  if (!firstName) return 'Name unavailable';
+
+  if (admin.assignedAuxiliary && ['Khuddam', 'Atfal', 'Ansarullah'].includes(admin.assignedAuxiliary)) {
+    return `Brother ${firstName}`;
+  }
+  if (admin.assignedAuxiliary && ['Lajna', 'Nasra'].includes(admin.assignedAuxiliary)) {
+    return `Sister ${firstName}`;
+  }
+  return admin.fullName;
+}
+
 export default function AdminsPage() {
   const { user } = useAuth();
   const [admins, setAdmins] = useState<User[]>([]);
@@ -56,7 +85,10 @@ export default function AdminsPage() {
   };
 
   useEffect(() => {
-    loadAdmins();
+    async function run() {
+      await loadAdmins();
+    }
+    run();
   }, []);
 
   const handleAssignSubmit = async (e: React.FormEvent) => {
@@ -74,8 +106,8 @@ export default function AdminsPage() {
       setIsAssignOpen(false);
       setAssignMemberId('');
       await loadAdmins();
-    } catch (err: any) {
-      setAssignError(err.message || 'Failed to assign administrator');
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : 'Failed to assign administrator');
     } finally {
       setIsAssigning(false);
     }
@@ -171,16 +203,30 @@ export default function AdminsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAdmins.map((admin) => (
+              {filteredAdmins.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="whitespace-normal py-14 text-center">
+                    <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
+                      <ShieldCheck className="h-8 w-8 text-slate-400" aria-hidden="true" />
+                      <p className="font-semibold text-slate-800">
+                        {searchQuery ? 'No administrators match your search' : 'No administrators are listed yet'}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Assign an existing member to an auxiliary to add an administrator.
+                      </p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredAdmins.map((admin) => (
                 <TableRow key={admin.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs">
-                        {admin.fullName.charAt(0)}
+                        {(getAdminFirstName(admin)?.charAt(0) || 'N').toUpperCase()}
                       </div>
                       <div>
                         <div className="font-semibold text-slate-900">
-                          {admin.fullName}
+                          {getAdminDisplayName(admin)}
                         </div>
                         <div className="text-3xs text-slate-400">{admin.email}</div>
                       </div>
@@ -191,8 +237,9 @@ export default function AdminsPage() {
                   </TableCell>
                   <TableCell>
                     {admin.role === 'SUPER_ADMIN' ? (
-                      <span className="bg-amber-100 text-amber-900 border border-amber-300 text-2xs font-bold px-2 py-0.5 rounded-full">
-                        ⭐ Super Admin
+                      <span className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-900 border border-amber-300 text-2xs font-bold px-2 py-0.5 rounded-full">
+                        <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                        Super Admin
                       </span>
                     ) : (
                       <span className="bg-slate-100 text-slate-800 border border-slate-200 text-2xs font-medium px-2 py-0.5 rounded-full">
@@ -252,8 +299,8 @@ export default function AdminsPage() {
             label="Member ID *"
             value={assignMemberId}
             onChange={(e) => setAssignMemberId(e.target.value)}
-            placeholder="e.g. ATF-2025-01 or MK-10293"
-            helperText="Quick test IDs: ATF-2025-01, MK-10293, LAJ-40912"
+            placeholder="Enter a member's ID"
+            helperText="The member record will be looked up before the admin assignment is saved."
             required
           />
 

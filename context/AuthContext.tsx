@@ -2,15 +2,14 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Auxiliary } from '../types';
-import { authApi } from '../services/api';
-import { INITIAL_USERS } from '../services/mockData';
+import { loginReal } from '../services/api';
+import { getAuthToken } from '../services/backendClient';
 
 interface AuthContextType {
   user: User | null;
   activeAuxiliary: Auxiliary | 'All';
   setActiveAuxiliary: (aux: Auxiliary | 'All') => void;
-  switchUser: (userId: string) => Promise<void>;
-  availableUsers: User[];
+  login: (memberId: string, password: string) => Promise<void>;
   isLoading: boolean;
   logout: () => void;
 }
@@ -20,50 +19,61 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [activeAuxiliary, setActiveAuxiliary] = useState<Auxiliary | 'All'>('All');
-  const [availableUsers, setAvailableUsers] = useState<User[]>(INITIAL_USERS);
   const [isLoading, setIsLoading] = useState(true);
 
+  // On mount, restore user from sessionStorage if a valid token exists.
+  // Runs in an effect (not during render) so server prerender and first
+  // client render match, avoiding a hydration mismatch.
   useEffect(() => {
-    async function loadSession() {
+    let cancelled = false;
+    (async () => {
       try {
-        const currentUser = await authApi.getCurrentUser();
-        const allUsers = await authApi.getAllUsers();
-        setUser(currentUser);
-        setAvailableUsers(allUsers);
-        if (currentUser.role === 'GENERAL_ADMIN' && currentUser.assignedAuxiliary) {
-          setActiveAuxiliary(currentUser.assignedAuxiliary);
-        } else {
-          setActiveAuxiliary('All');
+        const token = getAuthToken();
+        const stored = typeof window !== 'undefined' ? sessionStorage.getItem('jcs_current_user') : null;
+        if (token && stored) {
+          const restored: User = JSON.parse(stored);
+          if (cancelled) return;
+          setUser(restored);
+          if (restored.role === 'GENERAL_ADMIN' && restored.assignedAuxiliary) {
+            setActiveAuxiliary(restored.assignedAuxiliary);
+          } else {
+            setActiveAuxiliary('All');
+          }
         }
-      } catch (err) {
-        console.error('Failed to load user session', err);
+      } catch {
+        // Ignore parse errors — user will need to log in again
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
-    }
-    loadSession();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const handleSwitchUser = async (userId: string) => {
+  const handleLogin = async (memberId: string, password: string) => {
     setIsLoading(true);
     try {
-      const newUser = await authApi.switchUser(userId);
-      setUser(newUser);
-      if (newUser.role === 'GENERAL_ADMIN' && newUser.assignedAuxiliary) {
-        setActiveAuxiliary(newUser.assignedAuxiliary);
+      const { user: backendUser } = await loginReal(memberId, password);
+      setUser(backendUser);
+      // Persist user profile so it survives a page refresh within the same session
+      sessionStorage.setItem('jcs_current_user', JSON.stringify(backendUser));
+      if (backendUser.role === 'GENERAL_ADMIN' && backendUser.assignedAuxiliary) {
+        setActiveAuxiliary(backendUser.assignedAuxiliary);
       } else {
         setActiveAuxiliary('All');
       }
-      const allUsers = await authApi.getAllUsers();
-      setAvailableUsers(allUsers);
-    } catch (err) {
-      console.error('Failed to switch user', err);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleLogout = () => {
+    try {
+      sessionStorage.removeItem('jcs_access_token');
+      sessionStorage.removeItem('jcs_expires_at');
+      sessionStorage.removeItem('jcs_current_user');
+    } catch {}
     window.location.href = '/login';
   };
 
@@ -73,8 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         activeAuxiliary,
         setActiveAuxiliary,
-        switchUser: handleSwitchUser,
-        availableUsers,
+        login: handleLogin,
         isLoading,
         logout: handleLogout,
       }}

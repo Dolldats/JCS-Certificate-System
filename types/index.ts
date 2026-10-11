@@ -191,6 +191,7 @@ export interface AuditLog {
     | 'General Admin Revoked'
     | 'Event Created'
     | 'Event Updated'
+    | 'Event Deleted'
     | 'Participant Import'
     | 'Member Verification'
     | 'Certificate Generated'

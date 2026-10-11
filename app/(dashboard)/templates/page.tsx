@@ -17,7 +17,6 @@ import {
   Check,
   Eye,
   Pencil,
-  Sliders,
   Sparkles,
   Palette,
   Layers,

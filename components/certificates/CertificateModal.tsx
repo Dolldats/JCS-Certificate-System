@@ -5,13 +5,13 @@ import { Certificate, CertificateTemplate } from '../../types';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { CertificatePreview } from './CertificatePreview';
-import { INITIAL_TEMPLATES } from '../../services/mockData';
 import { AlertTriangle } from 'lucide-react';
 
 interface CertificateModalProps {
   isOpen: boolean;
   onClose: () => void;
   certificate: Certificate | null;
+  templates: CertificateTemplate[];
   onRevoke?: (certId: string, reason: string) => Promise<void>;
 }
 
@@ -19,6 +19,7 @@ export function CertificateModal({
   isOpen,
   onClose,
   certificate,
+  templates,
   onRevoke,
 }: CertificateModalProps) {
   const [isRevoking, setIsRevoking] = useState(false);
@@ -27,8 +28,8 @@ export function CertificateModal({
 
   if (!certificate) return null;
 
-  const template: CertificateTemplate =
-    INITIAL_TEMPLATES.find((t) => t.id === certificate.templateId) || INITIAL_TEMPLATES[0];
+  const template: CertificateTemplate | undefined =
+    templates.find((t) => t.id === certificate.templateId) || templates[0];
 
   const handleRevokeSubmit = async () => {
     if (!revokeReason.trim() || !onRevoke) return;

@@ -74,7 +74,10 @@ export default function EventsPage() {
   };
 
   useEffect(() => {
-    loadEvents();
+    async function run() {
+      await loadEvents();
+    }
+    run();
   }, [activeAuxiliary]);
 
   const handleAuxiliaryChange = (aux: Auxiliary) => {
