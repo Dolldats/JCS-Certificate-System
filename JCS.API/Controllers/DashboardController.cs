@@ -1,3 +1,4 @@
+using JCS.Application.Common;
 using JCS.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -32,7 +33,7 @@ public sealed class DashboardController : ControllerBase
 
         if (User.IsInRole("Member"))
         {
-            var membershipId = User.Identity?.Name;
+            var membershipId = User.GetMembershipId();
             participants = participants.Where(x => string.Equals(x.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).ToList();
             var eventIds = participants.Select(x => x.EventId).ToHashSet();
             events = events.Where(x => eventIds.Contains(x.Id)).ToList();

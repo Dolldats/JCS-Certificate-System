@@ -1,4 +1,5 @@
 using JCS.Application.DTOs.Certificate;
+using JCS.Application.Common;
 using JCS.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 using JCS.Application.Interfaces.Repositories;
@@ -35,7 +36,7 @@ public class CertificatesController : ControllerBase
         var certificates = await _certificateService.GetAllAsync(token);
         if (User.IsInRole("Member"))
         {
-            var membershipId = User.Identity?.Name;
+            var membershipId = User.GetMembershipId();
             certificates = certificates.Where(x => string.Equals(x.ParticipantMembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).ToList();
         }
         else if (User.IsInRole("GeneralAdmin"))
@@ -92,7 +93,7 @@ public class CertificatesController : ControllerBase
     {
         var certificates = await _certificateService.GetByEventIdAsync(eventId, token);
         if (User.IsInRole("Member"))
-            certificates = certificates.Where(x => string.Equals(x.ParticipantMembershipId, User.Identity?.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+            certificates = certificates.Where(x => string.Equals(x.ParticipantMembershipId, User.GetMembershipId(), StringComparison.OrdinalIgnoreCase)).ToList();
         else if (User.IsInRole("GeneralAdmin"))
         {
             var allowed = new List<CertificateDto>();
@@ -109,7 +110,7 @@ public class CertificatesController : ControllerBase
     [HttpGet("my")]
     public async Task<IActionResult> GetMyCertificates(CancellationToken token)
     {
-        var membershipId = User.Identity?.Name;
+        var membershipId = User.GetMembershipId();
         if (string.IsNullOrWhiteSpace(membershipId)) return Unauthorized();
         var certificates = await _certificateRepository.GetAllAsync(token);
         return Ok(certificates.Where(x => string.Equals(x.Participant?.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).Select(x => new
@@ -319,7 +320,7 @@ public class CertificatesController : ControllerBase
     {
         var certificates = await _certificateRepository.GetByEventIdAsync(eventId, token);
         if (User.IsInRole("Member"))
-            certificates = certificates.Where(x => string.Equals(x.Participant?.MembershipId, User.Identity?.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+            certificates = certificates.Where(x => string.Equals(x.Participant?.MembershipId, User.GetMembershipId(), StringComparison.OrdinalIgnoreCase)).ToList();
         else if (User.IsInRole("GeneralAdmin"))
             certificates = certificates.Where(x => x.Participant != null && CanAccessAuxiliary(x.Participant.Auxiliary)).ToList();
 
@@ -369,7 +370,7 @@ public class CertificatesController : ControllerBase
     private async Task<bool> CanAccessCertificateAsync(CertificateDto certificate, CancellationToken token)
     {
         if (User.IsInRole("Member"))
-            return string.Equals(certificate.ParticipantMembershipId, User.Identity?.Name, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(certificate.ParticipantMembershipId, User.GetMembershipId(), StringComparison.OrdinalIgnoreCase);
 
         if (User.IsInRole("GeneralAdmin"))
         {
