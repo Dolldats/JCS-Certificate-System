@@ -95,7 +95,7 @@ public sealed class JamaatApiMemberService : IJamaatMemberService
             var rawJson = await response.Content.ReadAsStringAsync(token);
             using var memberDocument = JsonDocument.Parse(rawJson);
             var root = memberDocument.RootElement;
-            var fullName = FindString(root, "fullName", "full_name", "name", "memberName", "member_name", "first_name");
+            var fullName = FindString(root, "fullName", "full_name", "memberName", "member_name");
 
             if (string.IsNullOrWhiteSpace(fullName))
             {
@@ -108,7 +108,7 @@ public sealed class JamaatApiMemberService : IJamaatMemberService
             }
 
             var auxStr = FindString(root,
-                "auxiliary", "auxiliaryBody", "auxiliary_body", "auxiliaryName", "auxiliary_name",
+                "auxiliary", "auxiliaryBodyName", "auxiliaryBody", "auxiliary_body", "auxiliaryName", "auxiliary_name",
                 "aux", "auxBody", "aux_body", "auxName", "aux_name",
                 "tanzeem", "tanzeemName", "tanzeem_name",
                 "organisation", "organization", "organizationName", "organization_name",
@@ -200,7 +200,16 @@ public sealed class JamaatApiMemberService : IJamaatMemberService
             return null;
         }
 
-        if (Enum.TryParse<Auxiliary>(auxStr.Trim(), true, out var parsed))
+        var value = auxStr.Trim();
+
+        // Tajneed can return an auxiliary-related field containing a member ID
+        // (for example, "51379"). That is not an auxiliary body.
+        if (value.All(char.IsDigit))
+        {
+            return null;
+        }
+
+        if (Enum.TryParse<Auxiliary>(value, true, out var parsed))
         {
             return parsed;
         }

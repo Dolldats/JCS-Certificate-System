@@ -117,8 +117,9 @@ public class ParticipantService : IParticipantService
             Dila = dto.Dila,
             Ilaqa = dto.Ilaqa,
             Auxiliary = dto.Auxiliary,
-            IsVerified = false,
-            VerificationStatus = VerificationStatus.Pending,
+            IsVerified = dto.IsVerified,
+            VerificationStatus = dto.VerificationStatus,
+            VerificationMessage = dto.VerificationMessage,
             CreatedAt = DateTime.UtcNow
         };
 
