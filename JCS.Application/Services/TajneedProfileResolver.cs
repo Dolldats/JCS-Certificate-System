@@ -83,8 +83,13 @@ public sealed class TajneedProfileResolver : ITajneedProfileResolver
         }
     }
 
-    private static string CacheKey(string membershipId) =>
-        $"tajneed:profile:{membershipId.ToUpperInvariant()}";
+    private static string CacheKey(string membershipId)
+    {
+        return $"tajneed:profile:{membershipId.ToUpperInvariant()}";
+    }
 
-    public static string FallbackName(string membershipId) => $"Member {membershipId}";
+    public static string FallbackName(string membershipId)
+    {
+        return $"Member {membershipId}";
+    }
 }

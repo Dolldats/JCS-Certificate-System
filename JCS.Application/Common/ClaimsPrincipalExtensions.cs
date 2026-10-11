@@ -11,11 +11,23 @@ public static class ClaimsPrincipalExtensions
             return null;
         }
 
-        var id = user.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? user.FindFirstValue(ClaimTypes.Name)
-            ?? user.Identity?.Name;
+        var id = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            id = user.FindFirstValue(ClaimTypes.Name);
+        }
 
-        return string.IsNullOrWhiteSpace(id) ? null : id.Trim();
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            id = user.Identity?.Name;
+        }
+
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return null;
+        }
+
+        return id.Trim();
     }
 
     public static string? GetDisplayName(this ClaimsPrincipal? user)
@@ -26,6 +38,11 @@ public static class ClaimsPrincipalExtensions
         }
 
         var display = user.FindFirstValue(ClaimTypes.Name);
-        return string.IsNullOrWhiteSpace(display) ? null : display.Trim();
+        if (string.IsNullOrWhiteSpace(display))
+        {
+            return null;
+        }
+
+        return display.Trim();
     }
 }

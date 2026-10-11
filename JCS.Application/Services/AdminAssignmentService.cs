@@ -77,7 +77,11 @@ public class AdminAssignmentService : IAdminAssignmentService
 
         var membershipId = dto.MembershipId.Trim();
 
-        var assignedBy = CurrentMembershipId() ?? dto.AssignedBy?.Trim();
+        var assignedBy = CurrentMembershipId();
+        if (string.IsNullOrWhiteSpace(assignedBy))
+        {
+            assignedBy = dto.AssignedBy?.Trim();
+        }
         if (string.IsNullOrWhiteSpace(assignedBy))
         {
             throw new InvalidOperationException("Unable to determine the assigning user. Please log in again.");
@@ -105,6 +109,7 @@ public class AdminAssignmentService : IAdminAssignmentService
             Id = Guid.NewGuid(),
             MembershipId = membershipId,
             Auxiliary = dto.Auxiliary,
+            Ilaqa = string.IsNullOrWhiteSpace(dto.Ilaqa) ? null : dto.Ilaqa.Trim(),
             Role = dto.Role,
             Status = AdminStatus.Active,
             AssignedBy = assignedBy,
@@ -138,6 +143,7 @@ public class AdminAssignmentService : IAdminAssignmentService
         var wasActive = assignment.Status == AdminStatus.Active;
 
         assignment.Auxiliary = dto.Auxiliary;
+        assignment.Ilaqa = string.IsNullOrWhiteSpace(dto.Ilaqa) ? null : dto.Ilaqa.Trim();
         assignment.Role = dto.Role;
         assignment.Status = dto.Status;
 
@@ -148,9 +154,17 @@ public class AdminAssignmentService : IAdminAssignmentService
         }
         else if (wasActive)
         {
-            var revokedBy = !string.IsNullOrWhiteSpace(dto.RevokedBy)
-                ? dto.RevokedBy.Trim()
-                : CurrentMembershipId() ?? assignment.RevokedBy;
+            var revokedBy = dto.RevokedBy?.Trim();
+            if (string.IsNullOrWhiteSpace(revokedBy))
+            {
+                revokedBy = CurrentMembershipId();
+            }
+
+            if (string.IsNullOrWhiteSpace(revokedBy))
+            {
+                revokedBy = assignment.RevokedBy;
+            }
+
             assignment.RevokedBy = revokedBy;
             assignment.RevokedAt = DateTime.UtcNow;
         }
@@ -178,8 +192,10 @@ public class AdminAssignmentService : IAdminAssignmentService
         return true;
     }
 
-    private string? CurrentMembershipId() =>
-        _httpContextAccessor.HttpContext?.User.GetMembershipId();
+    private string? CurrentMembershipId()
+    {
+        return _httpContextAccessor.HttpContext?.User.GetMembershipId();
+    }
 
     private async Task<List<AdminAssignmentDto>> EnrichAsync(IEnumerable<AdminAssignment> assignments, CancellationToken token)
     {
@@ -217,6 +233,7 @@ public class AdminAssignmentService : IAdminAssignmentService
             MembershipId = assignment.MembershipId,
             MemberName = NameOf(assignment.MembershipId),
             Auxiliary = assignment.Auxiliary,
+            Ilaqa = assignment.Ilaqa,
             Role = assignment.Role,
             Status = assignment.Status,
             AssignedBy = assignment.AssignedBy,

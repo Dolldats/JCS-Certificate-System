@@ -39,6 +39,9 @@ namespace JCS.Infastructure.Migrations
                     b.Property<int>("Auxiliary")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Ilaqa")
+                        .HasColumnType("text");
+
                     b.Property<string>("MembershipId")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -248,6 +251,9 @@ namespace JCS.Infastructure.Migrations
 
                     b.Property<int>("EventType")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Ilaqa")
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()

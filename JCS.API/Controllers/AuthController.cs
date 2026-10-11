@@ -46,7 +46,7 @@ public class AuthController : ControllerBase
         var auxiliary = memberProfile?.Auxiliary?.ToString() ?? assignment?.Auxiliary.ToString();
         var name = memberProfile?.FullName ?? request.Username;
         var dila = memberProfile?.Dila;
-        var ilaqa = memberProfile?.Ilaqa;
+        var ilaqa = assignment?.Ilaqa ?? memberProfile?.Ilaqa;
         var jamaat = memberProfile?.Jamaat;
         
         var expiryInHours = _configuration.GetValue<int>("Jwt:ExpiryInHours", 8);

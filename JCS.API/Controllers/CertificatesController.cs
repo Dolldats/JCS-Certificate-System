@@ -45,7 +45,7 @@ public class CertificatesController : ControllerBase
             foreach (var certificate in certificates)
             {
                 var participant = await _participantService.GetByIdAsync(certificate.ParticipantId, token);
-                if (participant != null && CanAccessAuxiliary(participant.Auxiliary)) allowed.Add(certificate);
+                if (participant != null && CanAccessParticipant(participant)) allowed.Add(certificate);
             }
             certificates = allowed;
         }
@@ -100,7 +100,7 @@ public class CertificatesController : ControllerBase
             foreach (var certificate in certificates)
             {
                 var participant = await _participantService.GetByIdAsync(certificate.ParticipantId, token);
-                if (participant != null && CanAccessAuxiliary(participant.Auxiliary)) allowed.Add(certificate);
+                if (participant != null && CanAccessParticipant(participant)) allowed.Add(certificate);
             }
             certificates = allowed;
         }
@@ -139,7 +139,7 @@ public class CertificatesController : ControllerBase
         {
             var participant = await _participantService.GetByIdAsync(dto.ParticipantId, token);
             var userAux = User.FindFirst("Auxiliary")?.Value;
-            if (participant != null && userAux != "None" && !string.Equals(userAux, participant.Auxiliary.ToString(), StringComparison.OrdinalIgnoreCase))
+            if (participant != null && userAux != "None" && !CanAccessParticipant(participant))
             {
                 return StatusCode(403, new { message = "General Admins can only create certificates for participants in their own auxiliary body." });
             }
@@ -231,7 +231,7 @@ public class CertificatesController : ControllerBase
         {
             return NotFound(new { message = "Certificate, participant, event, or template was not found." });
         }
-        if (!CanAccessAuxiliary(certificate.Participant.Auxiliary)) return Forbid();
+        if (!CanAccessParticipant(certificate.Participant)) return Forbid();
 
         var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson)
             ? new TemplateLayoutDto()
@@ -273,7 +273,7 @@ public class CertificatesController : ControllerBase
     {
         var certificates = await _certificateRepository.GetByEventIdAsync(eventId, token);
         if (User.IsInRole("GeneralAdmin"))
-            certificates = certificates.Where(x => x.Participant != null && CanAccessAuxiliary(x.Participant.Auxiliary)).ToList();
+            certificates = certificates.Where(x => x.Participant != null && CanAccessParticipant(x.Participant)).ToList();
         var generated = 0;
         foreach (var certificate in certificates)
         {
@@ -322,7 +322,7 @@ public class CertificatesController : ControllerBase
         if (User.IsInRole("Member"))
             certificates = certificates.Where(x => string.Equals(x.Participant?.MembershipId, User.GetMembershipId(), StringComparison.OrdinalIgnoreCase)).ToList();
         else if (User.IsInRole("GeneralAdmin"))
-            certificates = certificates.Where(x => x.Participant != null && CanAccessAuxiliary(x.Participant.Auxiliary)).ToList();
+            certificates = certificates.Where(x => x.Participant != null && CanAccessParticipant(x.Participant)).ToList();
 
         var requests = new List<CertificateRenderRequest>();
         foreach (var certificate in certificates)
@@ -375,7 +375,7 @@ public class CertificatesController : ControllerBase
         if (User.IsInRole("GeneralAdmin"))
         {
             var participant = await _participantService.GetByIdAsync(certificate.ParticipantId, token);
-            return participant != null && CanAccessAuxiliary(participant.Auxiliary);
+            return participant != null && CanAccessParticipant(participant);
         }
 
         return User.IsInRole("SuperAdmin");
@@ -384,4 +384,24 @@ public class CertificatesController : ControllerBase
     private bool CanAccessAuxiliary(JCS.Domain.Enum.Auxiliary auxiliary) =>
         !User.IsInRole("GeneralAdmin") ||
         (Enum.TryParse(User.FindFirst("Auxiliary")?.Value, true, out JCS.Domain.Enum.Auxiliary userAuxiliary) && userAuxiliary == auxiliary);
+
+    private bool CanAccessParticipant(JCS.Application.DTOs.Participant.ParticipantDto participant)
+    {
+        return CanAccessParticipant(participant.Auxiliary, participant.Ilaqa);
+    }
+
+    private bool CanAccessParticipant(JCS.Domain.Entities.Participant participant)
+    {
+        return CanAccessParticipant(participant.Auxiliary, participant.Ilaqa);
+    }
+
+    private bool CanAccessParticipant(JCS.Domain.Enum.Auxiliary auxiliary, string? participantIlaqa)
+    {
+        if (!User.IsInRole("GeneralAdmin")) return true;
+        if (!CanAccessAuxiliary(auxiliary)) return false;
+        var userIlaqa = User.FindFirst("Ilaqa")?.Value;
+        return string.IsNullOrWhiteSpace(userIlaqa)
+            || string.IsNullOrWhiteSpace(participantIlaqa)
+            || string.Equals(userIlaqa, participantIlaqa, StringComparison.OrdinalIgnoreCase);
+    }
 }
