@@ -1,4 +1,4 @@
-using JCS.Application.DTOs.AdminAssignment;
+﻿using JCS.Application.DTOs.AdminAssignment;
 
 namespace JCS.Application.Interfaces.Services;
 

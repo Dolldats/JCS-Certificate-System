@@ -1,11 +1,13 @@
 using JCS.Application.DTOs.AdminAssignment;
 using JCS.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace JCS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "SuperAdmin")]
 public class AdminAssignmentsController : ControllerBase
 {
     private readonly IAdminAssignmentService _service;
@@ -53,8 +55,15 @@ public class AdminAssignmentsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var result = await _service.CreateAsync(dto, token);
-        return CreatedAtAction(nameof(GetAssignmentById), new { id = result.Id }, result);
+        try
+        {
+            var result = await _service.CreateAsync(dto, token);
+            return CreatedAtAction(nameof(GetAssignmentById), new { id = result.Id }, result);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
     }
 
     [HttpPut("{id:guid}")]
@@ -65,7 +74,15 @@ public class AdminAssignmentsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var result = await _service.UpdateAsync(id, dto, token);
+        AdminAssignmentDto? result;
+        try
+        {
+            result = await _service.UpdateAsync(id, dto, token);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
 
         if (result == null)
         {
