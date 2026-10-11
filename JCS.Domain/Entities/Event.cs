@@ -12,6 +12,7 @@ public class Event
     public DateTime? EndDate { get; set; }
     public string Venue { get; set; } = string.Empty;
     public Auxiliary Auxiliary { get; set; }
+    public string? Ilaqa { get; set; }
     public OrganizationalLevel OrganizationalLevel { get; set; } = OrganizationalLevel.Jamaat;
     public string? OrganizationalUnit { get; set; }
     public string Status { get; set; } = "Draft";

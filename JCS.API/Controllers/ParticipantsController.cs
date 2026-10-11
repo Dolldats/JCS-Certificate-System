@@ -1,4 +1,5 @@
 using JCS.Application.DTOs.Participant;
+using JCS.Application.Common;
 using JCS.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
@@ -36,7 +37,7 @@ public class ParticipantsController : ControllerBase
         var participants = await _participantService.GetAllAsync(token);
         if (User.IsInRole("Member"))
         {
-            var membershipId = User.Identity?.Name;
+            var membershipId = User.GetMembershipId();
             participants = participants.Where(x => string.Equals(x.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).ToList();
         }
         else if (User.IsInRole("GeneralAdmin") && TryGetAuxiliary(out var auxiliary))
@@ -70,7 +71,7 @@ public class ParticipantsController : ControllerBase
     {
         var participants = await _participantService.GetByEventIdAsync(eventId, token);
         if (User.IsInRole("Member"))
-            participants = participants.Where(x => string.Equals(x.MembershipId, User.Identity?.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+            participants = participants.Where(x => string.Equals(x.MembershipId, User.GetMembershipId(), StringComparison.OrdinalIgnoreCase)).ToList();
         else if (User.IsInRole("GeneralAdmin") && TryGetAuxiliary(out var auxiliary))
             participants = participants.Where(x => x.Auxiliary == auxiliary).ToList();
         return Ok(participants);
@@ -79,7 +80,7 @@ public class ParticipantsController : ControllerBase
     [HttpGet("my")]
     public async Task<IActionResult> GetMyParticipations(CancellationToken token)
     {
-        var membershipId = User.Identity?.Name;
+        var membershipId = User.GetMembershipId();
         if (string.IsNullOrWhiteSpace(membershipId)) return Unauthorized();
         var participants = await _participantService.GetAllAsync(token);
         return Ok(participants.Where(x => string.Equals(x.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase)));
@@ -420,7 +421,7 @@ public class ParticipantsController : ControllerBase
     }
 
     private bool CanAccessParticipant(ParticipantDto participant) =>
-        (!User.IsInRole("Member") || string.Equals(participant.MembershipId, User.Identity?.Name, StringComparison.OrdinalIgnoreCase)) &&
+        (!User.IsInRole("Member") || string.Equals(participant.MembershipId, User.GetMembershipId(), StringComparison.OrdinalIgnoreCase)) &&
         (!User.IsInRole("GeneralAdmin") || (TryGetAuxiliary(out var auxiliary) && participant.Auxiliary == auxiliary));
 
     private bool CanAccessAuxiliary(Auxiliary auxiliary) =>

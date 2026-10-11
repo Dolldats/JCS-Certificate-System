@@ -1,3 +1,4 @@
+using JCS.Application.Common;
 using JCS.Application.DTOs.AdminAssignment;
 using JCS.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -55,10 +56,20 @@ public class AdminAssignmentsController : ControllerBase
             return BadRequest(ModelState);
         }
 
+        var currentMembershipId = User.GetMembershipId();
+        if (!string.IsNullOrWhiteSpace(currentMembershipId))
+        {
+            dto.AssignedBy = currentMembershipId;
+        }
+
         try
         {
             var result = await _service.CreateAsync(dto, token);
             return CreatedAtAction(nameof(GetAssignmentById), new { id = result.Id }, result);
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = exception.Message });
         }
         catch (InvalidOperationException exception)
         {
@@ -78,6 +89,10 @@ public class AdminAssignmentsController : ControllerBase
         try
         {
             result = await _service.UpdateAsync(id, dto, token);
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = exception.Message });
         }
         catch (InvalidOperationException exception)
         {

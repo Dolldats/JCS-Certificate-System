@@ -1,4 +1,5 @@
 using JCS.Application.DTOs.Event;
+using JCS.Application.Common;
 using JCS.Application.Interfaces.Services;
 using JCS.Domain.Enum;
 using Microsoft.AspNetCore.Mvc;
@@ -27,7 +28,7 @@ public class EventsController : ControllerBase
         var events = await _eventService.GetAllAsync(token);
         if (User.IsInRole("Member"))
         {
-            var membershipId = User.Identity?.Name;
+            var membershipId = User.GetMembershipId();
             var participantEvents = await _participantService.GetAllAsync(token);
             var eventIds = participantEvents.Where(x => string.Equals(x.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).Select(x => x.EventId).ToHashSet();
             events = events.Where(x => eventIds.Contains(x.Id)).ToList();
@@ -67,7 +68,7 @@ public class EventsController : ControllerBase
         if (User.IsInRole("Member"))
         {
             var participation = await _participantService.GetByEventIdAsync(id, token);
-            if (!participation.Any(x => string.Equals(x.MembershipId, User.Identity?.Name, StringComparison.OrdinalIgnoreCase)))
+            if (!participation.Any(x => string.Equals(x.MembershipId, User.GetMembershipId(), StringComparison.OrdinalIgnoreCase)))
                 return Forbid();
         }
 

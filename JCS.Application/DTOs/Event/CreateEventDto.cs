@@ -16,6 +16,7 @@ public class CreateEventDto
     [StringLength(150, MinimumLength = 2)]
     public string Venue { get; set; } = string.Empty;
     public Auxiliary Auxiliary { get; set; }
+    public string? Ilaqa { get; set; }
     public OrganizationalLevel OrganizationalLevel { get; set; }
     public string? OrganizationalUnit { get; set; }
 }

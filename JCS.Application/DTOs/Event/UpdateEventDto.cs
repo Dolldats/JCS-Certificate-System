@@ -11,6 +11,7 @@ public class UpdateEventDto
     public DateTime? EndDate { get; set; }
     public string Venue { get; set; } = string.Empty;
     public Auxiliary Auxiliary { get; set; }
+    public string? Ilaqa { get; set; }
     public OrganizationalLevel OrganizationalLevel { get; set; }
     public string? OrganizationalUnit { get; set; }
     public string Status { get; set; } = "Draft";

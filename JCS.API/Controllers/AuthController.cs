@@ -43,13 +43,33 @@ public class AuthController : ControllerBase
         var memberProfile = await _memberService.VerifyMemberAsync(request.Username, token, request.Username);
         
         var role = assignment?.Role.ToString() ?? "Member";
-        var auxiliary = assignment?.Auxiliary.ToString() ?? memberProfile?.Auxiliary?.ToString();
+        var auxiliary = memberProfile?.Auxiliary?.ToString() ?? assignment?.Auxiliary.ToString();
         var name = memberProfile?.FullName ?? request.Username;
+        var dila = memberProfile?.Dila;
+        var ilaqa = assignment?.Ilaqa ?? memberProfile?.Ilaqa;
+        var jamaat = memberProfile?.Jamaat;
         
         var expiryInHours = _configuration.GetValue<int>("Jwt:ExpiryInHours", 8);
         var expires = DateTime.UtcNow.AddHours(expiryInHours);
-        var claims = new List<Claim> { new(ClaimTypes.Name, request.Username), new(ClaimTypes.Role, role) };
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, request.Username),
+            new(ClaimTypes.Name, name),
+            new(ClaimTypes.Role, role)
+        };
         claims.Add(new Claim("Auxiliary", auxiliary ?? "None"));
+        if (!string.IsNullOrWhiteSpace(dila))
+        {
+            claims.Add(new Claim("Dila", dila));
+        }
+        if (!string.IsNullOrWhiteSpace(ilaqa))
+        {
+            claims.Add(new Claim("Ilaqa", ilaqa));
+        }
+        if (!string.IsNullOrWhiteSpace(jamaat))
+        {
+            claims.Add(new Claim("Jamaat", jamaat));
+        }
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Secret"]!));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var tokenValue = new JwtSecurityToken(claims: claims, expires: expires, signingCredentials: credentials);

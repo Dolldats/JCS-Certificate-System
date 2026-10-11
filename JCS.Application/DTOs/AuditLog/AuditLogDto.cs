@@ -7,6 +7,8 @@ public class AuditLogDto
     public Guid Id { get; set; }
     public string Action { get; set; } = string.Empty;
     public string PerformedBy { get; set; } = string.Empty;
+    public string? MembershipId { get; set; }
+    public string? PerformedByName { get; set; }
     public Auxiliary? Auxiliary { get; set; }
     public string? EntityName { get; set; }
     public string? EntityId { get; set; }

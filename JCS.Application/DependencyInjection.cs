@@ -15,6 +15,8 @@ public static class DependencyInjection
         services.AddScoped<ICertificateTemplateService, CertificateTemplateService>();
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IAdminAssignmentService, AdminAssignmentService>();
+        services.AddMemoryCache();
+        services.AddScoped<ITajneedProfileResolver, TajneedProfileResolver>();
         services.AddSingleton<IPlaceholderEngine, PlaceholderEngine>();
         services.AddSingleton<ICertificateRenderer, CertificateRenderer>();
         services.AddSingleton<IJamaatTokenStore, JamaatTokenStore>();

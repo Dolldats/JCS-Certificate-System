@@ -33,6 +33,7 @@ public class EventService : IEventService
             EndDate = eventItem.EndDate,
             Venue = eventItem.Venue,
             Auxiliary = eventItem.Auxiliary,
+            Ilaqa = eventItem.Ilaqa,
             OrganizationalLevel = eventItem.OrganizationalLevel,
             OrganizationalUnit = eventItem.OrganizationalUnit,
             Status = eventItem.Status,
@@ -59,6 +60,7 @@ public class EventService : IEventService
                 EndDate = eventItem.EndDate,
                 Venue = eventItem.Venue,
                 Auxiliary = eventItem.Auxiliary,
+                Ilaqa = eventItem.Ilaqa,
                 OrganizationalLevel = eventItem.OrganizationalLevel,
                 OrganizationalUnit = eventItem.OrganizationalUnit,
                 Status = eventItem.Status,
@@ -88,6 +90,7 @@ public class EventService : IEventService
                 EndDate = eventItem.EndDate,
                 Venue = eventItem.Venue,
                 Auxiliary = eventItem.Auxiliary,
+                Ilaqa = eventItem.Ilaqa,
                 OrganizationalLevel = eventItem.OrganizationalLevel,
                 OrganizationalUnit = eventItem.OrganizationalUnit,
                 Status = eventItem.Status,
@@ -112,6 +115,7 @@ public class EventService : IEventService
             EndDate = dto.EndDate,
             Venue = dto.Venue,
             Auxiliary = dto.Auxiliary,
+            Ilaqa = string.IsNullOrWhiteSpace(dto.Ilaqa) ? null : dto.Ilaqa.Trim(),
             OrganizationalLevel = dto.OrganizationalLevel,
             OrganizationalUnit = dto.OrganizationalUnit,
             Status = "Draft",
@@ -130,6 +134,7 @@ public class EventService : IEventService
             EndDate = newEvent.EndDate,
             Venue = newEvent.Venue,
             Auxiliary = newEvent.Auxiliary,
+            Ilaqa = newEvent.Ilaqa,
             OrganizationalLevel = newEvent.OrganizationalLevel,
             OrganizationalUnit = newEvent.OrganizationalUnit,
             Status = newEvent.Status,
@@ -154,6 +159,7 @@ public class EventService : IEventService
         eventItem.EndDate = dto.EndDate;
         eventItem.Venue = dto.Venue;
         eventItem.Auxiliary = dto.Auxiliary;
+        eventItem.Ilaqa = string.IsNullOrWhiteSpace(dto.Ilaqa) ? null : dto.Ilaqa.Trim();
         eventItem.OrganizationalLevel = dto.OrganizationalLevel;
         eventItem.OrganizationalUnit = dto.OrganizationalUnit;
         eventItem.Status = dto.Status;
@@ -170,6 +176,7 @@ public class EventService : IEventService
             EndDate = eventItem.EndDate,
             Venue = eventItem.Venue,
             Auxiliary = eventItem.Auxiliary,
+            Ilaqa = eventItem.Ilaqa,
             OrganizationalLevel = eventItem.OrganizationalLevel,
             OrganizationalUnit = eventItem.OrganizationalUnit,
             Status = eventItem.Status,
