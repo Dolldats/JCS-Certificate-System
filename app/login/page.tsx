@@ -24,8 +24,8 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login(memberId, password);
-      router.push('/dashboard');
+      const user = await login(memberId, password);
+      router.push(user.role === 'MEMBER' ? '/member' : '/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
       setLoading(false);
@@ -34,6 +34,29 @@ export default function LoginPage() {
 
   return (
     <AuthSplitShell>
+      {/* Cover the form during authentication; success redirects to the role-specific portal. */}
+      {loading && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 px-6 backdrop-blur-sm"
+        >
+          <div className="flex min-w-56 flex-col items-center rounded-2xl border border-white/70 bg-white/95 px-8 py-7 text-center shadow-2xl dark:border-white/10 dark:bg-slate-900/95">
+            <div className="login-logo-loader relative mb-4 grid h-[76px] w-[76px] place-items-center">
+              <span aria-hidden="true" className="login-logo-loader__ring absolute inset-0 rounded-full border-[3px] border-emerald-100 border-t-emerald-600" />
+              <span aria-hidden="true" className="absolute inset-[7px] rounded-full bg-emerald-500/10" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/ahmadiyyah_logo.png"
+                alt=""
+                className="relative z-10 h-11 w-11 rounded-full object-contain"
+              />
+            </div>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">Signing you in</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">Checking your account…</p>
+          </div>
+        </div>
+      )}
       <h2 className="text-center text-base font-bold text-slate-900 tracking-tight">Welcome back</h2>
       <p className="mt-1 text-center text-3xs text-slate-400">
         Sign in to your account to continue

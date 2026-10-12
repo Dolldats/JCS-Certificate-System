@@ -9,16 +9,68 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import {
-  CalendarDays,
   Users,
   Award,
-  ShieldCheck,
   Plus,
   ArrowRight,
   Clock,
   TrendingUp,
 } from 'lucide-react';
 import { formatDate, formatDateTime } from '../../../lib/utils';
+
+/** Shows a KPI as a proportional ring; a zero denominator is shown as unavailable. */
+function KpiPieChart({
+  value,
+  total,
+  label,
+  color,
+}: {
+  value: number;
+  total: number;
+  label: string;
+  color: string;
+}) {
+  const hasData = total > 0;
+  const percentage = hasData ? Math.min(100, Math.round((value / total) * 100)) : 0;
+  const [animatedPercentage, setAnimatedPercentage] = useState(0);
+  const radius = 25;
+  const circumference = 2 * Math.PI * radius;
+
+  useEffect(() => {
+    // Start at zero after mount so loaded API values animate without changing the displayed metric.
+    const frame = window.requestAnimationFrame(() => setAnimatedPercentage(percentage));
+    return () => window.cancelAnimationFrame(frame);
+  }, [percentage]);
+
+  return (
+    <div
+      role="img"
+      aria-label={hasData
+        ? `${label}: ${value} of ${total}, ${percentage} percent.`
+        : `${label}: no data available.`}
+      className="relative grid h-[60px] w-[60px] shrink-0 place-items-center"
+    >
+      <svg aria-hidden="true" viewBox="0 0 60 60" className="absolute inset-0 h-full w-full -rotate-90">
+        <circle cx="30" cy="30" r={radius} fill="none" stroke="var(--line)" strokeWidth="5" />
+        <circle
+          cx="30"
+          cy="30"
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - animatedPercentage / 100)}
+          className="kpi-ring-progress"
+        />
+      </svg>
+      <span className="text-[11px] font-bold tabular-nums text-slate-700">
+        {hasData ? <>{percentage}<span className="text-[8px]">%</span></> : '—'}
+      </span>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const { user, activeAuxiliary } = useAuth();
@@ -46,8 +98,13 @@ export default function DashboardPage() {
 
   const totalParticipants = events.reduce((sum, e) => sum + e.participantsCount, 0);
   const totalVerified = events.reduce((sum, e) => sum + e.verifiedCount, 0);
-  const totalCertificates = certificates.length;
+  // Count issued certificates only; drafts and revoked certificates are not completed issuances.
+  const totalCertificates = certificates.filter((certificate) => certificate.status === 'Issued').length;
   const activeEventsCount = events.filter((e) => e.status === 'Active' || e.status === 'Upcoming').length;
+  // With no participants there is no meaningful API match rate, so display it as unavailable.
+  const apiMatchPercentage = totalParticipants > 0
+    ? Math.round((totalVerified / totalParticipants) * 100)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -113,9 +170,7 @@ export default function DashboardPage() {
                 </span>
               </div>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-              <CalendarDays className="w-5 h-5" />
-            </div>
+            <KpiPieChart value={activeEventsCount} total={events.length} label="Active events" color="#0a9b70" />
           </CardContent>
         </Card>
 
@@ -132,9 +187,7 @@ export default function DashboardPage() {
                 </span>
               </div>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
-              <Users className="w-5 h-5" />
-            </div>
+            <KpiPieChart value={totalVerified} total={totalParticipants} label="Verified participants" color="#3978e8" />
           </CardContent>
         </Card>
 
@@ -151,9 +204,7 @@ export default function DashboardPage() {
                 <span className="text-xs text-amber-600 font-medium">Printed/Ready</span>
               </div>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
-              <Award className="w-5 h-5" />
-            </div>
+            <KpiPieChart value={totalCertificates} total={totalParticipants} label="Certificates issued" color="#e78a19" />
           </CardContent>
         </Card>
 
@@ -165,18 +216,16 @@ export default function DashboardPage() {
               </p>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-emerald-700">
-                  {totalParticipants > 0
-                    ? `${Math.round((totalVerified / totalParticipants) * 100)}%`
-                    : '100%'}
+                  {apiMatchPercentage === null ? '—' : `${apiMatchPercentage}%`}
                 </span>
-                <span className="text-xs text-emerald-600 font-medium flex items-center gap-0.5">
-                  <TrendingUp className="w-3 h-3" /> Live
-                </span>
+                {apiMatchPercentage !== null && (
+                  <span className="text-xs text-emerald-600 font-medium flex items-center gap-0.5">
+                    <TrendingUp className="w-3 h-3" /> Live
+                  </span>
+                )}
               </div>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
+            <KpiPieChart value={totalVerified} total={totalParticipants} label="Member API match rate" color="#0f8d91" />
           </CardContent>
         </Card>
       </div>

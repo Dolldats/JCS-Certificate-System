@@ -76,9 +76,9 @@ const STEPS = [
 export default function LandingPage() {
   return (
     <div className="landing-page min-h-screen text-slate-900">
-      {/* Top nav */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-emerald-950/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+      {/* Sticky white navigation bar, styled to match the dashboard header. */}
+      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[68px] max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white p-1 shadow">
               <Image
@@ -90,19 +90,19 @@ export default function LandingPage() {
                 priority
               />
             </span>
-            <span className="text-xs font-bold tracking-[0.18em] text-white">
+            <span className="text-xs font-bold tracking-[0.18em] text-slate-900">
               JAMA&apos;AT CERTIFY
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-6 text-sm text-emerald-100/80 md:flex">
-            <a href="#features" className="transition-colors hover:text-white">
+          <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
+            <a href="#features" className="transition-colors hover:text-emerald-700">
               Features
             </a>
-            <a href="#how-it-works" className="transition-colors hover:text-white">
+            <a href="#how-it-works" className="transition-colors hover:text-emerald-700">
               How it works
             </a>
-            <a href="#templates" className="transition-colors hover:text-white">
+            <a href="#templates" className="transition-colors hover:text-emerald-700">
               Templates
             </a>
           </nav>
@@ -111,7 +111,7 @@ export default function LandingPage() {
             <ThemeToggle />
             <Link
               href="/login"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-2 text-sm font-semibold text-emerald-950 shadow-sm transition-colors hover:bg-amber-400"
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-800"
             >
               Sign in
               <ArrowRight className="h-4 w-4" />

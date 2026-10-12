@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { User, Auxiliary } from '../types';
 import { loginReal } from '../services/api';
 import { getAuthToken } from '../services/backendClient';
@@ -9,7 +10,7 @@ interface AuthContextType {
   user: User | null;
   activeAuxiliary: Auxiliary | 'All';
   setActiveAuxiliary: (aux: Auxiliary | 'All') => void;
-  login: (memberId: string, password: string) => Promise<void>;
+  login: (memberId: string, password: string) => Promise<User>;
   isLoading: boolean;
   logout: () => void;
 }
@@ -17,6 +18,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [activeAuxiliary, setActiveAuxiliary] = useState<Auxiliary | 'All'>('All');
   const [isLoading, setIsLoading] = useState(true);
@@ -63,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setActiveAuxiliary('All');
       }
+      return backendUser;
     } finally {
       setIsLoading(false);
     }
@@ -73,8 +76,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       sessionStorage.removeItem('jcs_access_token');
       sessionStorage.removeItem('jcs_expires_at');
       sessionStorage.removeItem('jcs_current_user');
+      sessionStorage.removeItem('jcs_member_events');
     } catch {}
-    window.location.href = '/login';
+    router.push('/login');
   };
 
   return (

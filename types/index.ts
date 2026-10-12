@@ -56,7 +56,7 @@ export interface User {
   fullName: string;
   email: string;
   phone?: string;
-  role: AdminRole;
+  role: AdminRole | 'MEMBER'; // Members use the Member Portal rather than the admin shell.
   assignedAuxiliary?: Auxiliary;
   dila?: string;
   jamaat?: string;
@@ -199,7 +199,7 @@ export interface AuditLog {
     | 'Certificate Revoked'
     | 'Template Modified';
   adminName: string;
-  adminRole: AdminRole;
+  adminRole: AdminRole | 'Admin' | 'MEMBER';
   auxiliary?: Auxiliary;
   target: string;
   details: string;

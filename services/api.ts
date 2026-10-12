@@ -160,24 +160,63 @@ function setStorage<T>(key: string, value: T): void {
 }
 
 // AUDIT API
+// Remove known seeded records; old browser caches can outlive the original mock data.
+const LEGACY_DEMO_AUDIT_LOG_IDS = new Set(['log-1', 'log-2', 'log-3']);
+
+function removeLegacyDemoAuditLogs(logs: AuditLog[]): AuditLog[] {
+  return logs.filter((log) => !LEGACY_DEMO_AUDIT_LOG_IDS.has(log.id));
+}
+
 export const auditApi = {
   async getLogs(auxiliaryFilter?: Auxiliary): Promise<AuditLog[]> {
     const token = getAuthToken();
     if (token) {
       try {
-        const res = await backendFetch<BackendRecord[]>('AuditLogs');
-        if (Array.isArray(res) && res.length > 0) {
-          const mapped: AuditLog[] = res.map((item) => ({
+        // The backend paginates audit records, so fetch every page before caching the complete feed.
+        const pageSize = 100;
+        const firstResponse = await backendFetch<BackendRecord | BackendRecord[]>(
+          `AuditLogs?page=1&pageSize=${pageSize}`
+        );
+        const firstRecord = bRec(firstResponse);
+        const firstItems = Array.isArray(firstResponse)
+          ? firstResponse
+          : Array.isArray(firstRecord?.items)
+            ? firstRecord.items as BackendRecord[]
+            : Array.isArray(firstRecord?.data)
+              ? firstRecord.data as BackendRecord[]
+              : null;
+
+        if (firstItems) {
+          const totalCount = bNum(firstRecord?.totalCount, firstItems.length);
+          const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
+          const allItems = [...firstItems];
+
+          for (let page = 2; page <= pageCount; page += 1) {
+            const response = await backendFetch<BackendRecord | BackendRecord[]>(
+              `AuditLogs?page=${page}&pageSize=${pageSize}`
+            );
+            const record = bRec(response);
+            const items = Array.isArray(response)
+              ? response
+              : Array.isArray(record?.items)
+                ? record.items as BackendRecord[]
+                : Array.isArray(record?.data)
+                  ? record.data as BackendRecord[]
+                  : [];
+            allItems.push(...items);
+          }
+
+          const mapped = removeLegacyDemoAuditLogs(allItems.map((item) => ({
             id: bStr(item.id, `log-${Date.now()}`),
             action: bStr(item.action, 'Login') as AuditLog['action'],
             adminName: bStr(item.performedBy || item.adminName, 'Admin'),
-            adminRole: bStr(item.role || item.adminRole, 'SUPER_ADMIN') as AuditLog['adminRole'],
+            adminRole: bStr(item.role || item.adminRole, 'Admin') as AuditLog['adminRole'],
             auxiliary: item.auxiliary as Auxiliary | undefined,
-            target: bStr(item.target || item.entityName, 'System'),
+            target: bStr(item.target || item.entityName || item.entityId, 'System'),
             details: bStr(item.details || item.description),
-            timestamp: bStr(item.timestamp || item.createdAt, new Date().toISOString()),
-            ipAddress: bStr(item.ipAddress, '127.0.0.1'),
-          }));
+            timestamp: bStr(item.performedAt || item.timestamp || item.createdAt, new Date().toISOString()),
+            ipAddress: bStr(item.ipAddress) || undefined,
+          })));
           setStorage('audit_logs', mapped);
           if (!auxiliaryFilter) return mapped;
           return mapped.filter((l) => !l.auxiliary || l.auxiliary === auxiliaryFilter);
@@ -187,7 +226,10 @@ export const auditApi = {
       }
     }
     await delay(150);
-    const logs = getStorage<AuditLog[]>('audit_logs', INITIAL_AUDIT_LOGS);
+    // If the API is unavailable, preserve local activity but scrub the legacy sample rows first.
+    const cachedLogs = getStorage<AuditLog[]>('audit_logs', INITIAL_AUDIT_LOGS);
+    const logs = removeLegacyDemoAuditLogs(cachedLogs);
+    if (logs.length !== cachedLogs.length) setStorage('audit_logs', logs);
     if (!auxiliaryFilter) return logs;
     return logs.filter((l) => !l.auxiliary || l.auxiliary === auxiliaryFilter);
   },
@@ -345,6 +387,13 @@ export const authApi = {
 };
 
 // EVENTS API & MAPPER
+// These IDs belonged to retired mock events and may remain in older clients' localStorage.
+const LEGACY_DEMO_EVENT_IDS = new Set(['evt-201', 'evt-202', 'evt-203']);
+
+function removeLegacyDemoEvents(events: Event[]): Event[] {
+  return events.filter((event) => !LEGACY_DEMO_EVENT_IDS.has(event.id));
+}
+
 function mapBackendEventToEvent(raw: BackendRecord): Event {
   const eventDate = bStr(raw.eventDate || raw.date, new Date().toISOString());
   const endDateRaw = bStr(raw.endDate);
@@ -377,7 +426,7 @@ export const eventsApi = {
         const path = auxiliary ? `Events/auxiliary/${auxiliary}` : 'Events';
         const res = await backendFetch<BackendRecord[]>(path);
         if (Array.isArray(res)) {
-          const mapped = res.map(mapBackendEventToEvent);
+          const mapped = removeLegacyDemoEvents(res.map(mapBackendEventToEvent));
           // Sync into local storage cache
           setStorage('events', mapped);
           return mapped;
@@ -387,7 +436,9 @@ export const eventsApi = {
       }
     }
     await delay(150);
-    const events = getStorage<Event[]>('events', INITIAL_EVENTS);
+    const cachedEvents = getStorage<Event[]>('events', INITIAL_EVENTS);
+    const events = removeLegacyDemoEvents(cachedEvents);
+    if (events.length !== cachedEvents.length) setStorage('events', events);
     if (!auxiliary) return events;
     return events.filter((e) => e.auxiliary === auxiliary);
   },
@@ -1069,6 +1120,17 @@ export const templatesApi = {
 };
 
 // CERTIFICATES API
+// The retired sample event shipped with two certificates; remove direct IDs and event-linked copies.
+const LEGACY_DEMO_CERTIFICATE_IDS = new Set(['cert-201-1', 'cert-201-2']);
+const LEGACY_DEMO_CERTIFICATE_EVENT_IDS = new Set(['evt-201', 'evt-202', 'evt-203']);
+
+function removeLegacyDemoCertificates(certificates: Certificate[]): Certificate[] {
+  return certificates.filter((certificate) =>
+    !LEGACY_DEMO_CERTIFICATE_IDS.has(certificate.id) &&
+    !LEGACY_DEMO_CERTIFICATE_EVENT_IDS.has(certificate.eventId)
+  );
+}
+
 export const certificatesApi = {
   async getAll(auxiliary?: Auxiliary): Promise<Certificate[]> {
     const token = getAuthToken();
@@ -1076,7 +1138,7 @@ export const certificatesApi = {
       try {
         const res = await backendFetch<BackendRecord[]>('Certificates');
         if (Array.isArray(res)) {
-          const mapped = res.map(mapBackendCertificateToCertificate);
+          const mapped = removeLegacyDemoCertificates(res.map(mapBackendCertificateToCertificate));
           setStorage('certificates', mapped);
           if (!auxiliary) return mapped;
           return mapped.filter((c) => c.auxiliary === auxiliary);
@@ -1087,7 +1149,9 @@ export const certificatesApi = {
     }
 
     await delay(100);
-    const certs = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
+    const cachedCertificates = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
+    const certs = removeLegacyDemoCertificates(cachedCertificates);
+    if (certs.length !== cachedCertificates.length) setStorage('certificates', certs);
     if (!auxiliary) return certs;
     return certs.filter((c) => c.auxiliary === auxiliary);
   },
@@ -1294,17 +1358,18 @@ export const certificatesApi = {
 export interface BackendLoginResponse {
   accessToken: string;
   expiresAt: string;
-  role: string; // "SuperAdmin" | "Member"
+  role: string; // "SuperAdmin" | "GeneralAdmin" | "Member"
   auxiliary: string | null;
   profile: {
     membershipId: string;
-    fullName: string;
+    fullName: string | null;
     auxiliary: string | null;
     jamaat: string | null;
     dila: string | null;
     ilaqa: string | null;
     status: string;
   };
+  events?: unknown;
 }
 
 export async function loginReal(memberId: string, password: string) {
@@ -1327,6 +1392,11 @@ export async function loginReal(memberId: string, password: string) {
   }
 
   if (!res.ok) {
+    // A 401 only means the credentials were rejected; it cannot safely tell the user which field was wrong.
+    if (res.status === 401) {
+      throw new Error('Login failed. Check your Chanda number and password, then try again.');
+    }
+
     let detail = '';
     try {
       const errBody = (await res.json()) as unknown;
@@ -1357,12 +1427,25 @@ export async function loginReal(memberId: string, password: string) {
     throw new Error('Login failed: unexpected server response.');
   }
 
+  const normalizedRole = data.role.trim().toLowerCase();
+  const role: User['role'] | undefined = normalizedRole === 'superadmin'
+    ? 'SUPER_ADMIN'
+    : normalizedRole === 'generaladmin'
+      ? 'GENERAL_ADMIN'
+      : normalizedRole === 'member'
+        ? 'MEMBER'
+        : undefined;
+
+  if (!role) {
+    throw new Error('Login failed: the server returned an unrecognized account role.');
+  }
+
   const user: User = {
     id: `backend-${data.profile.membershipId}`,
     memberId: data.profile.membershipId,
-    fullName: data.profile.fullName,
+    fullName: data.profile.fullName?.trim() || data.profile.membershipId,
     email: `${data.profile.membershipId.toLowerCase()}@jamaat.org`,
-    role: (data.role === 'SuperAdmin' ? 'SUPER_ADMIN' : 'GENERAL_ADMIN') as User['role'],
+    role,
     assignedAuxiliary: (data.auxiliary ||
       data.profile.auxiliary ||
       undefined) as User['assignedAuxiliary'],
@@ -1373,6 +1456,12 @@ export async function loginReal(memberId: string, password: string) {
   if (typeof window !== 'undefined') {
     sessionStorage.setItem('jcs_access_token', data.accessToken);
     sessionStorage.setItem('jcs_expires_at', data.expiresAt);
+    if (role === 'MEMBER') {
+      // The backend login response already includes this member's event and certificate summary.
+      sessionStorage.setItem('jcs_member_events', JSON.stringify(data.events ?? []));
+    } else {
+      sessionStorage.removeItem('jcs_member_events');
+    }
   }
 
   return { user, accessToken: data.accessToken };

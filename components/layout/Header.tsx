@@ -46,8 +46,9 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
     router.push(q ? `/certificates?q=${encodeURIComponent(q)}` : '/certificates');
   };
 
+  // The sticky wrapper keeps the glass header visible while the dashboard main pane scrolls.
   return (
-    <div className="px-4 sm:px-6 pt-4 shrink-0 z-30">
+    <div className="sticky top-0 z-40 shrink-0 px-4 pt-3 sm:px-6 sm:pt-4">
       <header className="theme-header rounded-2xl px-3 sm:px-5 py-2.5 flex items-center gap-2 sm:gap-3">
         {/* Mobile menu */}
         <button

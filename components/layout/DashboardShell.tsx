@@ -1,17 +1,23 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useAuth } from '../../context/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { isLoading } = useAuth();
+  const { isLoading, user } = useAuth();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isLoading && user?.role === 'MEMBER') router.replace('/member');
+  }, [isLoading, router, user?.role]);
+
+  if (isLoading || user?.role === 'MEMBER') {
     return (
       <div className="app-background min-h-screen w-full flex flex-col items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mb-3" />
@@ -20,10 +26,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Constrain the shell to the viewport so the main pane scrolls independently of navigation.
   return (
-    <div className="app-background flex min-h-screen w-full overflow-hidden font-sans transition-colors duration-200">
+    <div className="app-background flex h-dvh w-full overflow-hidden font-sans transition-colors duration-200">
       {/* Desktop Sidebar */}
-      <div className="hidden lg:flex lg:shrink-0">
+      <div className="sticky top-0 hidden h-full lg:flex lg:shrink-0">
         <Sidebar
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
@@ -44,9 +51,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main Content Area */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <Header onOpenMobileMenu={() => setMobileMenuOpen(true)} />
-        <main className="theme-main flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        {/* Keep scrolling inside the content pane; the header and desktop sidebar remain in place. */}
+        <main className="theme-main min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8">
           <div className="max-w-[1440px] mx-auto space-y-7">{children}</div>
         </main>
       </div>
