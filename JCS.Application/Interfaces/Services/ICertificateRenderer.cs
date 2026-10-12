@@ -8,7 +8,8 @@ public interface ICertificateRenderer
         TemplateLayoutDto layout, 
         IReadOnlyDictionary<string, string?> values,
         decimal width = 1122,
-        decimal height = 793);
+        decimal height = 793,
+        string? backgroundImagePath = null);
     byte[] RenderPdfBatch(IReadOnlyCollection<CertificateRenderRequest> requests);
 }
 

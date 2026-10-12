@@ -241,16 +241,19 @@ public class CertificatesController : ControllerBase
             ["ParticipantName"] = certificate.Participant.FullName,
             ["EventName"] = certificate.Event.Name,
             ["EventDate"] = certificate.Event.EventDate.ToString("yyyy-MM-dd"),
+            ["Venue"] = certificate.Event.Venue,
             ["CertificateNumber"] = certificate.CertificateNumber,
             ["Jamaat"] = certificate.Participant.Jamaat,
-            ["Auxiliary"] = certificate.Participant.Auxiliary.ToString(),
+            ["Ilaqa"] = certificate.Participant.Ilaqa,
+            ["Auxiliary"] = certificate.Event.Auxiliary.ToString(),
             ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
         };
 
         var bytes = _certificateRenderer.RenderPdf(layout,
             values,
             certificate.CertificateTemplate.Width > 0 ? certificate.CertificateTemplate.Width : 1122, 
-            certificate.CertificateTemplate.Height > 0 ? certificate.CertificateTemplate.Height : 793);
+            certificate.CertificateTemplate.Height > 0 ? certificate.CertificateTemplate.Height : 793,
+            ResolveAssetPath(certificate.CertificateTemplate.BackgroundImagePath));
 
         var directory = Path.Combine(_environment.ContentRootPath, "uploads", "certificates");
         Directory.CreateDirectory(directory);
@@ -290,15 +293,18 @@ public class CertificatesController : ControllerBase
                 ["ParticipantName"] = certificate.Participant.FullName,
                 ["EventName"] = certificate.Event.Name,
                 ["EventDate"] = certificate.Event.EventDate.ToString("yyyy-MM-dd"),
+                ["Venue"] = certificate.Event.Venue,
                 ["CertificateNumber"] = certificate.CertificateNumber,
                 ["Jamaat"] = certificate.Participant.Jamaat,
-                ["Auxiliary"] = certificate.Participant.Auxiliary.ToString(),
+                ["Ilaqa"] = certificate.Participant.Ilaqa,
+                ["Auxiliary"] = certificate.Event.Auxiliary.ToString(),
                 ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
             };
             var bytes = _certificateRenderer.RenderPdf(layout,
                 values,
                 certificate.CertificateTemplate.Width > 0 ? certificate.CertificateTemplate.Width : 1122,
-                certificate.CertificateTemplate.Height > 0 ? certificate.CertificateTemplate.Height : 793);
+                certificate.CertificateTemplate.Height > 0 ? certificate.CertificateTemplate.Height : 793,
+                ResolveAssetPath(certificate.CertificateTemplate.BackgroundImagePath));
 
             var directory = Path.Combine(_environment.ContentRootPath, "uploads", "certificates");
             Directory.CreateDirectory(directory);
@@ -338,9 +344,11 @@ public class CertificatesController : ControllerBase
                 ["ParticipantName"] = certificate.Participant.FullName,
                 ["EventName"] = certificate.Event.Name,
                 ["EventDate"] = certificate.Event.EventDate.ToString("yyyy-MM-dd"),
+                ["Venue"] = certificate.Event.Venue,
                 ["CertificateNumber"] = certificate.CertificateNumber,
                 ["Jamaat"] = certificate.Participant.Jamaat,
-                ["Auxiliary"] = certificate.Participant.Auxiliary.ToString(),
+                ["Ilaqa"] = certificate.Participant.Ilaqa,
+                ["Auxiliary"] = certificate.Event.Auxiliary.ToString(),
                 ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
             }, 
             certificate.CertificateTemplate.Width > 0 ? certificate.CertificateTemplate.Width : 1122, 
