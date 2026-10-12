@@ -45,7 +45,7 @@ public class CertificateRenderer : ICertificateRenderer
         }).GeneratePdf();
     }
 
-    public byte[] RenderPdf(TemplateLayoutDto layout, IReadOnlyDictionary<string, string?> values, decimal width = 1122, decimal height = 793)
+    public byte[] RenderPdf(TemplateLayoutDto layout, IReadOnlyDictionary<string, string?> values, decimal width = 1122, decimal height = 793, string? backgroundImagePath = null)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -58,6 +58,10 @@ public class CertificateRenderer : ICertificateRenderer
                 page.Content().Layers(layers =>
                 {
                     layers.PrimaryLayer().Background(Colors.White);
+                    if (!string.IsNullOrWhiteSpace(backgroundImagePath) && File.Exists(backgroundImagePath))
+                    {
+                        layers.PrimaryLayer().Image(File.ReadAllBytes(backgroundImagePath)).FitArea();
+                    }
                     if (layout.TextElements != null)
                     {
                         foreach (var element in layout.TextElements)
