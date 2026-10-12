@@ -119,6 +119,10 @@ public class ParticipantsController : ControllerBase
             {
                 dto.Auxiliary = verification.Auxiliary.Value;
             }
+
+            dto.IsVerified = true;
+            dto.VerificationStatus = VerificationStatus.Verified;
+            dto.VerificationMessage = verification.Message;
         }
 
         var targetEvent = await _eventService.GetByIdAsync(dto.EventId, token);
