@@ -32,6 +32,7 @@ public class CertificateService : ICertificateService
             ParticipantMembershipId = certificate.Participant != null ? certificate.Participant.MembershipId : null,
             EventId = certificate.EventId,
             EventName = certificate.Event != null ? certificate.Event.Name : null,
+            Auxiliary = certificate.Auxiliary,
             EventAuxiliary = certificate.Event?.Auxiliary,
             CertificateTemplateId = certificate.CertificateTemplateId,
             TemplateName = certificate.CertificateTemplate != null ? certificate.CertificateTemplate.Name : null,
@@ -73,6 +74,7 @@ public class CertificateService : ICertificateService
             ParticipantMembershipId = certificate.Participant != null ? certificate.Participant.MembershipId : null,
             EventId = certificate.EventId,
             EventName = certificate.Event != null ? certificate.Event.Name : null,
+            Auxiliary = certificate.Auxiliary,
             EventAuxiliary = certificate.Event?.Auxiliary,
             CertificateTemplateId = certificate.CertificateTemplateId,
             TemplateName = certificate.CertificateTemplate != null ? certificate.CertificateTemplate.Name : null,
@@ -103,6 +105,7 @@ public class CertificateService : ICertificateService
                 ParticipantMembershipId = certificate.Participant != null ? certificate.Participant.MembershipId : null,
                 EventId = certificate.EventId,
                 EventName = certificate.Event != null ? certificate.Event.Name : null,
+                Auxiliary = certificate.Auxiliary,
                 EventAuxiliary = certificate.Event?.Auxiliary,
                 CertificateTemplateId = certificate.CertificateTemplateId,
                 TemplateName = certificate.CertificateTemplate != null ? certificate.CertificateTemplate.Name : null,
@@ -136,6 +139,7 @@ public class CertificateService : ICertificateService
                 ParticipantMembershipId = certificate.Participant != null ? certificate.Participant.MembershipId : null,
                 EventId = certificate.EventId,
                 EventName = certificate.Event != null ? certificate.Event.Name : null,
+                Auxiliary = certificate.Auxiliary,
                 EventAuxiliary = certificate.Event?.Auxiliary,
                 CertificateTemplateId = certificate.CertificateTemplateId,
                 TemplateName = certificate.CertificateTemplate != null ? certificate.CertificateTemplate.Name : null,
@@ -165,6 +169,7 @@ public class CertificateService : ICertificateService
             CertificateNumber = certificateNumber,
             ParticipantId = dto.ParticipantId,
             EventId = dto.EventId,
+            Auxiliary = dto.Auxiliary,
             CertificateTemplateId = dto.CertificateTemplateId,
             CertificateType = dto.CertificateType,
             Status = CertificateStatus.Generated,
@@ -179,6 +184,7 @@ public class CertificateService : ICertificateService
             CertificateNumber = certificate.CertificateNumber,
             ParticipantId = certificate.ParticipantId,
             EventId = certificate.EventId,
+            Auxiliary = certificate.Auxiliary,
             EventAuxiliary = certificate.Event?.Auxiliary,
             CertificateTemplateId = certificate.CertificateTemplateId,
             CertificateType = certificate.CertificateType,
@@ -204,6 +210,7 @@ public class CertificateService : ICertificateService
             throw new InvalidOperationException($"Invalid certificate status transition: {certificate.Status} to {dto.Status}.");
 
         certificate.Status = dto.Status;
+        certificate.Auxiliary = dto.Auxiliary;
         certificate.FilePath = dto.FilePath;
         certificate.RevocationReason = dto.RevocationReason;
         certificate.RevokedBy = dto.RevokedBy;
@@ -224,6 +231,7 @@ public class CertificateService : ICertificateService
             ParticipantMembershipId = certificate.Participant != null ? certificate.Participant.MembershipId : null,
             EventId = certificate.EventId,
             EventName = certificate.Event != null ? certificate.Event.Name : null,
+            Auxiliary = certificate.Auxiliary,
             EventAuxiliary = certificate.Event?.Auxiliary,
             CertificateTemplateId = certificate.CertificateTemplateId,
             TemplateName = certificate.CertificateTemplate != null ? certificate.CertificateTemplate.Name : null,
