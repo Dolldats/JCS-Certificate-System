@@ -11,7 +11,6 @@ public class CertificateDto
     public string? ParticipantMembershipId { get; set; }
     public Guid EventId { get; set; }
     public string? EventName { get; set; }
-    public Auxiliary Auxiliary { get; set; }
     // The auxiliary belongs to the event being certified. Keep it on the
     // certificate response so clients do not have to infer it from a
     // participant record (which may be missing or stale).

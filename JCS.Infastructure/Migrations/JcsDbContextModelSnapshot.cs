@@ -115,9 +115,6 @@ namespace JCS.Infastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<int>("Auxiliary")
-                        .HasColumnType("integer");
-
                     b.Property<string>("CertificateNumber")
                         .IsRequired()
                         .HasMaxLength(100)
