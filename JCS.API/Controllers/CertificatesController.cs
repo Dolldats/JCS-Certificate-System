@@ -139,8 +139,6 @@ public class CertificatesController : ControllerBase
         {
             var participant = await _participantService.GetByIdAsync(dto.ParticipantId, token);
             var userAux = User.FindFirst("Auxiliary")?.Value;
-            if (participant != null && dto.Auxiliary != participant.Auxiliary)
-                return BadRequest(new { message = "Certificate auxiliary must match the participant's auxiliary body." });
             if (participant != null && userAux != "None" && !CanAccessParticipant(participant))
             {
                 return StatusCode(403, new { message = "General Admins can only create certificates for participants in their own auxiliary body." });
@@ -162,7 +160,6 @@ public class CertificatesController : ControllerBase
 
         var existing = await _certificateService.GetByIdAsync(id, token);
         if (existing == null) return NotFound(new { message = $"Certificate with id {id} not found." });
-        if (dto.Auxiliary != existing.Auxiliary) return BadRequest(new { message = "Certificate auxiliary cannot be changed from the participant's auxiliary body." });
         if (!await CanAccessCertificateAsync(existing, token)) return Forbid();
 
         CertificateDto? result;
