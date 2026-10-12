@@ -1,5 +1,7 @@
 ﻿using JCS.Domain.Enum;
 
+using JCS.Domain.Enum;
+
 namespace JCS.Domain.Entities;
 
 public class Certificate
@@ -8,6 +10,7 @@ public class Certificate
     public string CertificateNumber { get; set; } = string.Empty;
     public Guid ParticipantId { get; set; }
     public Guid EventId { get; set; }
+    public JCS.Domain.Enum.Auxiliary Auxiliary { get; set; }
     public Guid CertificateTemplateId { get; set; }
     public CertificateType CertificateType { get; set; } = CertificateType.Participation;
     public CertificateStatus Status { get; set; } = CertificateStatus.Generated;
