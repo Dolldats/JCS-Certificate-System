@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace JCS.Infastructure.Migrations
 {
     [DbContext(typeof(JcsDbContext))]
-    [Migration("20261012191127_AddCertificateAuxiliary")]
+    [Migration("20261012201934_AddCertificateAuxiliary")]
     partial class AddCertificateAuxiliary
     {
         /// <inheritdoc />
