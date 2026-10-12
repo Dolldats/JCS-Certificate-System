@@ -26,6 +26,7 @@ public class CertificateRenderer : ICertificateRenderer
                         {
                             layers.PrimaryLayer().Image(File.ReadAllBytes(request.BackgroundImagePath)).FitArea();
                         }
+                        AddImages(layers, request.Layout);
                         if (request.Layout.TextElements != null)
                         {
                             foreach (var element in request.Layout.TextElements)
@@ -62,6 +63,7 @@ public class CertificateRenderer : ICertificateRenderer
                     {
                         layers.PrimaryLayer().Image(File.ReadAllBytes(backgroundImagePath)).FitArea();
                     }
+                    AddImages(layers, layout);
                     if (layout.TextElements != null)
                     {
                         foreach (var element in layout.TextElements)
@@ -89,5 +91,29 @@ public class CertificateRenderer : ICertificateRenderer
                 });
             });
         }).GeneratePdf();
+    }
+
+    private static void AddImages(LayersDescriptor layers, TemplateLayoutDto layout)
+    {
+        if (layout.ImageElements == null)
+        {
+            return;
+        }
+
+        foreach (var element in layout.ImageElements)
+        {
+            if (string.IsNullOrWhiteSpace(element.AssetKey) || !File.Exists(element.AssetKey))
+            {
+                continue;
+            }
+
+            layers.Layer()
+                .TranslateX((float)element.X)
+                .TranslateY((float)element.Y)
+                .Width((float)element.Width)
+                .Height((float)element.Height)
+                .Image(File.ReadAllBytes(element.AssetKey))
+                .FitArea();
+        }
     }
 }

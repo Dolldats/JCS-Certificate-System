@@ -236,6 +236,7 @@ public class CertificatesController : ControllerBase
         var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson)
             ? new TemplateLayoutDto()
             : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+        ResolveLayoutAssets(layout);
         var values = new Dictionary<string, string?>
         {
             ["ParticipantName"] = certificate.Participant.FullName,
@@ -244,8 +245,9 @@ public class CertificatesController : ControllerBase
             ["Venue"] = certificate.Event.Venue,
             ["CertificateNumber"] = certificate.CertificateNumber,
             ["Jamaat"] = certificate.Participant.Jamaat,
+            ["Dila"] = certificate.Participant.Dila,
             ["Ilaqa"] = certificate.Participant.Ilaqa,
-            ["Auxiliary"] = certificate.Event.Auxiliary.ToString(),
+            ["Auxiliary"] = certificate.Participant.Auxiliary.ToString(),
             ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
         };
 
@@ -288,6 +290,7 @@ public class CertificatesController : ControllerBase
             var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson)
                 ? new TemplateLayoutDto()
                 : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+            ResolveLayoutAssets(layout);
             var values = new Dictionary<string, string?>
             {
                 ["ParticipantName"] = certificate.Participant.FullName,
@@ -296,8 +299,9 @@ public class CertificatesController : ControllerBase
                 ["Venue"] = certificate.Event.Venue,
                 ["CertificateNumber"] = certificate.CertificateNumber,
                 ["Jamaat"] = certificate.Participant.Jamaat,
+                ["Dila"] = certificate.Participant.Dila,
                 ["Ilaqa"] = certificate.Participant.Ilaqa,
-                ["Auxiliary"] = certificate.Event.Auxiliary.ToString(),
+                ["Auxiliary"] = certificate.Participant.Auxiliary.ToString(),
                 ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
             };
             var bytes = _certificateRenderer.RenderPdf(layout,
@@ -339,6 +343,7 @@ public class CertificatesController : ControllerBase
             }
 
             var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson) ? new TemplateLayoutDto() : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+            ResolveLayoutAssets(layout);
             requests.Add(new CertificateRenderRequest(layout, new Dictionary<string, string?>
             {
                 ["ParticipantName"] = certificate.Participant.FullName,
@@ -347,8 +352,9 @@ public class CertificatesController : ControllerBase
                 ["Venue"] = certificate.Event.Venue,
                 ["CertificateNumber"] = certificate.CertificateNumber,
                 ["Jamaat"] = certificate.Participant.Jamaat,
+                ["Dila"] = certificate.Participant.Dila,
                 ["Ilaqa"] = certificate.Participant.Ilaqa,
-                ["Auxiliary"] = certificate.Event.Auxiliary.ToString(),
+                ["Auxiliary"] = certificate.Participant.Auxiliary.ToString(),
                 ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
             }, 
             certificate.CertificateTemplate.Width > 0 ? certificate.CertificateTemplate.Width : 1122, 
@@ -373,6 +379,14 @@ public class CertificatesController : ControllerBase
         }
 
         return Path.IsPathRooted(path) ? path : Path.Combine(_environment.ContentRootPath, path.Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    private void ResolveLayoutAssets(TemplateLayoutDto layout)
+    {
+        foreach (var image in layout.ImageElements)
+        {
+            image.AssetKey = ResolveAssetPath(image.AssetKey) ?? image.AssetKey;
+        }
     }
 
     private async Task<bool> CanAccessCertificateAsync(CertificateDto certificate, CancellationToken token)
