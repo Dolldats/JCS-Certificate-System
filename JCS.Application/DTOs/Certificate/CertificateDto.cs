@@ -9,6 +9,10 @@ public class CertificateDto
     public Guid ParticipantId { get; set; }
     public string? ParticipantName { get; set; }
     public string? ParticipantMembershipId { get; set; }
+    public string? ParticipantJamaat { get; set; }
+    public string? ParticipantDila { get; set; }
+    public string? ParticipantIlaqa { get; set; }
+    public Auxiliary? ParticipantAuxiliary { get; set; }
     public Guid EventId { get; set; }
     public string? EventName { get; set; }
     // The auxiliary belongs to the event being certified. Keep it on the

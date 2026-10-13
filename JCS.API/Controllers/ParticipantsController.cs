@@ -178,7 +178,19 @@ public class ParticipantsController : ControllerBase
         var existing = await _participantService.GetByIdAsync(id, token);
         if (existing == null) return NotFound(new { message = $"Participant with id {id} not found." });
         if (!CanAccessParticipant(existing)) return Forbid();
-        var deleted = await _participantService.DeleteAsync(id, token);
+        bool deleted;
+        try
+        {
+            deleted = await _participantService.DeleteAsync(id, token);
+        }
+        catch (DbUpdateException)
+        {
+            return Conflict(new
+            {
+                message = "This participant cannot be removed because one or more certificates are linked to the participant. Remove or revoke the linked certificate first."
+            });
+        }
+
         if (!deleted)
         {
             return NotFound(new { message = $"Participant with id {id} not found." });

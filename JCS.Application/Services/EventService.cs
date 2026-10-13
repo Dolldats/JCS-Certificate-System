@@ -38,8 +38,8 @@ public class EventService : IEventService
             OrganizationalUnit = eventItem.OrganizationalUnit,
             Status = eventItem.Status,
             CreatedAt = eventItem.CreatedAt,
-            ParticipantCount = eventItem.Participants != null ? eventItem.Participants.Count : 0,
-            CertificateCount = eventItem.Certificates != null ? eventItem.Certificates.Count : 0
+            ParticipantCount = VerifiedParticipantCount(eventItem),
+            CertificateCount = GeneratedCertificateCount(eventItem)
         };
     }
 
@@ -65,8 +65,8 @@ public class EventService : IEventService
                 OrganizationalUnit = eventItem.OrganizationalUnit,
                 Status = eventItem.Status,
                 CreatedAt = eventItem.CreatedAt,
-                ParticipantCount = eventItem.Participants != null ? eventItem.Participants.Count : 0,
-                CertificateCount = eventItem.Certificates != null ? eventItem.Certificates.Count : 0
+                ParticipantCount = VerifiedParticipantCount(eventItem),
+                CertificateCount = GeneratedCertificateCount(eventItem)
             });
         }
 
@@ -95,8 +95,8 @@ public class EventService : IEventService
                 OrganizationalUnit = eventItem.OrganizationalUnit,
                 Status = eventItem.Status,
                 CreatedAt = eventItem.CreatedAt,
-                ParticipantCount = eventItem.Participants != null ? eventItem.Participants.Count : 0,
-                CertificateCount = eventItem.Certificates != null ? eventItem.Certificates.Count : 0
+                ParticipantCount = VerifiedParticipantCount(eventItem),
+                CertificateCount = GeneratedCertificateCount(eventItem)
             });
         }
 
@@ -139,8 +139,8 @@ public class EventService : IEventService
             OrganizationalUnit = newEvent.OrganizationalUnit,
             Status = newEvent.Status,
             CreatedAt = newEvent.CreatedAt,
-            ParticipantCount = 0,
-            CertificateCount = 0
+            ParticipantCount = VerifiedParticipantCount(newEvent),
+            CertificateCount = GeneratedCertificateCount(newEvent)
         };
     }
 
@@ -181,8 +181,8 @@ public class EventService : IEventService
             OrganizationalUnit = eventItem.OrganizationalUnit,
             Status = eventItem.Status,
             CreatedAt = eventItem.CreatedAt,
-            ParticipantCount = eventItem.Participants != null ? eventItem.Participants.Count : 0,
-            CertificateCount = eventItem.Certificates != null ? eventItem.Certificates.Count : 0
+            ParticipantCount = VerifiedParticipantCount(eventItem),
+            CertificateCount = GeneratedCertificateCount(eventItem)
         };
     }
 
@@ -197,4 +197,10 @@ public class EventService : IEventService
         await _eventRepository.DeleteAsync(id, token);
         return true;
     }
+
+    private static int VerifiedParticipantCount(Event eventItem) =>
+        eventItem.Participants?.Count(x => x.IsVerified && x.VerificationStatus == VerificationStatus.Verified) ?? 0;
+
+    private static int GeneratedCertificateCount(Event eventItem) =>
+        eventItem.Certificates?.Count(x => x.Status == CertificateStatus.Generated || x.Status == CertificateStatus.Issued) ?? 0;
 }
