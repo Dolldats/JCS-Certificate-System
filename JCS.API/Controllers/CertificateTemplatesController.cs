@@ -156,16 +156,16 @@ public class CertificateTemplatesController : ControllerBase
         var layout = JsonSerializer.Deserialize<TemplateLayoutDto>(request.ConfigurationJson) ?? new TemplateLayoutDto();
         var values = new Dictionary<string, string?>
         {
-            ["ParticipantName"] = "Sample Participant",
-            ["EventName"] = "Jama'at Certificate Event",
-            ["EventDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd"),
-            ["Venue"] = "Sample Event Venue",
-            ["CertificateNumber"] = "JCS-SAMPLE-2026-0001",
-            ["Jamaat"] = "Sample Jamaat",
-            ["Dila"] = "Sample Dila",
-            ["Ilaqa"] = "Sample Ilaqa",
-            ["Auxiliary"] = "Sample Auxiliary",
-            ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
+            ["ParticipantName"] = string.IsNullOrWhiteSpace(request.ParticipantName) ? "Sample Participant" : request.ParticipantName,
+            ["EventName"] = string.IsNullOrWhiteSpace(request.EventName) ? "Jama'at Certificate Event" : request.EventName,
+            ["EventDate"] = string.IsNullOrWhiteSpace(request.EventDate) ? DateTime.UtcNow.ToString("yyyy-MM-dd") : request.EventDate,
+            ["Venue"] = string.IsNullOrWhiteSpace(request.Venue) ? "Sample Event Venue" : request.Venue,
+            ["CertificateNumber"] = string.IsNullOrWhiteSpace(request.CertificateNumber) ? "JCS-SAMPLE-2026-0001" : request.CertificateNumber,
+            ["Jamaat"] = string.IsNullOrWhiteSpace(request.Jamaat) ? "Sample Jamaat" : request.Jamaat,
+            ["Dila"] = string.IsNullOrWhiteSpace(request.Dila) ? "Sample Dila" : request.Dila,
+            ["Ilaqa"] = string.IsNullOrWhiteSpace(request.Ilaqa) ? "Sample Ilaqa" : request.Ilaqa,
+            ["Auxiliary"] = string.IsNullOrWhiteSpace(request.Auxiliary) ? "Sample Auxiliary" : request.Auxiliary,
+            ["IssueDate"] = string.IsNullOrWhiteSpace(request.IssueDate) ? DateTime.UtcNow.ToString("yyyy-MM-dd") : request.IssueDate
         };
 
         var svg = BuildSvg(layout, values, request.Width, request.Height, request.BackgroundImagePath);
@@ -245,11 +245,11 @@ public class CertificateTemplatesController : ControllerBase
     {
         width = width <= 0 ? 1122 : width;
         height = height <= 0 ? 793 : height;
-        var svg = new StringBuilder("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\">");
+        var svg = new StringBuilder($"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\">");
         svg.Append("<rect width=\"100%\" height=\"100%\" fill=\"white\"/>");
         if (!string.IsNullOrWhiteSpace(backgroundImagePath))
         {
-            svg.Append("<image href=\"{SecurityElement.Escape(backgroundImagePath)}\" x=\"0\" y=\"0\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"none\"/>");
+            svg.Append($"<image href=\"{SecurityElement.Escape(backgroundImagePath)}\" x=\"0\" y=\"0\" width=\"100%\" height=\"100%\" preserveAspectRatio=\"none\"/>");
         }
 
         if (layout.ImageElements != null)
@@ -257,7 +257,7 @@ public class CertificateTemplatesController : ControllerBase
             foreach (var image in layout.ImageElements)
             {
                 var source = SecurityElement.Escape(image.AssetKey) ?? string.Empty;
-                svg.Append("<image href=\"{source}\" x=\"{image.X}\" y=\"{image.Y}\" width=\"{image.Width}\" height=\"{image.Height}\" preserveAspectRatio=\"xMidYMid meet\"/>");
+                svg.Append($"<image href=\"{source}\" x=\"{image.X}\" y=\"{image.Y}\" width=\"{image.Width}\" height=\"{image.Height}\" preserveAspectRatio=\"xMidYMid meet\"/>");
             }
         }
 
@@ -274,7 +274,7 @@ public class CertificateTemplatesController : ControllerBase
                 var alignment = GetAnchor(text.Alignment);
                 var fontSize = text.FontSize > 0 ? text.FontSize : 12;
 
-                svg.Append("<text x=\"{text.X}\" y=\"{text.Y}\" fill=\"{SecurityElement.Escape(textColor)}\" font-family=\"{SecurityElement.Escape(fontFamily)}\" font-size=\"{fontSize}\" text-anchor=\"{alignment}\" {weight} {style}>{escaped}</text>");
+                svg.Append($"<text x=\"{text.X}\" y=\"{text.Y}\" fill=\"{SecurityElement.Escape(textColor)}\" font-family=\"{SecurityElement.Escape(fontFamily)}\" font-size=\"{fontSize}\" text-anchor=\"{alignment}\" {weight} {style}>{escaped}</text>");
             }
         }
 
@@ -306,6 +306,16 @@ public class TemplatePreviewRequest
     public decimal Width { get; set; } = 1122;
     public decimal Height { get; set; } = 793;
     public string? BackgroundImagePath { get; set; }
+    public string? ParticipantName { get; set; }
+    public string? EventName { get; set; }
+    public string? EventDate { get; set; }
+    public string? Venue { get; set; }
+    public string? CertificateNumber { get; set; }
+    public string? Jamaat { get; set; }
+    public string? Dila { get; set; }
+    public string? Ilaqa { get; set; }
+    public string? Auxiliary { get; set; }
+    public string? IssueDate { get; set; }
 }
 
 public class UploadAssetRequest

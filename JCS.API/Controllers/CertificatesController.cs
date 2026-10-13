@@ -208,7 +208,41 @@ public class CertificatesController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(certificate.FilePath) || !System.IO.File.Exists(certificate.FilePath))
         {
-            return NotFound(new { message = "The certificate file has not been generated yet." });
+            var entity = await _certificateRepository.GetByIdAsync(id, token);
+            if (entity?.Participant == null || entity.Event == null || entity.CertificateTemplate == null)
+            {
+                return NotFound(new { message = "Certificate, participant, event, or template was not found." });
+            }
+
+            var layout = string.IsNullOrWhiteSpace(entity.CertificateTemplate.ConfigurationJson)
+                ? new TemplateLayoutDto()
+                : JsonSerializer.Deserialize<TemplateLayoutDto>(entity.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+            ResolveLayoutAssets(layout);
+            var values = new Dictionary<string, string?>
+            {
+                ["ParticipantName"] = entity.Participant.FullName,
+                ["EventName"] = entity.Event.Name,
+                ["EventDate"] = entity.Event.EventDate.ToString("yyyy-MM-dd"),
+                ["Venue"] = entity.Event.Venue,
+                ["CertificateNumber"] = entity.CertificateNumber,
+                ["Jamaat"] = entity.Participant.Jamaat,
+                ["Dila"] = entity.Participant.Dila,
+                ["Ilaqa"] = entity.Participant.Ilaqa,
+                ["Auxiliary"] = entity.Participant.Auxiliary.ToString(),
+                ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
+            };
+            var bytes = _certificateRenderer.RenderPdf(layout, values,
+                entity.CertificateTemplate.Width > 0 ? entity.CertificateTemplate.Width : 1122,
+                entity.CertificateTemplate.Height > 0 ? entity.CertificateTemplate.Height : 793,
+                ResolveAssetPath(entity.CertificateTemplate.BackgroundImagePath));
+            var directory = Path.Combine(_environment.ContentRootPath, "uploads", "certificates");
+            Directory.CreateDirectory(directory);
+            entity.FilePath = Path.Combine(directory, $"{entity.CertificateNumber}.pdf");
+            await System.IO.File.WriteAllBytesAsync(entity.FilePath, bytes, token);
+            entity.Status = JCS.Domain.Enum.CertificateStatus.Generated;
+            entity.GeneratedAt = DateTime.UtcNow;
+            await _certificateRepository.UpdateAsync(entity, token);
+            certificate.FilePath = entity.FilePath;
         }
 
         var contentType = Path.GetExtension(certificate.FilePath).ToLowerInvariant() switch
