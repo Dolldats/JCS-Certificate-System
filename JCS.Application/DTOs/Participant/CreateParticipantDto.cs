@@ -22,4 +22,7 @@ public class CreateParticipantDto
     public string? Dila { get; set; }
     public string? Ilaqa { get; set; }
     public Auxiliary Auxiliary { get; set; }
+    public bool IsVerified { get; set; }
+    public VerificationStatus VerificationStatus { get; set; } = VerificationStatus.Pending;
+    public string? VerificationMessage { get; set; }
 }

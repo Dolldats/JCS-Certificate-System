@@ -119,6 +119,9 @@ public class ParticipantsController : ControllerBase
                 dto.Auxiliary = verification.Auxiliary.Value;
             }
         }
+        dto.IsVerified = verification.Status == VerificationStatus.Verified;
+        dto.VerificationStatus = verification.Status;
+        dto.VerificationMessage = verification.Message;
 
         var targetEvent = await _eventService.GetByIdAsync(dto.EventId, token);
         if (targetEvent == null)
@@ -173,6 +176,10 @@ public class ParticipantsController : ControllerBase
         var existing = await _participantService.GetByIdAsync(id, token);
         if (existing == null) return NotFound(new { message = $"Participant with id {id} not found." });
         if (!CanAccessParticipant(existing)) return Forbid();
+        if (await _db.Certificates.AnyAsync(x => x.ParticipantId == id, token))
+        {
+            return Conflict(new { message = "This participant has certificates. Revoke and delete those certificates before removing the participant." });
+        }
         var deleted = await _participantService.DeleteAsync(id, token);
         if (!deleted)
         {
@@ -272,7 +279,10 @@ public class ParticipantsController : ControllerBase
                     Jamaat = verification.Jamaat,
                     Dila = verification.Dila,
                     Ilaqa = verification.Ilaqa,
-                    Auxiliary = verification.Auxiliary ?? targetEvent.Auxiliary
+                    Auxiliary = verification.Auxiliary ?? targetEvent.Auxiliary,
+                    IsVerified = true,
+                    VerificationStatus = VerificationStatus.Verified,
+                    VerificationMessage = verification.Message
                 }, token);
                 result.Imported++;
             }
@@ -372,7 +382,10 @@ public class ParticipantsController : ControllerBase
                     Jamaat = verification.Jamaat,
                     Dila = verification.Dila,
                     Ilaqa = verification.Ilaqa,
-                    Auxiliary = verification.Auxiliary ?? targetEvent.Auxiliary
+                    Auxiliary = verification.Auxiliary ?? targetEvent.Auxiliary,
+                    IsVerified = true,
+                    VerificationStatus = VerificationStatus.Verified,
+                    VerificationMessage = verification.Message
                 }, token);
                 result.Imported++;
             }

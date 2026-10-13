@@ -25,6 +25,7 @@ import {
   Search,
   ShieldCheck,
   AlertCircle,
+  Pencil,
 } from 'lucide-react';
 
 const AUXILIARY_OPTIONS: Auxiliary[] = [
@@ -76,6 +77,7 @@ export default function AdminsPage() {
   const [assignAuxiliary, setAssignAuxiliary] = useState<Auxiliary>('Atfal');
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignError, setAssignError] = useState('');
+  const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
 
   const loadAdmins = async () => {
     setLoading(true);
@@ -98,18 +100,43 @@ export default function AdminsPage() {
     setAssignError('');
 
     try {
-      await authApi.assignGeneralAdmin(
-        assignMemberId.trim().toUpperCase(),
-        assignAuxiliary,
-        user
-      );
+      if (editingAssignmentId) {
+        await authApi.updateGeneralAdmin(editingAssignmentId, assignAuxiliary, user);
+      } else {
+        await authApi.assignGeneralAdmin(assignMemberId.trim().toUpperCase(), assignAuxiliary, user);
+      }
       setIsAssignOpen(false);
       setAssignMemberId('');
+      setEditingAssignmentId(null);
       await loadAdmins();
     } catch (err) {
       setAssignError(err instanceof Error ? err.message : 'Failed to assign administrator');
     } finally {
       setIsAssigning(false);
+    }
+  };
+
+  const handleEdit = async (adminId: string) => {
+    try {
+      const assignment = await authApi.getGeneralAdminById(adminId);
+      setEditingAssignmentId(assignment.id);
+      setAssignMemberId(assignment.memberId);
+      setAssignAuxiliary(assignment.assignedAuxiliary || 'Atfal');
+      setAssignError('');
+      setIsAssignOpen(true);
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : 'Could not load this assignment');
+      setIsAssignOpen(true);
+    }
+  };
+
+  const handleDelete = async (adminId: string) => {
+    if (!confirm('Permanently delete this administrator assignment record?')) return;
+    try {
+      await authApi.deleteGeneralAdmin(adminId);
+      await loadAdmins();
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : 'Could not delete this assignment');
     }
   };
 
@@ -161,7 +188,7 @@ export default function AdminsPage() {
         <Button
           variant="primary"
           size="md"
-          onClick={() => setIsAssignOpen(true)}
+          onClick={() => { setEditingAssignmentId(null); setAssignMemberId(''); setAssignError(''); setIsAssignOpen(true); }}
           leftIcon={<UserPlus className="w-4 h-4" />}
         >
           Assign Auxiliary Admin
@@ -261,15 +288,17 @@ export default function AdminsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     {admin.role !== 'SUPER_ADMIN' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                        onClick={() => handleRevoke(admin.id)}
-                        leftIcon={<Trash2 className="w-3.5 h-3.5" />}
-                      >
-                        Revoke Access
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => void handleEdit(admin.id)} leftIcon={<Pencil className="w-3.5 h-3.5" />}>
+                          Edit scope
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-rose-600 hover:text-rose-700 hover:bg-rose-50" onClick={() => void handleRevoke(admin.id)} leftIcon={<ShieldAlert className="w-3.5 h-3.5" />}>
+                          Revoke
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-slate-500 hover:text-rose-700 hover:bg-rose-50" onClick={() => void handleDelete(admin.id)} leftIcon={<Trash2 className="w-3.5 h-3.5" />} aria-label="Delete assignment record">
+                          Delete
+                        </Button>
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>
@@ -282,9 +311,9 @@ export default function AdminsPage() {
       {/* Assign Modal */}
       <Modal
         isOpen={isAssignOpen}
-        onClose={() => setIsAssignOpen(false)}
-        title="Assign Existing Jama'at User as General Admin"
-        description="Verify an existing Member ID from the central registry and grant auxiliary certificate permissions."
+        onClose={() => { setIsAssignOpen(false); setEditingAssignmentId(null); }}
+        title={editingAssignmentId ? 'Update General Admin Assignment' : "Assign Existing Jama'at User as General Admin"}
+        description={editingAssignmentId ? 'Change the auxiliary scope for this existing assignment.' : 'Verify an existing Member ID from the central registry and grant auxiliary certificate permissions.'}
         maxWidth="md"
       >
         <form onSubmit={handleAssignSubmit} className="space-y-4">
@@ -302,6 +331,7 @@ export default function AdminsPage() {
             placeholder="Enter a member's ID"
             helperText="The member record will be looked up before the admin assignment is saved."
             required
+            disabled={Boolean(editingAssignmentId)}
           />
 
           <Select
@@ -333,7 +363,7 @@ export default function AdminsPage() {
               size="sm"
               isLoading={isAssigning}
             >
-              Confirm Assignment
+              {editingAssignmentId ? 'Save Scope' : 'Confirm Assignment'}
             </Button>
           </div>
         </form>

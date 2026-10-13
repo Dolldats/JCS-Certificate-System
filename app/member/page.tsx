@@ -2,19 +2,22 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Award, CalendarDays, LogOut, ShieldCheck } from 'lucide-react';
+import { Award, CalendarDays, Download, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeToggle } from '../../components/ui/ThemeToggle';
 import { Button } from '../../components/ui/Button';
 import { PieChart } from '../../components/ui/PieChart';
+import { certificatesApi, eventsApi, participantsApi } from '../../services/api';
 
 interface MemberEvent {
+  eventId: string;
   eventName: string;
   eventDate?: string;
   status: string;
   certificateIssued: boolean;
   certificateNumber?: string;
   certificateStatus?: string;
+  certificateId?: string;
 }
 
 function toMemberEvents(value: unknown): MemberEvent[] {
@@ -26,12 +29,14 @@ function toMemberEvents(value: unknown): MemberEvent[] {
     const record = entry as Record<string, unknown>;
     const eventName = typeof record.eventName === 'string' ? record.eventName : 'Event';
     return [{
+      eventId: typeof record.eventId === 'string' ? record.eventId : '',
       eventName,
       eventDate: typeof record.eventDate === 'string' ? record.eventDate : undefined,
       status: typeof record.status === 'string' ? record.status : 'Registered',
       certificateIssued: record.certificateIssued === true,
       certificateNumber: typeof record.certificateNumber === 'string' ? record.certificateNumber : undefined,
       certificateStatus: typeof record.certificateStatus === 'string' ? record.certificateStatus : undefined,
+      certificateId: typeof record.certificateId === 'string' ? record.certificateId : undefined,
     }];
   });
 }
@@ -47,6 +52,8 @@ export default function MemberPage() {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
   const [events, setEvents] = useState<MemberEvent[]>([]);
+  const [downloadingCertificateId, setDownloadingCertificateId] = useState<string | null>(null);
+  const [certificateDownloadError, setCertificateDownloadError] = useState('');
 
   useEffect(() => {
     if (isLoading) return;
@@ -59,14 +66,77 @@ export default function MemberPage() {
       return;
     }
 
-    try {
-      // The login response stores participation data scoped to the signed-in member.
-      const stored = sessionStorage.getItem('jcs_member_events');
-      if (stored) setEvents(toMemberEvents(JSON.parse(stored)));
-    } catch {
-      setEvents([]);
-    }
+    let cancelled = false;
+    const loadMemberRecords = async () => {
+      try {
+        const [participations, certificates, memberEvents] = await Promise.all([
+          participantsApi.getMy(),
+          certificatesApi.getMy(),
+          eventsApi.getAll(),
+        ]);
+        if (cancelled) return;
+
+        const eventsById = new Map(memberEvents.map((event) => [event.id, event]));
+        const certificatesByEvent = new Map(certificates.map((certificate) => [
+          String(certificate.eventId ?? ''),
+          certificate,
+        ]));
+        setEvents(participations.map((participation) => {
+          const event = eventsById.get(participation.eventId);
+          const certificate = certificatesByEvent.get(participation.eventId);
+          const certificateStatus = typeof certificate?.status === 'string' ? certificate.status : undefined;
+          return {
+            eventId: participation.eventId,
+            eventName: event?.name || 'Event',
+            eventDate: event?.date,
+            status: participation.verificationStatus,
+            certificateIssued: Boolean(certificate && certificateStatus !== 'Revoked'),
+            certificateNumber: typeof certificate?.certificateNumber === 'string' ? certificate.certificateNumber : undefined,
+            certificateStatus,
+            certificateId: typeof certificate?.id === 'string' ? certificate.id : undefined,
+          };
+        }));
+      } catch {
+        // Keep the login response as a graceful fallback if a member endpoint is unavailable.
+        try {
+          const stored = sessionStorage.getItem('jcs_member_events');
+          if (!cancelled) setEvents(stored ? toMemberEvents(JSON.parse(stored)) : []);
+        } catch {
+          if (!cancelled) setEvents([]);
+        }
+      }
+    };
+    void loadMemberRecords();
+    return () => { cancelled = true; };
   }, [isLoading, router, user]);
+
+  const downloadCertificate = async (certificateId: string, certificateNumber?: string) => {
+    setCertificateDownloadError('');
+    setDownloadingCertificateId(certificateId);
+    try {
+      let blob: Blob;
+      try {
+        blob = await certificatesApi.download(certificateId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message.toLowerCase() : '';
+        if (!message.includes('not been generated yet')) throw error;
+        // Some issued records predate PDF generation. Generate the file on demand,
+        // then download the PDF returned by the generation endpoint.
+        blob = await certificatesApi.generateFile(certificateId);
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${certificateNumber || 'certificate'}.pdf`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      setCertificateDownloadError(error instanceof Error ? error.message : 'Could not download this certificate.');
+    } finally {
+      setDownloadingCertificateId(null);
+    }
+  };
 
   if (isLoading || !user || user.role !== 'MEMBER') {
     return (
@@ -158,6 +228,7 @@ export default function MemberPage() {
             <h2 className="text-xl font-bold text-slate-900">My events and certificates</h2>
             <p className="mt-1 text-sm text-slate-500">Your event participation and certificate status from Jama&apos;at Certify.</p>
           </div>
+          {certificateDownloadError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{certificateDownloadError}</p>}
           {events.length === 0 ? (
             <div className="surface-card rounded-2xl px-6 py-12 text-center">
               <CalendarDays className="mx-auto h-9 w-9 text-slate-300" />
@@ -182,6 +253,17 @@ export default function MemberPage() {
                         <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800"><ShieldCheck className="h-4 w-4" /> Certificate issued</p>
                         {event.certificateNumber && <p className="mt-1 font-mono text-xs text-slate-600">{event.certificateNumber}</p>}
                         {event.certificateStatus && <p className="mt-1 text-xs text-slate-500">Status: {event.certificateStatus}</p>}
+                        {event.certificateId && (
+                          <button
+                            type="button"
+                            onClick={() => void downloadCertificate(event.certificateId!, event.certificateNumber)}
+                            disabled={downloadingCertificateId === event.certificateId}
+                            className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 disabled:cursor-wait disabled:opacity-60"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            {downloadingCertificateId === event.certificateId ? 'Preparing download…' : 'Download certificate'}
+                          </button>
+                        )}
                       </>
                     ) : <p className="text-sm text-slate-500">No certificate issued yet</p>}
                   </div>

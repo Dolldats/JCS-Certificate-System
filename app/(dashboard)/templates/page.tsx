@@ -9,6 +9,7 @@ import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
+import { Modal } from '../../../components/ui/Modal';
 import { getRegionLabel } from '../../../components/certificates/certificateText';
 import { processSignatureImage } from '../../../lib/utils';
 import { CertificatePreview } from '../../../components/certificates/CertificatePreview';
@@ -24,6 +25,7 @@ import {
   UploadCloud,
   X,
   ImagePlus,
+  Trash2,
 } from 'lucide-react';
 
 const CERTIFICATE_TYPES: CertificateType[] = [
@@ -93,6 +95,9 @@ export default function TemplatesPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
   const [signatureError, setSignatureError] = useState('');
+  const [templateActionError, setTemplateActionError] = useState('');
+  const [serverPreviewUrl, setServerPreviewUrl] = useState('');
+  const [isLoadingServerPreview, setIsLoadingServerPreview] = useState(false);
   const signatureInputRef = useRef<HTMLInputElement>(null);
   const participationInputRef = useRef<HTMLInputElement>(null);
   // Sample recipient — preview only (empty = blank handwriting lines).
@@ -140,7 +145,7 @@ export default function TemplatesPage() {
 
   const handleClearSignature = useCallback(() => {
     if (!currentTemplate) return;
-    setCurrentTemplate({ ...currentTemplate, signature1Image: undefined });
+    setCurrentTemplate({ ...currentTemplate, signature1Image: undefined, signatureAssetPath: undefined });
     setSignatureError('');
     if (signatureInputRef.current) signatureInputRef.current.value = '';
   }, [currentTemplate]);
@@ -158,11 +163,18 @@ export default function TemplatesPage() {
     loadTemplates();
   }, [activeAuxiliary]);
 
-  const handleSelectTemplate = (id: string) => {
+  const handleSelectTemplate = async (id: string) => {
     setSelectedTemplateId(id);
     const found = templates.find((t) => t.id === id);
     if (found) {
       setCurrentTemplate({ ...found });
+      if (/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id)) {
+        try {
+          setCurrentTemplate(await templatesApi.getById(id));
+        } catch (error) {
+          setTemplateActionError(error instanceof Error ? error.message : 'Could not load template details.');
+        }
+      }
     }
   };
 
@@ -170,7 +182,9 @@ export default function TemplatesPage() {
     if (!currentTemplate || !user) return;
     setIsSaving(true);
     try {
-      await templatesApi.save(currentTemplate, user);
+      const saved = await templatesApi.save(currentTemplate, user);
+      setCurrentTemplate(saved);
+      setSelectedTemplateId(saved.id);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
       const all = await templatesApi.getAll(
@@ -181,6 +195,47 @@ export default function TemplatesPage() {
       console.error('Failed to save template', err);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleUploadSignature = async (file: File | undefined) => {
+    if (!file) return;
+    handleSignatureFile(file);
+    if (!user) return;
+    try {
+      const path = await templatesApi.uploadAsset(file, 'signatures');
+      setCurrentTemplate((current) => current ? { ...current, signatureAssetPath: path } : current);
+    } catch (error) {
+      setTemplateActionError(error instanceof Error ? error.message : 'Signature image could not be uploaded to the server.');
+    }
+  };
+
+  const handleServerPreview = async () => {
+    if (!currentTemplate) return;
+    setIsLoadingServerPreview(true);
+    setTemplateActionError('');
+    try {
+      const svg = await templatesApi.preview(currentTemplate);
+      if (serverPreviewUrl) URL.revokeObjectURL(serverPreviewUrl);
+      setServerPreviewUrl(URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' })));
+    } catch (error) {
+      setTemplateActionError(error instanceof Error ? error.message : 'Server preview could not be generated.');
+    } finally {
+      setIsLoadingServerPreview(false);
+    }
+  };
+
+  const handleDeleteTemplate = async () => {
+    if (!currentTemplate || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(currentTemplate.id)) return;
+    if (!confirm(`Delete template "${currentTemplate.name}"?`)) return;
+    try {
+      await templatesApi.delete(currentTemplate.id);
+      const remaining = await templatesApi.getAll(activeAuxiliary === 'All' ? undefined : activeAuxiliary as Auxiliary);
+      setTemplates(remaining);
+      setCurrentTemplate(remaining[0] || null);
+      setSelectedTemplateId(remaining[0]?.id || '');
+    } catch (error) {
+      setTemplateActionError(error instanceof Error ? error.message : 'Template could not be deleted.');
     }
   };
 
@@ -198,6 +253,14 @@ export default function TemplatesPage() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="md" onClick={() => void handleServerPreview()} isLoading={isLoadingServerPreview} leftIcon={<Eye className="h-4 w-4" />}>
+            Server Preview
+          </Button>
+          {currentTemplate && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(currentTemplate.id) && (
+            <Button variant="outline" size="md" className="text-rose-600" onClick={() => void handleDeleteTemplate()} leftIcon={<Trash2 className="h-4 w-4" />}>
+              Delete
+            </Button>
+          )}
           {isEditing && (
             <Button
               variant="outline"
@@ -219,6 +282,12 @@ export default function TemplatesPage() {
           </Button>
         </div>
       </div>
+
+      {templateActionError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{templateActionError}</p>}
+
+      <Modal isOpen={!!serverPreviewUrl} onClose={() => { if (serverPreviewUrl) URL.revokeObjectURL(serverPreviewUrl); setServerPreviewUrl(''); }} title="Backend Template Preview" description="Rendered by the certificate template preview endpoint." maxWidth="xl">
+        {serverPreviewUrl && <img src={serverPreviewUrl} alt="Server-rendered certificate template preview" className="w-full rounded-lg border border-slate-200" />}
+      </Modal>
 
       {/* Template Selector Pills */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2">
@@ -1067,7 +1136,7 @@ export default function TemplatesPage() {
                       type="file"
                       accept="image/png,image/jpeg,image/webp,image/svg+xml"
                       className="hidden"
-                      onChange={(e) => handleSignatureFile(e.target.files?.[0])}
+                        onChange={(e) => void handleUploadSignature(e.target.files?.[0])}
                     />
                     {currentTemplate.signature1Image ? (
                       <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/50 flex items-center gap-3">
@@ -1122,7 +1191,7 @@ export default function TemplatesPage() {
                         onDrop={(e) => {
                           e.preventDefault();
                           setIsDragActive(false);
-                          handleSignatureFile(e.dataTransfer.files?.[0]);
+                          void handleUploadSignature(e.dataTransfer.files?.[0]);
                         }}
                         className={`p-5 rounded-xl border-2 border-dashed text-center cursor-pointer transition-colors ${
                           isDragActive

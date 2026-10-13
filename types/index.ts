@@ -19,6 +19,7 @@ export type EventStatus =
   | 'Cancelled';
 
 export type VerificationStatus =
+  | 'Pending'
   | 'Verified'
   | 'Not Found'
   | 'Invalid'
@@ -101,6 +102,8 @@ export interface Participant {
   eventId: string;
   memberId: string;
   fullName: string;
+  email?: string;
+  phone?: string;
   auxiliary: Auxiliary;
   dila: string;
   ilaqa?: string;
@@ -151,6 +154,7 @@ export interface CertificateTemplate {
   signature1Title: string;
   signature1Date: string;
   signature1Image?: string;
+  signatureAssetPath?: string;
 
   isDefault: boolean;
   updatedAt: string;
@@ -176,6 +180,7 @@ export interface Certificate {
   issuedAt: string;
   issuedBy: string;
   status: CertificateStatus;
+  filePath?: string;
   revocationReason?: string;
   revokedAt?: string;
   revokedBy?: string;
@@ -197,6 +202,7 @@ export interface AuditLog {
     | 'Certificate Generated'
     | 'Certificate Updated'
     | 'Certificate Revoked'
+    | 'Certificate Deleted'
     | 'Template Modified';
   adminName: string;
   adminRole: AdminRole | 'Admin' | 'MEMBER';

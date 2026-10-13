@@ -1,5 +1,5 @@
 import { jamaatMemberApi } from './jamaatMemberApi';
-import { backendFetch, getAuthToken } from './backendClient';
+import { backendDownload, backendFetch, getAuthToken } from './backendClient';
 
 import {
   User,
@@ -43,6 +43,30 @@ const bBool = (value: unknown, fallback: boolean): boolean =>
 const bRec = (value: unknown): BackendRecord | undefined =>
   typeof value === 'object' && value !== null ? (value as BackendRecord) : undefined;
 
+function pageItems(value: unknown): BackendRecord[] {
+  if (Array.isArray(value)) return value as BackendRecord[];
+  const record = bRec(value);
+  if (Array.isArray(record?.items)) return record.items as BackendRecord[];
+  if (Array.isArray(record?.data)) return record.data as BackendRecord[];
+  return [];
+}
+
+async function getAllBackendPages(path: string): Promise<BackendRecord[]> {
+  const pageSize = 100;
+  const first = await backendFetch<unknown>(`${path}?page=1&pageSize=${pageSize}`);
+  const firstItems = pageItems(first);
+  const totalCount = bNum(bRec(first)?.totalCount, firstItems.length);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const allItems = [...firstItems];
+
+  for (let page = 2; page <= totalPages; page += 1) {
+    const response = await backendFetch<unknown>(`${path}?page=${page}&pageSize=${pageSize}`);
+    allItems.push(...pageItems(response));
+  }
+
+  return allItems;
+}
+
 const delay = (ms = 200) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const LEGACY_DEMO_USERS = [
@@ -73,6 +97,26 @@ function isGeneratedMemberName(name: string): boolean {
 async function lookupMemberProfile(memberId: string): Promise<Partial<JamaatMember> | null> {
   const cleanId = memberId.trim().toUpperCase();
   if (!cleanId) return null;
+
+  try {
+    const response = await backendFetch<BackendRecord>(`members/tajneed/${encodeURIComponent(cleanId)}`);
+    const profile = bRec(response.member) || bRec(response.profile) || bRec(response.data) || response;
+    const fullName = bStr(profile.fullName || profile.name).trim();
+    if (fullName && !isGeneratedMemberName(fullName)) {
+      return {
+        memberId: cleanId,
+        fullName,
+        email: bStr(profile.email) || undefined,
+        phone: bStr(profile.phone || profile.phoneNumber) || undefined,
+        auxiliary: (profile.auxiliary || profile.body) as Auxiliary | undefined,
+        dila: bStr(profile.dila || profile.district) || undefined,
+        ilaqa: bStr(profile.ilaqa) || undefined,
+        jamaat: bStr(profile.jamaat) || undefined,
+      };
+    }
+  } catch {
+    // Older deployments may not expose the Tajneed lookup, so try the participant verifier next.
+  }
 
   const cachedParticipant = getStorage<Participant[]>('participants', INITIAL_PARTICIPANTS)
     .find((participant) =>
@@ -167,6 +211,19 @@ function removeLegacyDemoAuditLogs(logs: AuditLog[]): AuditLog[] {
   return logs.filter((log) => !LEGACY_DEMO_AUDIT_LOG_IDS.has(log.id));
 }
 
+function readableAuditAction(action: string): string {
+  // Older backend records stored the raw route; present the business action name.
+  if (action.toLowerCase() === 'post /api/participants') return 'Participant Added';
+  return action;
+}
+
+function readableAuditDetails(action: string, details: string): string {
+  if (action.toLowerCase() === 'post /api/participants' && /^HTTP 2\d\d$/i.test(details.trim())) {
+    return `Participant request completed successfully (${details}). This older log did not capture the member ID or event.`;
+  }
+  return details;
+}
+
 export const auditApi = {
   async getLogs(auxiliaryFilter?: Auxiliary): Promise<AuditLog[]> {
     const token = getAuthToken();
@@ -206,17 +263,20 @@ export const auditApi = {
             allItems.push(...items);
           }
 
-          const mapped = removeLegacyDemoAuditLogs(allItems.map((item) => ({
+          const mapped = removeLegacyDemoAuditLogs(allItems.map((item) => {
+            const rawAction = bStr(item.action, 'Login');
+            const rawDetails = bStr(item.details || item.description);
+            return {
             id: bStr(item.id, `log-${Date.now()}`),
-            action: bStr(item.action, 'Login') as AuditLog['action'],
+            action: readableAuditAction(rawAction) as AuditLog['action'],
             adminName: bStr(item.performedBy || item.adminName, 'Admin'),
             adminRole: bStr(item.role || item.adminRole, 'Admin') as AuditLog['adminRole'],
             auxiliary: item.auxiliary as Auxiliary | undefined,
-            target: bStr(item.target || item.entityName || item.entityId, 'System'),
-            details: bStr(item.details || item.description),
+            target: bStr(item.target || item.entityId || item.entityName, 'System'),
+            details: readableAuditDetails(rawAction, rawDetails),
             timestamp: bStr(item.performedAt || item.timestamp || item.createdAt, new Date().toISOString()),
             ipAddress: bStr(item.ipAddress) || undefined,
-          })));
+          }; }));
           setStorage('audit_logs', mapped);
           if (!auxiliaryFilter) return mapped;
           return mapped.filter((l) => !l.auxiliary || l.auxiliary === auxiliaryFilter);
@@ -234,7 +294,49 @@ export const auditApi = {
     return logs.filter((l) => !l.auxiliary || l.auxiliary === auxiliaryFilter);
   },
 
+  async getById(id: string): Promise<AuditLog> {
+    const item = await backendFetch<BackendRecord>(`AuditLogs/${encodeURIComponent(id)}`);
+    const rawAction = bStr(item.action, 'Login');
+    const rawDetails = bStr(item.details || item.description);
+    return {
+      id: bStr(item.id, id),
+      action: readableAuditAction(rawAction) as AuditLog['action'],
+      adminName: bStr(item.performedBy || item.adminName, 'Admin'),
+      adminRole: bStr(item.role || item.adminRole, 'Admin') as AuditLog['adminRole'],
+      auxiliary: item.auxiliary as Auxiliary | undefined,
+      target: bStr(item.entityId || item.entityName || item.target, 'System'),
+      details: readableAuditDetails(rawAction, rawDetails),
+      timestamp: bStr(item.performedAt || item.timestamp || item.createdAt, new Date().toISOString()),
+      ipAddress: bStr(item.ipAddress) || undefined,
+    };
+  },
+
   async recordLog(entry: Omit<AuditLog, 'id' | 'timestamp'>): Promise<AuditLog> {
+    const token = getAuthToken();
+    if (token) {
+      try {
+        const saved = await backendFetch<BackendRecord>('AuditLogs', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: entry.action,
+            performedBy: entry.adminName,
+            auxiliary: entry.auxiliary ?? null,
+            entityName: entry.target,
+            entityId: null,
+            details: `${entry.details}${entry.adminRole ? ` (Role: ${entry.adminRole})` : ''}`,
+          }),
+        });
+        return {
+          ...entry,
+          id: bStr(saved.id, `log-${Date.now()}`),
+          timestamp: bStr(saved.performedAt, new Date().toISOString()),
+          ipAddress: undefined,
+        };
+      } catch (err) {
+        console.warn('Backend audit log write failed; keeping a local copy:', err);
+      }
+    }
+
     const logs = getStorage<AuditLog[]>('audit_logs', []);
     const newLog: AuditLog = {
       ...entry,
@@ -265,27 +367,27 @@ export const authApi = {
     const token = getAuthToken();
     if (token) {
       try {
-        const res = await backendFetch<BackendRecord[]>('Users');
-        if (Array.isArray(res) && res.length > 0) {
-          const mapped = removeLegacyDemoUsers(res.map((u) => {
-            const member = bRec(u.member) || bRec(u.profile);
-            return {
-              id: bStr(u.id, `usr-${bStr(u.membershipId)}`),
-              memberId: bStr(u.membershipId || u.memberId || member?.membershipId || member?.memberId).toUpperCase(),
-              fullName: bStr(u.fullName || member?.fullName),
-              email: bStr(u.email || member?.email),
-              role: (bStr(u.role) === 'SuperAdmin' ? 'SUPER_ADMIN' : 'GENERAL_ADMIN') as User['role'],
-              assignedAuxiliary: (u.auxiliary || member?.auxiliary) as Auxiliary | undefined,
-              dila: bStr(u.dila || member?.dila) || undefined,
-              jamaat: bStr(u.jamaat || member?.jamaat) || undefined,
-            };
+        const assignments = await backendFetch<unknown>('AdminAssignments');
+        if (Array.isArray(assignments)) {
+          const activeAssignments = (assignments as BackendRecord[]).filter((assignment) =>
+            bStr(assignment.status).toLowerCase() === 'active'
+          );
+          const mapped = activeAssignments.map((assignment) => ({
+            id: bStr(assignment.id),
+            memberId: bStr(assignment.membershipId).toUpperCase(),
+            fullName: bStr(assignment.fullName, 'Name unavailable'),
+            email: bStr(assignment.email),
+            role: 'GENERAL_ADMIN' as const,
+            assignedAuxiliary: bStr(assignment.auxiliary) as Auxiliary,
+            dila: bStr(assignment.dila) || undefined,
+            jamaat: bStr(assignment.jamaat) || undefined,
           }));
           const usersWithNames = await resolveMemberNames(mapped);
           setStorage('users', usersWithNames);
           return usersWithNames;
         }
       } catch (err) {
-        console.warn('Backend Users fetch failed, using cached list:', err);
+        console.warn('Backend AdminAssignments fetch failed, using cached list:', err);
       }
     }
     await delay(100);
@@ -295,65 +397,86 @@ export const authApi = {
     return usersWithNames;
   },
 
+  async getGeneralAdminById(id: string): Promise<User> {
+    const assignment = await backendFetch<BackendRecord>(`AdminAssignments/${encodeURIComponent(id)}`);
+    const memberId = bStr(assignment.membershipId).toUpperCase();
+    const profile = await lookupMemberProfile(memberId);
+    return {
+      id: bStr(assignment.id, id),
+      memberId,
+      fullName: profile?.fullName || 'Name unavailable',
+      email: profile?.email || '',
+      role: 'GENERAL_ADMIN',
+      assignedAuxiliary: bStr(assignment.auxiliary) as Auxiliary,
+      dila: profile?.dila,
+      jamaat: profile?.jamaat,
+    };
+  },
+
+  async updateGeneralAdmin(id: string, auxiliary: Auxiliary, performedBy: User): Promise<void> {
+    const existing = await backendFetch<BackendRecord>(`AdminAssignments/${encodeURIComponent(id)}`);
+    await backendFetch<BackendRecord>(`AdminAssignments/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        auxiliary,
+        role: 'GeneralAdmin',
+        status: bStr(existing.status, 'Active'),
+        revokedBy: null,
+      }),
+    });
+    const users = getStorage<User[]>('users', INITIAL_USERS);
+    setStorage('users', users.map((user) => user.id === id
+      ? { ...user, assignedAuxiliary: auxiliary }
+      : user));
+    await auditApi.recordLog({
+      action: 'General Admin Assigned',
+      adminName: performedBy.fullName,
+      adminRole: performedBy.role,
+      auxiliary,
+      target: id,
+      details: `Updated an administrator assignment to ${auxiliary}.`,
+    });
+  },
+
   async assignGeneralAdmin(memberId: string, auxiliary: Auxiliary, performedBy: User): Promise<User> {
     const cleanId = memberId.trim().toUpperCase();
     const token = getAuthToken();
     const users = removeLegacyDemoUsers(getStorage<User[]>('users', INITIAL_USERS));
     const existing = users.find((u) => u.memberId.toUpperCase() === cleanId);
-    const lookupPromise = lookupMemberProfile(cleanId);
-    let backendAssignment: BackendRecord | undefined;
-    let backendSucceeded = false;
+    const directoryMember = await lookupMemberProfile(cleanId);
+    let assignment: BackendRecord | undefined;
 
     if (token) {
       try {
-        backendAssignment = await backendFetch<BackendRecord>('Users/assign-admin', {
-          method: 'POST',
-          body: JSON.stringify({
-            membershipId: cleanId,
-            auxiliary,
-          }),
-        });
-        backendSucceeded = true;
+        await backendFetch<BackendRecord>(`AdminAssignments/active/${encodeURIComponent(cleanId)}`);
+        throw new Error('This member already has an active administrator assignment.');
       } catch (err) {
-        console.warn('Backend assign-admin failed, updating locally:', err);
+        if (!(err instanceof Error) || !err.message.includes('(404)')) throw err;
       }
+      assignment = await backendFetch<BackendRecord>('AdminAssignments', {
+        method: 'POST',
+        body: JSON.stringify({
+          membershipId: cleanId,
+          auxiliary,
+          role: 'GeneralAdmin',
+          assignedBy: performedBy.fullName,
+        }),
+      });
     }
 
-    const directoryMember = await lookupPromise;
-    const backendMember = bRec(backendAssignment?.member) || bRec(backendAssignment?.profile) || backendAssignment;
-    const resolvedName = bStr(backendMember?.fullName) || directoryMember?.fullName ||
-      (existing && !isGeneratedMemberName(existing.fullName) ? existing.fullName : '');
-
-    if (!resolvedName && !backendSucceeded) {
-      throw new Error('Could not find this Member ID in the member directory. Check the ID and try again.');
-    }
-
-    await delay(250);
-    let updated: User;
-    if (existing) {
-      updated = {
-        ...existing,
-        fullName: resolvedName || 'Name unavailable',
-        email: directoryMember?.email || bStr(backendMember?.email) || existing.email,
-        dila: directoryMember?.dila || bStr(backendMember?.dila) || existing.dila,
-        jamaat: directoryMember?.jamaat || bStr(backendMember?.jamaat) || existing.jamaat,
-        role: 'GENERAL_ADMIN',
-        assignedAuxiliary: auxiliary,
-      };
-      setStorage('users', users.map((u) => (u.id === existing.id ? updated : u)));
-    } else {
-      updated = {
-        id: bStr(backendMember?.id, `usr-${Date.now()}`),
-        memberId: cleanId,
-        fullName: resolvedName || 'Name unavailable',
-        email: directoryMember?.email || bStr(backendMember?.email),
-        role: 'GENERAL_ADMIN',
-        assignedAuxiliary: auxiliary,
-        dila: directoryMember?.dila || bStr(backendMember?.dila) || undefined,
-        jamaat: directoryMember?.jamaat || bStr(backendMember?.jamaat) || undefined,
-      };
-      setStorage('users', [...users, updated]);
-    }
+    const resolvedName = directoryMember?.fullName ||
+      (existing && !isGeneratedMemberName(existing.fullName) ? existing.fullName : 'Name unavailable');
+    const updated: User = {
+      id: bStr(assignment?.id, existing?.id || `usr-${Date.now()}`),
+      memberId: cleanId,
+      fullName: resolvedName,
+      email: directoryMember?.email || existing?.email || '',
+      role: 'GENERAL_ADMIN',
+      assignedAuxiliary: auxiliary,
+      dila: directoryMember?.dila || existing?.dila,
+      jamaat: directoryMember?.jamaat || existing?.jamaat,
+    };
+    setStorage('users', [...users.filter((u) => u.memberId.toUpperCase() !== cleanId), updated]);
 
     await auditApi.recordLog({
       action: 'General Admin Assigned',
@@ -368,10 +491,22 @@ export const authApi = {
   },
 
   async revokeGeneralAdmin(userId: string, performedBy: User): Promise<void> {
-    await delay(200);
     const users = getStorage<User[]>('users', INITIAL_USERS);
     const target = users.find((u) => u.id === userId);
-    if (!target) return;
+    if (!target) throw new Error('Administrator assignment not found.');
+
+    const token = getAuthToken();
+    if (token) {
+      await backendFetch<BackendRecord>(`AdminAssignments/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          auxiliary: target.assignedAuxiliary,
+          role: 'GeneralAdmin',
+          status: 'Revoke',
+          revokedBy: performedBy.fullName,
+        }),
+      });
+    }
 
     setStorage('users', users.filter((u) => u.id !== userId));
 
@@ -383,6 +518,13 @@ export const authApi = {
       target: `${target.fullName} (${target.memberId})`,
       details: `General Admin assignment for ${target.assignedAuxiliary} was revoked.`,
     });
+  },
+
+  async deleteGeneralAdmin(assignmentId: string): Promise<void> {
+    const token = getAuthToken();
+    if (token) await backendFetch<void>(`AdminAssignments/${assignmentId}`, { method: 'DELETE' });
+    const users = getStorage<User[]>('users', INITIAL_USERS);
+    setStorage('users', users.filter((u) => u.id !== assignmentId));
   },
 };
 
@@ -423,16 +565,16 @@ export const eventsApi = {
     const token = getAuthToken();
     if (token) {
       try {
-        const path = auxiliary ? `Events/auxiliary/${auxiliary}` : 'Events';
-        const res = await backendFetch<BackendRecord[]>(path);
-        if (Array.isArray(res)) {
-          const mapped = removeLegacyDemoEvents(res.map(mapBackendEventToEvent));
-          // Sync into local storage cache
-          setStorage('events', mapped);
-          return mapped;
-        }
+        const res = auxiliary
+          ? await backendFetch<unknown>(`Events/auxiliary/${auxiliary}`)
+          : await getAllBackendPages('Events');
+        const mapped = removeLegacyDemoEvents(pageItems(res).map(mapBackendEventToEvent));
+        // Sync into local storage cache
+        setStorage('events', mapped);
+        return mapped;
       } catch (err) {
-        console.warn('Backend Events fetch failed, falling back to cached events:', err);
+        console.warn('Backend Events fetch failed:', err);
+        throw err;
       }
     }
     await delay(150);
@@ -452,7 +594,8 @@ export const eventsApi = {
           return mapBackendEventToEvent(res);
         }
       } catch (err) {
-        console.warn(`Backend Events/${id} fetch failed, checking local cache:`, err);
+        console.warn(`Backend Events/${id} fetch failed:`, err);
+        throw err;
       }
     }
     await delay(100);
@@ -610,16 +753,23 @@ export const eventsApi = {
   },
 };
 
+export const dashboardApi = {
+  async getSummary(): Promise<BackendRecord> {
+    return backendFetch<BackendRecord>('dashboard/summary');
+  },
+};
+
 // PARTICIPANTS API & MAPPER
 function mapBackendVerificationStatus(status: string | undefined): VerificationStatus {
-  if (!status) return 'Verified';
+  if (!status) return 'Pending';
   const clean = status.replace(/[\s_-]+/g, '').toLowerCase();
+  if (clean === 'pending') return 'Pending';
   if (clean === 'verified') return 'Verified';
   if (clean === 'notfound') return 'Not Found';
   if (clean === 'invalid') return 'Invalid';
   if (clean === 'duplicate') return 'Duplicate';
   if (clean === 'verificationfailed' || clean === 'failed') return 'Verification Failed';
-  return 'Verified';
+  return 'Pending';
 }
 
 function mapBackendParticipantToParticipant(raw: BackendRecord, fallbackEventId?: string): Participant {
@@ -628,6 +778,8 @@ function mapBackendParticipantToParticipant(raw: BackendRecord, fallbackEventId?
     eventId: bStr(raw.eventId || fallbackEventId),
     memberId: bStr(raw.membershipId || raw.memberId).toUpperCase(),
     fullName: bStr(raw.fullName, 'Unknown Member'),
+    email: bStr(raw.email) || undefined,
+    phone: bStr(raw.phone) || undefined,
     auxiliary: bStr(raw.auxiliary, 'Atfal') as Auxiliary,
     dila: bStr(raw.dila, 'Dila South'),
     ilaqa: bStr(raw.ilaqa) || undefined,
@@ -642,6 +794,21 @@ function mapBackendParticipantToParticipant(raw: BackendRecord, fallbackEventId?
 }
 
 export const participantsApi = {
+  async getAll(): Promise<Participant[]> {
+    const records = await getAllBackendPages('Participants');
+    return records.map((participant) => mapBackendParticipantToParticipant(participant));
+  },
+
+  async getById(id: string): Promise<Participant> {
+    const record = await backendFetch<BackendRecord>(`Participants/${encodeURIComponent(id)}`);
+    return mapBackendParticipantToParticipant(record);
+  },
+
+  async getMy(): Promise<Participant[]> {
+    const response = await backendFetch<unknown>('Participants/my');
+    return pageItems(response).map((participant) => mapBackendParticipantToParticipant(participant));
+  },
+
   async getByEvent(eventId: string): Promise<Participant[]> {
     const token = getAuthToken();
     if (token) {
@@ -655,12 +822,89 @@ export const participantsApi = {
           return mapped;
         }
       } catch (err) {
-        console.warn(`Backend Participants for event ${eventId} fetch failed, falling back to local storage:`, err);
+        console.warn(`Backend Participants for event ${eventId} fetch failed:`, err);
+        throw err;
       }
     }
     await delay(150);
     const participants = getStorage<Participant[]>('participants', INITIAL_PARTICIPANTS);
     return participants.filter((p) => p.eventId === eventId);
+  },
+
+  async update(participant: Participant, performedBy: User): Promise<Participant> {
+    const token = getAuthToken();
+    const isBackendId = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(participant.id);
+    if (!token || !isBackendId) {
+      const participants = getStorage<Participant[]>('participants', INITIAL_PARTICIPANTS);
+      const updated = { ...participant };
+      setStorage('participants', participants.map((item) => item.id === participant.id ? updated : item));
+      await auditApi.recordLog({
+        action: 'Member Verification',
+        adminName: performedBy.fullName,
+        adminRole: performedBy.role,
+        auxiliary: updated.auxiliary,
+        target: `${updated.memberId} (${updated.eventId})`,
+        details: 'Updated participant details in the local demo roster.',
+      });
+      return updated;
+    }
+
+    const response = await backendFetch<BackendRecord>(`Participants/${encodeURIComponent(participant.id)}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        fullName: participant.fullName,
+        email: participant.email ?? null,
+        phone: participant.phone ?? null,
+        jamaat: participant.jamaat,
+        dila: participant.dila,
+        ilaqa: participant.ilaqa ?? null,
+        auxiliary: participant.auxiliary,
+        isVerified: participant.verificationStatus === 'Verified',
+        verificationStatus: participant.verificationStatus,
+        verificationMessage: participant.verificationDetails ?? null,
+      }),
+    });
+    const updated = mapBackendParticipantToParticipant(response, participant.eventId);
+    await auditApi.recordLog({
+      action: 'Member Verification',
+      adminName: performedBy.fullName,
+      adminRole: performedBy.role,
+      auxiliary: updated.auxiliary,
+      target: `${updated.memberId} (${updated.eventId})`,
+      details: 'Updated participant details through the backend.',
+    });
+    return updated;
+  },
+
+  async delete(id: string, performedBy: User): Promise<void> {
+    const token = getAuthToken();
+    const isBackendId = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id);
+    if (!token || !isBackendId) {
+      const participants = getStorage<Participant[]>('participants', INITIAL_PARTICIPANTS);
+      const participant = participants.find((item) => item.id === id);
+      if (!participant) throw new Error('Participant was not found in the current roster.');
+      setStorage('participants', participants.filter((item) => item.id !== id));
+      await auditApi.recordLog({
+        action: 'Participant Import',
+        adminName: performedBy.fullName,
+        adminRole: performedBy.role,
+        auxiliary: participant.auxiliary,
+        target: `${participant.memberId} (${participant.eventId})`,
+        details: 'Removed participant from the local demo roster.',
+      });
+      return;
+    }
+
+    const participant = await this.getById(id);
+    await backendFetch<void>(`Participants/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await auditApi.recordLog({
+      action: 'Participant Import',
+      adminName: performedBy.fullName,
+      adminRole: performedBy.role,
+      auxiliary: participant.auxiliary,
+      target: `${participant.memberId} (${participant.eventId})`,
+      details: 'Removed participant enrollment.',
+    });
   },
 
   async verifyMemberId(memberId: string, auxiliary: Auxiliary): Promise<{
@@ -675,10 +919,10 @@ export const participantsApi = {
       try {
         const res = await backendFetch<BackendRecord>(`Participants/verify/${encodeURIComponent(cleanId)}`);
         if (res) {
-          const status = mapBackendVerificationStatus(bStr(res.verificationStatus) || 'Verified');
+          const status = mapBackendVerificationStatus(bStr(res.status || res.verificationStatus) || 'Pending');
           return {
             status,
-            details: bStr(res.verificationMessage, 'Verified via central Jama\'at member registry'),
+            details: bStr(res.message || res.verificationMessage, status === 'Verified' ? 'Verified via central Jama\'at member registry' : 'Member verification did not return a verified status.'),
             member: {
               memberId: cleanId,
               fullName: bStr(res.fullName, `Brother ${cleanId}`),
@@ -687,14 +931,15 @@ export const participantsApi = {
               ilaqa: bStr(res.ilaqa) || undefined,
               dila: bStr(res.dila, 'Central Dilla'),
               jamaat: bStr(res.jamaat, 'Headquarters'),
-              email: bStr(res.email, `${cleanId.toLowerCase()}@jamaat.org`),
+              email: bStr(res.email) || undefined,
               phone: bStr(res.phone) || undefined,
               status: 'Active',
             },
           };
         }
       } catch (err) {
-        console.warn(`Backend verify/${cleanId} failed, falling back to local registry adapter:`, err);
+        console.warn(`Backend verify/${cleanId} failed:`, err);
+        throw err;
       }
     }
 
@@ -708,6 +953,12 @@ export const participantsApi = {
 
     const cleanId = memberId.trim().toUpperCase();
     const token = getAuthToken();
+    const currentRoster = token
+      ? await this.getByEvent(eventId)
+      : getStorage<Participant[]>('participants', INITIAL_PARTICIPANTS).filter((participant) => participant.eventId === eventId);
+    if (currentRoster.some((participant) => participant.memberId.trim().toUpperCase() === cleanId)) {
+      throw new Error(`${cleanId} is already enrolled in this event.`);
+    }
 
     // Verify first
     const verification = await this.verifyMemberId(cleanId, event.auxiliary);
@@ -722,12 +973,12 @@ export const participantsApi = {
           eventId,
           membershipId: cleanId,
           fullName: memberData.fullName || `Member ${cleanId}`,
-          email: memberData.email || `${cleanId.toLowerCase()}@jamaat.org`,
+          email: memberData.email || null,
           phone: memberData.phone || null,
           jamaat: memberData.jamaat || 'Headquarters',
           dila: memberData.dila || 'Central Dilla',
           ilaqa: memberData.ilaqa || null,
-          auxiliary: memberData.auxiliary || event.auxiliary,
+          auxiliary: event.auxiliary,
         };
 
         const res = await backendFetch<BackendRecord>('Participants', {
@@ -736,24 +987,18 @@ export const participantsApi = {
         });
 
         const newParticipant = mapBackendParticipantToParticipant(res || { ...backendPayload, id: `part-${Date.now()}` }, eventId);
-        newParticipant.verificationStatus = verification.status;
-        newParticipant.verificationDetails = verification.details;
+        if (!res?.verificationStatus && !res?.isVerified) {
+          newParticipant.verificationStatus = verification.status;
+          newParticipant.verificationDetails = verification.details;
+        }
 
         const participants = getStorage<Participant[]>('participants', INITIAL_PARTICIPANTS);
         setStorage('participants', [newParticipant, ...participants.filter((p) => p.id !== newParticipant.id)]);
 
-        await auditApi.recordLog({
-          action: 'Member Verification',
-          adminName: performedBy.fullName,
-          adminRole: performedBy.role,
-          auxiliary: event.auxiliary,
-          target: `${cleanId} (${event.name})`,
-          details: `Enrolled participant on backend: Status ${verification.status}`,
-        });
-
         return newParticipant;
       } catch (err) {
-        console.warn('Backend create participant failed, adding locally:', err);
+        console.warn('Backend create participant failed:', err);
+        throw err;
       }
     }
 
@@ -788,9 +1033,88 @@ export const participantsApi = {
   },
 
   async bulkUpload(eventId: string, memberIds: string[], performedBy: User): Promise<BulkVerificationResult> {
-    await delay(400);
     const event = await eventsApi.getById(eventId);
     if (!event) throw new Error('Event not found');
+
+    if (getAuthToken()) {
+      const existing = await this.getByEvent(eventId);
+      const knownIds = new Set(existing.map((participant) => participant.memberId.trim().toUpperCase()));
+      const newlyAdded: Participant[] = [];
+      let verifiedCount = 0;
+      let notFoundCount = 0;
+      let invalidCount = 0;
+      let duplicateCount = 0;
+      let failedCount = 0;
+
+      for (const rawId of memberIds) {
+        const cleanId = rawId.trim().toUpperCase();
+        if (!cleanId) continue;
+        if (knownIds.has(cleanId)) {
+          duplicateCount += 1;
+          continue;
+        }
+        knownIds.add(cleanId);
+
+        const verification = await this.verifyMemberId(cleanId, event.auxiliary);
+        if (verification.status === 'Not Found') {
+          notFoundCount += 1;
+          continue;
+        }
+        if (verification.status === 'Invalid') {
+          invalidCount += 1;
+          continue;
+        }
+        if (verification.status !== 'Verified') {
+          failedCount += 1;
+          continue;
+        }
+        if (verification.member?.auxiliary && verification.member.auxiliary !== event.auxiliary) {
+          invalidCount += 1;
+          continue;
+        }
+
+        const member = verification.member;
+        const response = await backendFetch<BackendRecord>('Participants', {
+          method: 'POST',
+          body: JSON.stringify({
+            eventId,
+            membershipId: cleanId,
+            fullName: member?.fullName || `Member ${cleanId}`,
+            email: member?.email || null,
+            phone: member?.phone || null,
+            jamaat: member?.jamaat || null,
+            dila: member?.dila || null,
+            ilaqa: member?.ilaqa || null,
+            auxiliary: event.auxiliary,
+          }),
+        });
+        newlyAdded.push(mapBackendParticipantToParticipant(response, eventId));
+        verifiedCount += 1;
+      }
+
+      if (newlyAdded.length > 0) {
+        await auditApi.recordLog({
+          action: 'Participant Import',
+          adminName: performedBy.fullName,
+          adminRole: performedBy.role,
+          auxiliary: event.auxiliary,
+          target: `${newlyAdded.length} Participants (${event.name})`,
+          details: `Bulk verified import: ${verifiedCount} verified, ${notFoundCount} not found, ${invalidCount} invalid, ${duplicateCount} duplicate, ${failedCount} failed.`,
+        });
+      }
+
+      return {
+        totalRows: memberIds.length,
+        verifiedCount,
+        notFoundCount,
+        invalidCount,
+        duplicateCount,
+        failedCount,
+        participants: newlyAdded,
+      };
+    }
+
+    await delay(400);
 
     const participants = getStorage<Participant[]>('participants', INITIAL_PARTICIPANTS);
     const existingSet = new Set(
@@ -816,6 +1140,7 @@ export const participantsApi = {
         status = 'Duplicate';
         details = 'Participant is already enrolled in this event';
         duplicateCount++;
+        continue;
       } else {
         existingSet.add(cleanId);
         const res = await this.verifyMemberId(cleanId, event.auxiliary);
@@ -969,6 +1294,7 @@ function mapBackendTemplateToTemplate(raw: BackendRecord): CertificateTemplate {
     signature1Title: bStr(config.signature1Title, 'Sadr Majlis Khuddamul Ahmadiyya Nigeria'),
     signature1Date: bStr(config.signature1Date, '10th August, 2025'),
     signature1Image: bStr(config.signature1Image) || undefined,
+    signatureAssetPath: bStr(config.signatureAssetPath) || undefined,
     isDefault: bBool(raw.isActive, false),
     updatedAt: bStr(raw.updatedAt, new Date().toISOString()),
   };
@@ -1001,6 +1327,7 @@ function mapBackendCertificateToCertificate(raw: BackendRecord): Certificate {
     issuedAt: bStr(raw.issuedAt || raw.createdAt, new Date().toISOString()),
     issuedBy: bStr(raw.issuedBy, 'System Admin'),
     status,
+    filePath: bStr(raw.filePath) || undefined,
     revocationReason: bStr(raw.revocationReason) || undefined,
     revokedAt: bStr(raw.revokedAt) || undefined,
     revokedBy: bStr(raw.revokedBy) || undefined,
@@ -1042,8 +1369,64 @@ export const templatesApi = {
     );
   },
 
+  async getActive(auxiliary?: Auxiliary): Promise<CertificateTemplate[]> {
+    const token = getAuthToken();
+    if (token) {
+      try {
+        const suffix = auxiliary ? `?auxiliary=${encodeURIComponent(auxiliary)}` : '';
+        const response = await backendFetch<unknown>(`CertificateTemplates/active${suffix}`);
+        const items = pageItems(response);
+        return items.map(mapBackendTemplateToTemplate);
+      } catch (error) {
+        console.warn('Backend active templates fetch failed:', error);
+        throw error;
+      }
+    }
+    return (await this.getAll(auxiliary)).filter((template) => template.isDefault);
+  },
+
+  async getById(id: string): Promise<CertificateTemplate> {
+    const response = await backendFetch<BackendRecord>(`CertificateTemplates/${encodeURIComponent(id)}`);
+    return mapBackendTemplateToTemplate(response);
+  },
+
+  async delete(id: string): Promise<void> {
+    await backendFetch<void>(`CertificateTemplates/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
+  async uploadAsset(file: File, folder: 'templates' | 'signatures' | 'logos' = 'templates'): Promise<string> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('folder', folder);
+    const response = await backendFetch<BackendRecord>('CertificateTemplates/assets', {
+      method: 'POST',
+      body: form,
+    });
+    return bStr(response.path);
+  },
+
+  async preview(template: CertificateTemplate): Promise<string> {
+    const configurationJson = JSON.stringify({
+      textElements: [
+        { placeholder: 'EventName', x: 561, y: 210, fontFamily: 'Arial', fontSize: 30, bold: true, textColor: template.neutralColor, alignment: 'Center' },
+        { placeholder: 'ParticipantName', x: 561, y: 340, fontFamily: 'Arial', fontSize: 26, bold: true, textColor: template.primaryColor, alignment: 'Center' },
+        { placeholder: 'CertificateNumber', x: 561, y: 610, fontFamily: 'Arial', fontSize: 14, textColor: template.neutralColor, alignment: 'Center' },
+      ],
+      imageElements: [],
+    });
+    return backendFetch<string>('CertificateTemplates/preview', {
+      method: 'POST',
+      body: JSON.stringify({
+        configurationJson,
+        width: 1122,
+        height: 793,
+        backgroundImagePath: template.logoUrl || null,
+      }),
+    });
+  },
+
   async save(templateData: CertificateTemplate, performedBy: User): Promise<CertificateTemplate> {
-    const updatedTemplate: CertificateTemplate = {
+    let updatedTemplate: CertificateTemplate = {
       ...templateData,
       updatedAt: new Date().toISOString(),
     };
@@ -1076,6 +1459,7 @@ export const templatesApi = {
           signature1Title: templateData.signature1Title,
           signature1Date: templateData.signature1Date,
           signature1Image: templateData.signature1Image,
+          signatureAssetPath: templateData.signatureAssetPath,
         });
 
         const backendPayload = {
@@ -1088,12 +1472,16 @@ export const templatesApi = {
         };
 
         // If template ID is a UUID, update it; otherwise create or update
-        if (templateData.id && templateData.id.includes('-') && templateData.id.length > 20) {
-          await backendFetch<BackendRecord>(`CertificateTemplates/${templateData.id}`, {
+        const response = templateData.id && templateData.id.includes('-') && templateData.id.length > 20
+          ? await backendFetch<BackendRecord>(`CertificateTemplates/${templateData.id}`, {
             method: 'PUT',
             body: JSON.stringify(backendPayload),
+          })
+          : await backendFetch<BackendRecord>('CertificateTemplates', {
+            method: 'POST',
+            body: JSON.stringify(backendPayload),
           });
-        }
+        if (response.id) updatedTemplate = { ...updatedTemplate, id: bStr(response.id) };
       } catch (err) {
         console.warn('Failed to save template to backend, saving locally:', err);
       }
@@ -1136,15 +1524,14 @@ export const certificatesApi = {
     const token = getAuthToken();
     if (token) {
       try {
-        const res = await backendFetch<BackendRecord[]>('Certificates');
-        if (Array.isArray(res)) {
-          const mapped = removeLegacyDemoCertificates(res.map(mapBackendCertificateToCertificate));
-          setStorage('certificates', mapped);
-          if (!auxiliary) return mapped;
-          return mapped.filter((c) => c.auxiliary === auxiliary);
-        }
+        const res = await getAllBackendPages('Certificates');
+        const mapped = removeLegacyDemoCertificates(res.map(mapBackendCertificateToCertificate));
+        setStorage('certificates', mapped);
+        if (!auxiliary) return mapped;
+        return mapped.filter((c) => c.auxiliary === auxiliary);
       } catch (err) {
-        console.warn('Backend Certificates fetch failed, falling back to local cache:', err);
+        console.warn('Backend Certificates fetch failed:', err);
+        throw err;
       }
     }
 
@@ -1154,6 +1541,80 @@ export const certificatesApi = {
     if (certs.length !== cachedCertificates.length) setStorage('certificates', certs);
     if (!auxiliary) return certs;
     return certs.filter((c) => c.auxiliary === auxiliary);
+  },
+
+  async getById(id: string): Promise<Certificate> {
+    const response = await backendFetch<BackendRecord>(`Certificates/${encodeURIComponent(id)}`);
+    return mapBackendCertificateToCertificate(response);
+  },
+
+  async getByEvent(eventId: string): Promise<Certificate[]> {
+    const response = await backendFetch<unknown>(`Certificates/event/${encodeURIComponent(eventId)}`);
+    return pageItems(response).map(mapBackendCertificateToCertificate);
+  },
+
+  async getMy(): Promise<BackendRecord[]> {
+    const response = await backendFetch<unknown>('Certificates/my');
+    return pageItems(response);
+  },
+
+  async download(id: string): Promise<Blob> {
+    return backendDownload(`Certificates/${encodeURIComponent(id)}/download`);
+  },
+
+  async generateFile(id: string): Promise<Blob> {
+    const token = getAuthToken();
+    const headers = new Headers({ Accept: 'application/pdf' });
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    const response = await fetch(`/api/backend/Certificates/${encodeURIComponent(id)}/generate`, {
+      method: 'POST',
+      headers,
+    });
+    if (!response.ok) throw new Error(`Certificate generation failed (${response.status}).`);
+    return response.blob();
+  },
+
+  async generateAllForEvent(eventId: string): Promise<BackendRecord> {
+    return backendFetch<BackendRecord>(`Certificates/event/${encodeURIComponent(eventId)}/generate-all`, {
+      method: 'POST',
+    });
+  },
+
+  async downloadAllForEvent(eventId: string): Promise<Blob> {
+    return backendDownload(`Certificates/event/${encodeURIComponent(eventId)}/download-all-pdf`);
+  },
+
+  async delete(id: string, performedBy?: User): Promise<void> {
+    const isBackendId = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id);
+    if (getAuthToken() && isBackendId) {
+      const certificate = await this.getById(id);
+      await backendFetch<void>(`Certificates/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (performedBy) {
+        await auditApi.recordLog({
+          action: 'Certificate Deleted',
+          adminName: performedBy.fullName,
+          adminRole: performedBy.role,
+          auxiliary: certificate.auxiliary,
+          target: certificate.certificateNumber,
+          details: 'Deleted revoked certificate record.',
+        });
+      }
+      return;
+    }
+    const cached = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
+    const certificate = cached.find((item) => item.id === id);
+    if (!certificate) throw new Error('Certificate was not found.');
+    setStorage('certificates', cached.filter((certificate) => certificate.id !== id));
+    if (performedBy) {
+      await auditApi.recordLog({
+        action: 'Certificate Deleted',
+        adminName: performedBy.fullName,
+        adminRole: performedBy.role,
+        auxiliary: certificate.auxiliary,
+        target: certificate.certificateNumber,
+        details: 'Deleted revoked certificate from local storage.',
+      });
+    }
   },
 
   async generateBulk(
@@ -1167,38 +1628,46 @@ export const certificatesApi = {
     const newlyGenerated: Certificate[] = [];
 
     if (token) {
-      try {
-        const backendCertType = toBackendCertType(certificateType);
-        for (const pId of participantIds) {
-          const res = await backendFetch<BackendRecord>('Certificates', {
-            method: 'POST',
-            body: JSON.stringify({
-              eventId,
-              participantId: pId,
-              certificateTemplateId: templateId.includes('-') && templateId.length > 20 ? templateId : null,
-              certificateType: backendCertType,
-            }),
-          });
-          if (res && res.id) {
-            newlyGenerated.push(mapBackendCertificateToCertificate(res));
-          }
-        }
-
-        if (newlyGenerated.length > 0) {
-          const existing = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
-          setStorage('certificates', [...newlyGenerated, ...existing]);
-          await auditApi.recordLog({
-            action: 'Certificate Generated',
-            adminName: performedBy.fullName,
-            adminRole: performedBy.role,
-            target: `Batch of ${newlyGenerated.length} Certificates`,
-            details: `Generated certificates on backend for ${newlyGenerated.length} attendees.`,
-          });
-          return newlyGenerated;
-        }
-      } catch (err) {
-        console.warn('Backend batch certificate generation failed, generating locally:', err);
+      const isGuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(value);
+      if (!isGuid(templateId)) throw new Error('Select a saved backend certificate template before generating certificates.');
+      if (participantIds.some((participantId) => !isGuid(participantId))) {
+        throw new Error('Only participants saved to the backend can receive backend certificates.');
       }
+      const backendCertType = toBackendCertType(certificateType);
+      try {
+        for (const pId of participantIds) {
+        const res = await backendFetch<BackendRecord>('Certificates', {
+          method: 'POST',
+          body: JSON.stringify({
+            eventId,
+            participantId: pId,
+            certificateTemplateId: templateId,
+            certificateType: backendCertType,
+          }),
+        });
+        if (!res?.id) throw new Error('The backend did not return a certificate record.');
+        newlyGenerated.push(mapBackendCertificateToCertificate(res));
+        }
+      } catch (error) {
+        if (newlyGenerated.length > 0) {
+          const cached = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
+          setStorage('certificates', [...newlyGenerated, ...cached]);
+        }
+        throw error;
+      }
+
+      if (newlyGenerated.length > 0) {
+        const existing = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
+        setStorage('certificates', [...newlyGenerated, ...existing]);
+        await auditApi.recordLog({
+          action: 'Certificate Generated',
+          adminName: performedBy.fullName,
+          adminRole: performedBy.role,
+          target: `Batch of ${newlyGenerated.length} Certificates`,
+          details: `Generated certificates on backend for ${newlyGenerated.length} attendees.`,
+        });
+      }
+      return newlyGenerated;
     }
 
     // Fallback generation
@@ -1301,19 +1770,28 @@ export const certificatesApi = {
 
   async revoke(certificateId: string, reason: string, performedBy: User): Promise<Certificate> {
     const token = getAuthToken();
-    if (token && certificateId.includes('-') && certificateId.length > 20) {
-      try {
-        await backendFetch<BackendRecord>(`Certificates/${certificateId}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            status: 'Revoked',
-            revocationReason: reason,
-            revokedBy: performedBy.fullName,
-          }),
-        });
-      } catch (err) {
-        console.warn('Backend revoke certificate failed, updating locally:', err);
-      }
+    const isBackendId = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(certificateId);
+    if (token && isBackendId) {
+      const response = await backendFetch<BackendRecord>(`Certificates/${encodeURIComponent(certificateId)}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          status: 'Revoked',
+          revocationReason: reason,
+          revokedBy: performedBy.fullName,
+        }),
+      });
+      const updated = mapBackendCertificateToCertificate(response);
+      const cached = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
+      setStorage('certificates', cached.map((certificate) => certificate.id === certificateId ? updated : certificate));
+      await auditApi.recordLog({
+        action: 'Certificate Revoked',
+        adminName: performedBy.fullName,
+        adminRole: performedBy.role,
+        auxiliary: updated.auxiliary,
+        target: `${updated.certificateNumber} (${updated.participantName})`,
+        details: `Revoked certificate. Reason: ${reason}`,
+      });
+      return updated;
     }
 
     const certs = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);

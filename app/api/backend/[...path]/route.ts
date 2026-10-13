@@ -41,14 +41,9 @@ async function handleProxy(
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 JamaatCertify/1.0'
   );
 
-  let body: BodyInit | undefined = undefined;
-  if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
-    try {
-      body = await request.text();
-    } catch {
-      body = undefined;
-    }
-  }
+  const body: BodyInit | undefined = ['POST', 'PUT', 'PATCH'].includes(request.method)
+    ? await request.arrayBuffer()
+    : undefined;
 
   try {
     const upstream = await fetch(targetUrl, {
@@ -58,14 +53,17 @@ async function handleProxy(
       signal: AbortSignal.timeout(20000),
     });
 
-    const responseText = await upstream.text();
+    const responseBody = await upstream.arrayBuffer();
     const upstreamContentType =
       upstream.headers.get('content-type') || 'application/json';
 
-    return new Response(responseText, {
+    return new Response(responseBody, {
       status: upstream.status,
       headers: {
         'content-type': upstreamContentType,
+        ...(upstream.headers.get('content-disposition')
+          ? { 'content-disposition': upstream.headers.get('content-disposition')! }
+          : {}),
       },
     });
   } catch (err: unknown) {

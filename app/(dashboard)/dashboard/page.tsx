@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
-import { eventsApi, certificatesApi, auditApi } from '../../../services/api';
+import { eventsApi, certificatesApi, auditApi, dashboardApi } from '../../../services/api';
 import { Event, Certificate, AuditLog, Auxiliary } from '../../../types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
@@ -17,6 +17,15 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { formatDate, formatDateTime } from '../../../lib/utils';
+
+interface DashboardSummary {
+  totalEvents?: number;
+  activeEvents?: number;
+  totalParticipants?: number;
+  verifiedParticipants?: number;
+  certificatesIssued?: number;
+  memberApiMatchRate?: number;
+}
 
 /** Shows a KPI as a proportional ring; a zero denominator is shown as unavailable. */
 function KpiPieChart({
@@ -77,33 +86,48 @@ export default function DashboardPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
-      const [allEvents, allCerts, logs] = await Promise.all([
+      const [allEvents, allCerts, logs, dashboardSummary] = await Promise.all([
         eventsApi.getAll(aux),
         certificatesApi.getAll(aux),
         auditApi.getLogs(aux),
+        dashboardApi.getSummary().catch(() => null),
       ]);
       setEvents(allEvents);
       setCertificates(allCerts);
       setAuditLogs(logs);
+      setSummary(dashboardSummary);
       setLoading(false);
     }
     loadData();
   }, [activeAuxiliary]);
 
-  const totalParticipants = events.reduce((sum, e) => sum + e.participantsCount, 0);
-  const totalVerified = events.reduce((sum, e) => sum + e.verifiedCount, 0);
+  const summaryMatchesScope = Boolean(summary && (activeAuxiliary === 'All' || user?.role === 'GENERAL_ADMIN'));
+  const totalEvents = summaryMatchesScope ? (summary?.totalEvents ?? events.length) : events.length;
+  const totalParticipants = summaryMatchesScope
+    ? (summary?.totalParticipants ?? events.reduce((sum, e) => sum + e.participantsCount, 0))
+    : events.reduce((sum, e) => sum + e.participantsCount, 0);
+  const totalVerified = summaryMatchesScope
+    ? (summary?.verifiedParticipants ?? events.reduce((sum, e) => sum + e.verifiedCount, 0))
+    : events.reduce((sum, e) => sum + e.verifiedCount, 0);
   // Count issued certificates only; drafts and revoked certificates are not completed issuances.
-  const totalCertificates = certificates.filter((certificate) => certificate.status === 'Issued').length;
-  const activeEventsCount = events.filter((e) => e.status === 'Active' || e.status === 'Upcoming').length;
+  const totalCertificates = summaryMatchesScope
+    ? (summary?.certificatesIssued ?? certificates.filter((certificate) => certificate.status === 'Issued').length)
+    : certificates.filter((certificate) => certificate.status === 'Issued').length;
+  const activeEventsCount = summaryMatchesScope
+    ? (summary?.activeEvents ?? events.filter((e) => e.status === 'Active' || e.status === 'Upcoming').length)
+    : events.filter((e) => e.status === 'Active' || e.status === 'Upcoming').length;
   // With no participants there is no meaningful API match rate, so display it as unavailable.
   const apiMatchPercentage = totalParticipants > 0
-    ? Math.round((totalVerified / totalParticipants) * 100)
+    ? (summaryMatchesScope && typeof summary?.memberApiMatchRate === 'number'
+      ? Math.round(summary.memberApiMatchRate)
+      : Math.round((totalVerified / totalParticipants) * 100))
     : null;
 
   return (
@@ -164,13 +188,13 @@ export default function DashboardPage() {
                 Active &amp; Total Events
               </p>
               <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900">{events.length}</span>
+                <span className="text-2xl font-bold text-slate-900">{totalEvents}</span>
                 <span className="text-xs text-emerald-600 font-medium">
                   ({activeEventsCount} active)
                 </span>
               </div>
             </div>
-            <KpiPieChart value={activeEventsCount} total={events.length} label="Active events" color="#0a9b70" />
+            <KpiPieChart value={activeEventsCount} total={totalEvents} label="Active events" color="#0a9b70" />
           </CardContent>
         </Card>
 

@@ -28,6 +28,8 @@ import {
   FileSpreadsheet,
   RefreshCw,
   Sparkles,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 
 function ParticipantsContent() {
@@ -41,6 +43,9 @@ function ParticipantsContent() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
+  const [participantActionError, setParticipantActionError] = useState('');
+  const [isSavingParticipant, setIsSavingParticipant] = useState(false);
 
   // Single Add Modal
   const [isSingleAddOpen, setIsSingleAddOpen] = useState(false);
@@ -58,12 +63,15 @@ function ParticipantsContent() {
 
   useEffect(() => {
     async function initEvents() {
-      const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
-      const allEvents = await eventsApi.getAll(aux);
-      setEvents(allEvents);
-
-      if (allEvents.length > 0 && !selectedEventId) {
-        setSelectedEventId(allEvents[0].id);
+      try {
+        const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
+        const allEvents = await eventsApi.getAll(aux);
+        setEvents(allEvents);
+        if (allEvents.length > 0) setSelectedEventId((current) => current || allEvents[0].id);
+        else setLoading(false);
+      } catch (error) {
+        setParticipantActionError(error instanceof Error ? error.message : 'Could not load events.');
+        setLoading(false);
       }
     }
     initEvents();
@@ -72,9 +80,17 @@ function ParticipantsContent() {
   const loadParticipants = async () => {
     if (!selectedEventId) return;
     setLoading(true);
-    const data = await participantsApi.getByEvent(selectedEventId);
-    setParticipants(data);
-    setLoading(false);
+    setParticipantActionError('');
+    try {
+      const data = selectedEventId === 'all'
+        ? await participantsApi.getAll()
+        : await participantsApi.getByEvent(selectedEventId);
+      setParticipants(data);
+    } catch (error) {
+      setParticipantActionError(error instanceof Error ? error.message : 'Could not load participants.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -93,6 +109,7 @@ function ParticipantsContent() {
     if (!selectedEventId || !user || !singleMemberId.trim()) return;
     setIsVerifyingSingle(true);
     try {
+      setParticipantActionError('');
       const res = await participantsApi.addSingle(
         selectedEventId,
         singleMemberId.trim(),
@@ -100,13 +117,16 @@ function ParticipantsContent() {
       );
       setSingleVerificationResult(res);
       await loadParticipants();
-      setSingleMemberId('');
-      setTimeout(() => {
-        setIsSingleAddOpen(false);
-        setSingleVerificationResult(null);
-      }, 1500);
+      if (res.verificationStatus === 'Verified') {
+        setSingleMemberId('');
+        setTimeout(() => {
+          setIsSingleAddOpen(false);
+          setSingleVerificationResult(null);
+        }, 1500);
+      }
     } catch (err) {
       console.error('Failed to add participant', err);
+      setParticipantActionError(err instanceof Error ? err.message : 'Could not add this member ID.');
     } finally {
       setIsVerifyingSingle(false);
     }
@@ -116,6 +136,7 @@ function ParticipantsContent() {
     if (!selectedEventId || !user || !bulkInputText.trim()) return;
     setIsBulkProcessing(true);
     try {
+      setParticipantActionError('');
       const ids = bulkInputText
         .split(/[\n,;]+/)
         .map((id) => id.trim())
@@ -126,6 +147,7 @@ function ParticipantsContent() {
       await loadParticipants();
     } catch (err) {
       console.error('Failed to process bulk upload', err);
+      setParticipantActionError(err instanceof Error ? err.message : 'Could not process these member IDs.');
     } finally {
       setIsBulkProcessing(false);
     }
@@ -141,15 +163,37 @@ function ParticipantsContent() {
       setSelectedFile(null);
     } catch (err) {
       console.error('Failed to upload roster file', err);
+      setParticipantActionError(err instanceof Error ? err.message : 'Could not upload this roster file.');
     } finally {
       setIsBulkProcessing(false);
     }
   };
 
-  const handleSampleBulkFill = () => {
-    setBulkInputText(
-      'ATF-2025-01\nATF-2025-02\nATF-2025-03\nATF-2025-04\nINVALID-999\nMK-UNKNOWN-001'
-    );
+  const handleSaveParticipant = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingParticipant || !user) return;
+    setIsSavingParticipant(true);
+    setParticipantActionError('');
+    try {
+      const updated = await participantsApi.update(editingParticipant, user);
+      setParticipants((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setEditingParticipant(null);
+    } catch (error) {
+      setParticipantActionError(error instanceof Error ? error.message : 'Could not update participant.');
+    } finally {
+      setIsSavingParticipant(false);
+    }
+  };
+
+  const handleDeleteParticipant = async (participant: Participant) => {
+    if (!user || !confirm(`Remove ${participant.fullName} from this roster?`)) return;
+    setParticipantActionError('');
+    try {
+      await participantsApi.delete(participant.id, user);
+      setParticipants((current) => current.filter((item) => item.id !== participant.id));
+    } catch (error) {
+      setParticipantActionError(error instanceof Error ? error.message : 'Could not remove participant.');
+    }
   };
 
   const filteredParticipants = participants.filter((p) => {
@@ -166,6 +210,7 @@ function ParticipantsContent() {
 
   return (
     <div className="space-y-6">
+      {participantActionError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{participantActionError}</p>}
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -182,6 +227,7 @@ function ParticipantsContent() {
             variant="outline"
             size="sm"
             onClick={() => setIsBulkOpen(true)}
+            disabled={!selectedEventId || selectedEventId === 'all'}
             leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
           >
             Bulk Excel/CSV Import
@@ -190,6 +236,7 @@ function ParticipantsContent() {
             variant="primary"
             size="sm"
             onClick={() => setIsSingleAddOpen(true)}
+            disabled={!selectedEventId || selectedEventId === 'all'}
             leftIcon={<UserPlus className="w-4 h-4" />}
           >
             Add Member ID
@@ -205,10 +252,10 @@ function ParticipantsContent() {
               label="Select Active Event to Manage Participants"
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
-              options={events.map((evt) => ({
+              options={[{ value: 'all', label: 'All Events (All Participants)' }, ...events.map((evt) => ({
                 value: evt.id,
                 label: `${evt.name} (${evt.auxiliary} - ${evt.orgUnitName})`,
-              }))}
+              }))]}
             />
           </div>
 
@@ -259,6 +306,7 @@ function ParticipantsContent() {
               onChange={(e) => setStatusFilter(e.target.value)}
               options={[
                 { value: 'all', label: 'All Verification States' },
+                { value: 'Pending', label: '⏳ Pending' },
                 { value: 'Verified', label: '✅ Verified' },
                 { value: 'Not Found', label: '❌ Not Found' },
                 { value: 'Invalid', label: '⚠️ Invalid Format' },
@@ -313,6 +361,7 @@ function ParticipantsContent() {
                   <TableHead>Jama&apos;at</TableHead>
                   <TableHead>Verification Status</TableHead>
                   <TableHead>Certificate Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -356,6 +405,12 @@ function ParticipantsContent() {
                         <span className="text-3xs text-slate-400">Not Eligible</span>
                       )}
                     </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" aria-label={`Edit ${p.fullName}`} onClick={() => { setParticipantActionError(''); setEditingParticipant({ ...p }); }} leftIcon={<Pencil className="h-3.5 w-3.5" />}>Edit</Button>
+                        <Button variant="ghost" size="sm" aria-label={`Remove ${p.fullName}`} className="text-rose-600" onClick={() => void handleDeleteParticipant(p)} leftIcon={<Trash2 className="h-3.5 w-3.5" />}>Remove</Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -363,6 +418,19 @@ function ParticipantsContent() {
           )}
         </CardContent>
       </Card>
+
+      <Modal isOpen={!!editingParticipant} onClose={() => setEditingParticipant(null)} title="Edit Participant" description="Update participant details stored for this event." maxWidth="md">
+        {editingParticipant && <form onSubmit={handleSaveParticipant} className="space-y-4">
+          <Input label="Full name" value={editingParticipant.fullName} onChange={(event) => setEditingParticipant({ ...editingParticipant, fullName: event.target.value })} required />
+          <Input label="Jama'at" value={editingParticipant.jamaat} onChange={(event) => setEditingParticipant({ ...editingParticipant, jamaat: event.target.value })} required />
+          <Input label="Dila / District" value={editingParticipant.dila} onChange={(event) => setEditingParticipant({ ...editingParticipant, dila: event.target.value })} required />
+          <Input label="Ilaqa" value={editingParticipant.ilaqa || ''} onChange={(event) => setEditingParticipant({ ...editingParticipant, ilaqa: event.target.value })} />
+          <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+            <Button type="button" variant="outline" size="sm" onClick={() => setEditingParticipant(null)}>Cancel</Button>
+            <Button type="submit" variant="primary" size="sm" isLoading={isSavingParticipant}>Save changes</Button>
+          </div>
+        </form>}
+      </Modal>
 
       {/* Single Add Modal */}
       <Modal
@@ -376,6 +444,7 @@ function ParticipantsContent() {
         maxWidth="md"
       >
         <form onSubmit={handleSingleAdd} className="space-y-4">
+          {participantActionError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{participantActionError}</p>}
           <Input
             label="Jama'at Member ID *"
             value={singleMemberId}
@@ -431,6 +500,7 @@ function ParticipantsContent() {
         maxWidth="lg"
       >
         <div className="space-y-4">
+          {participantActionError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{participantActionError}</p>}
           {!bulkSummary ? (
             <>
               {/* Mode Switcher */}
@@ -455,7 +525,7 @@ function ParticipantsContent() {
                       : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  Upload File (.csv / .xlsx)
+                      Upload File (.csv / .xlsx / .xlsm)
                 </button>
               </div>
 
@@ -465,19 +535,12 @@ function ParticipantsContent() {
                     <label className="block text-xs font-semibold text-slate-700">
                       Paste Member IDs (one per line or comma-separated)
                     </label>
-                    <button
-                      type="button"
-                      onClick={handleSampleBulkFill}
-                      className="text-2xs text-emerald-700 font-bold hover:underline cursor-pointer"
-                    >
-                      ⚡ Insert Demo Test Batch
-                    </button>
                   </div>
 
                   <textarea
                     value={bulkInputText}
                     onChange={(e) => setBulkInputText(e.target.value)}
-                    placeholder="ATF-2025-01&#10;ATF-2025-02&#10;ATF-2025-03&#10;..."
+                    placeholder="Paste member IDs here, one per line or separated by commas..."
                     rows={6}
                     className="w-full rounded-xl border border-slate-300 p-3 font-mono text-xs focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none"
                   />
@@ -490,7 +553,7 @@ function ParticipantsContent() {
                   <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-emerald-500 transition-colors bg-slate-50/50">
                     <input
                       type="file"
-                      accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                      accept=".csv,.xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) setSelectedFile(file);
@@ -511,7 +574,7 @@ function ParticipantsContent() {
                         )}
                       </div>
                       <p className="text-3xs text-slate-400">
-                        File should contain Member IDs and participant details.
+                        File must be .csv, .xlsx, or .xlsm and contain a Membership ID column.
                       </p>
                     </label>
                   </div>

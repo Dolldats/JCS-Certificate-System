@@ -38,6 +38,7 @@ export function Badge({
         break;
       case 'Draft':
       case 'Duplicate':
+      case 'Pending':
         resolvedVariant = 'warning';
         break;
       case 'Invalid':

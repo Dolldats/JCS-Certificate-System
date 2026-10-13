@@ -79,3 +79,24 @@ export async function backendFetch<T>(
     return text as unknown as T;
   }
 }
+
+export async function backendDownload(endpoint: string): Promise<Blob> {
+  const token = getAuthToken();
+  const cleanPath = endpoint.replace(/^\/+/, '').replace(/^api\//i, '');
+  const headers = new Headers({ Accept: 'application/pdf, application/octet-stream' });
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  const response = await fetch(`/api/backend/${cleanPath}`, { headers });
+  if (!response.ok) {
+    let detail = '';
+    try {
+      const body = (await response.json()) as Record<string, unknown>;
+      detail = typeof body.message === 'string' ? body.message : '';
+    } catch {
+      // Keep a concise status-based error when the endpoint returns no JSON body.
+    }
+    throw new Error(detail || `Download failed (${response.status}).`);
+  }
+
+  return response.blob();
+}

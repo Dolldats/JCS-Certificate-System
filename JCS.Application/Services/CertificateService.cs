@@ -151,6 +151,12 @@ public class CertificateService : ICertificateService
 
     public async Task<CertificateDto> CreateAsync(CreateCertificateDto dto, CancellationToken token = default)
     {
+        var participantCertificates = await _certificateRepository.GetByParticipantIdAsync(dto.ParticipantId, token);
+        if (participantCertificates.Any(x => x.EventId == dto.EventId && x.Status != CertificateStatus.Revoked))
+        {
+            throw new InvalidOperationException("This participant already has an active certificate for this event.");
+        }
+
         var certificateNumber = string.IsNullOrWhiteSpace(dto.CertificateNumber)
             ? $"JCS-{DateTime.UtcNow:yyyy}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}"
             : dto.CertificateNumber;
@@ -199,7 +205,11 @@ public class CertificateService : ICertificateService
             throw new InvalidOperationException($"Invalid certificate status transition: {certificate.Status} to {dto.Status}.");
 
         certificate.Status = dto.Status;
-        certificate.FilePath = dto.FilePath;
+        // Revocation updates omit FilePath; preserve the generated PDF so downloads remain available.
+        if (dto.FilePath != null)
+        {
+            certificate.FilePath = dto.FilePath;
+        }
         certificate.RevocationReason = dto.RevocationReason;
         certificate.RevokedBy = dto.RevokedBy;
 

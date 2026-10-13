@@ -41,6 +41,9 @@ import {
   Pencil,
   Sparkles,
   FileCheck,
+  Download,
+  FileOutput,
+  Trash2,
 } from 'lucide-react';
 import { formatDate } from '../../../lib/utils';
 
@@ -52,6 +55,15 @@ const CERTIFICATE_TYPES: CertificateType[] = [
   'Certificate of Recognition',
   'Certificate of Attendance',
 ];
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 function CertificatesContent() {
   const searchParams = useSearchParams();
@@ -80,28 +92,37 @@ function CertificatesContent() {
   );
   const [wizardTemplateId, setWizardTemplateId] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [certificateNumberToVerify, setCertificateNumberToVerify] = useState('');
+  const [verificationResult, setVerificationResult] = useState<string | null>(null);
+  const [isVerifyingCertificate, setIsVerifyingCertificate] = useState(false);
+  const [eventActionError, setEventActionError] = useState('');
 
   const loadData = async () => {
     setLoading(true);
-    const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
-    const [certs, allEvents, allTemplates] = await Promise.all([
-      certificatesApi.getAll(aux),
-      eventsApi.getAll(aux),
-      templatesApi.getAll(aux),
-    ]);
+    setEventActionError('');
+    try {
+      const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
+      const [certs, allEvents, allTemplates] = await Promise.all([
+        certificatesApi.getAll(aux),
+        eventsApi.getAll(aux),
+        templatesApi.getActive(aux),
+      ]);
 
-    setCertificates(certs);
-    setEvents(allEvents);
-    setTemplates(allTemplates);
+      setCertificates(certs);
+      setEvents(allEvents);
+      setTemplates(allTemplates);
 
-    if (allEvents.length > 0 && !wizardEventId) {
-      setWizardEventId(allEvents[0].id);
+      if (allEvents.length > 0 && !wizardEventId) setWizardEventId(allEvents[0].id);
+      setWizardTemplateId((currentTemplateId) =>
+        allTemplates.some((template) => template.id === currentTemplateId)
+          ? currentTemplateId
+          : allTemplates[0]?.id || ''
+      );
+    } catch (error) {
+      setEventActionError(error instanceof Error ? error.message : 'Could not load certificate data from the backend.');
+    } finally {
+      setLoading(false);
     }
-    if (allTemplates.length > 0 && !wizardTemplateId) {
-      setWizardTemplateId(allTemplates[0].id);
-    }
-
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -110,6 +131,18 @@ function CertificatesContent() {
     }
     run();
   }, [activeAuxiliary]);
+
+  useEffect(() => {
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(selectedEventId)) return;
+    let cancelled = false;
+    certificatesApi.getByEvent(selectedEventId).then((data) => {
+      if (!cancelled) setCertificates(data);
+    }).catch((error) => {
+      console.error('Could not load certificates for the selected event', error);
+      if (!cancelled) setEventActionError(error instanceof Error ? error.message : 'Could not load certificates for this event.');
+    });
+    return () => { cancelled = true; };
+  }, [selectedEventId]);
 
   // Keep the search box in sync when arriving via the navbar search (?q=...).
   const navbarQuery = searchParams.get('q') || '';
@@ -122,20 +155,30 @@ function CertificatesContent() {
   useEffect(() => {
     async function loadWizardParticipants() {
       if (!wizardEventId) return;
-      const parts = await participantsApi.getByEvent(wizardEventId);
-      const verified = parts.filter((p) => p.verificationStatus === 'Verified');
-      setWizardParticipants(verified);
-      const unassigned = verified
-        .filter((p) => !p.certificateAssigned)
-        .map((p) => p.id);
-      setSelectedParticipantIds(unassigned);
+      try {
+        const parts = await participantsApi.getByEvent(wizardEventId);
+        const verified = parts.filter((p) => p.verificationStatus === 'Verified');
+        setWizardParticipants(verified);
+        const alreadyCertified = new Set(
+          certificates
+            .filter((certificate) => certificate.eventId === wizardEventId && certificate.status !== 'Revoked')
+            .map((certificate) => certificate.participantId)
+        );
+        const unassigned = verified
+          .filter((p) => !p.certificateAssigned && !alreadyCertified.has(p.id))
+          .map((p) => p.id);
+        setSelectedParticipantIds(unassigned);
+      } catch (error) {
+        setEventActionError(error instanceof Error ? error.message : 'Could not load verified participants for this event.');
+      }
     }
     loadWizardParticipants();
-  }, [wizardEventId]);
+  }, [wizardEventId, certificates]);
 
   const handleGenerateBatch = async () => {
     if (!wizardEventId || selectedParticipantIds.length === 0 || !user) return;
     setIsGenerating(true);
+    setEventActionError('');
     try {
       await certificatesApi.generateBulk(
         wizardEventId,
@@ -148,6 +191,9 @@ function CertificatesContent() {
       await loadData();
     } catch (err) {
       console.error('Failed to generate certificates', err);
+      const message = err instanceof Error ? err.message : 'Could not generate certificates.';
+      await loadData();
+      setEventActionError(message);
     } finally {
       setIsGenerating(false);
     }
@@ -155,8 +201,14 @@ function CertificatesContent() {
 
   const handleRevoke = async (certId: string, reason: string) => {
     if (!user) return;
-    await certificatesApi.revoke(certId, reason, user);
-    await loadData();
+    setEventActionError('');
+    try {
+      await certificatesApi.revoke(certId, reason, user);
+      await loadData();
+    } catch (error) {
+      setEventActionError(error instanceof Error ? error.message : 'Could not revoke this certificate.');
+      throw error;
+    }
   };
 
   const handleUpdate = async (
@@ -182,6 +234,92 @@ function CertificatesContent() {
     await loadData();
     // Keep the view modal in sync if it is open for this certificate.
     setSelectedCertificate((prev) => (prev && prev.id === certId ? updated : prev));
+  };
+
+  const handleVerifyCertificate = async () => {
+    if (!certificateNumberToVerify.trim()) return;
+    setIsVerifyingCertificate(true);
+    try {
+      const result = await certificatesApi.verifyByNumber(certificateNumberToVerify.trim());
+      const record = result && typeof result === 'object' ? result as Record<string, unknown> : null;
+      if (!record) {
+        setVerificationResult('Certificate not found');
+      } else if (typeof record.isValid === 'boolean' || typeof record.valid === 'boolean') {
+        setVerificationResult((record.isValid ?? record.valid) ? 'Authentic' : 'Invalid or revoked');
+      } else {
+        setVerificationResult(String(record.authenticity || record.message || (record.status === 'Revoked' ? 'Revoked' : record.status || 'Authentic')));
+      }
+    } catch (error) {
+      setVerificationResult(error instanceof Error ? error.message : 'Certificate verification failed');
+    } finally {
+      setIsVerifyingCertificate(false);
+    }
+  };
+
+  const handleViewCertificate = async (certificate: Certificate) => {
+    if (/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(certificate.id)) {
+      try {
+        setSelectedCertificate(await certificatesApi.getById(certificate.id));
+        return;
+      } catch {
+        // Keep the already-loaded certificate available if the detail route is unavailable.
+      }
+    }
+    setSelectedCertificate(certificate);
+  };
+
+  const handleGenerateFile = async (certificate: Certificate) => {
+    setEventActionError('');
+    try {
+      const blob = await certificatesApi.generateFile(certificate.id);
+      downloadBlob(blob, `${certificate.certificateNumber}.pdf`);
+      await loadData();
+    } catch (error) {
+      setEventActionError(error instanceof Error ? error.message : 'Could not generate this certificate PDF.');
+    }
+  };
+
+  const handleDownloadFile = async (certificate: Certificate) => {
+    setEventActionError('');
+    try {
+      const blob = await certificatesApi.download(certificate.id);
+      downloadBlob(blob, `${certificate.certificateNumber}.pdf`);
+    } catch (error) {
+      setEventActionError(error instanceof Error ? error.message : 'Could not download this certificate PDF.');
+    }
+  };
+
+  const handleGenerateEventFiles = async () => {
+    if (!selectedEventId) return;
+    setEventActionError('');
+    try {
+      await certificatesApi.generateAllForEvent(selectedEventId);
+      await loadData();
+    } catch (error) {
+      setEventActionError(error instanceof Error ? error.message : 'Could not generate event PDFs');
+    }
+  };
+
+  const handleDownloadEventFiles = async () => {
+    if (!selectedEventId) return;
+    setEventActionError('');
+    try {
+      const blob = await certificatesApi.downloadAllForEvent(selectedEventId);
+      downloadBlob(blob, `event-${selectedEventId}-certificates.pdf`);
+    } catch (error) {
+      setEventActionError(error instanceof Error ? error.message : 'Could not download event PDFs');
+    }
+  };
+
+  const handleDeleteCertificate = async (certificate: Certificate) => {
+    if (!confirm(`Permanently delete certificate ${certificate.certificateNumber}?`)) return;
+    setEventActionError('');
+    try {
+      await certificatesApi.delete(certificate.id, user || undefined);
+      await loadData();
+    } catch (error) {
+      setEventActionError(error instanceof Error ? error.message : 'Could not delete this certificate.');
+    }
   };
 
   const filteredCertificates = certificates.filter((c) => {
@@ -225,7 +363,31 @@ function CertificatesContent() {
         >
           Batch Certificate Generator
         </Button>
+        {selectedEventId && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(selectedEventId) && (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => void handleGenerateEventFiles()} leftIcon={<FileOutput className="h-4 w-4" />}>
+              Generate Event PDFs
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => void handleDownloadEventFiles()} leftIcon={<Download className="h-4 w-4" />}>
+              Download All PDFs
+            </Button>
+          </div>
+        )}
       </div>
+
+      {eventActionError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{eventActionError}</p>}
+
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <Input label="Verify certificate number" value={certificateNumberToVerify} onChange={(event) => setCertificateNumberToVerify(event.target.value)} placeholder="e.g. JCS-ATF-2026-0001" />
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void handleVerifyCertificate()} isLoading={isVerifyingCertificate} disabled={!certificateNumberToVerify.trim()}>
+            Verify Certificate
+          </Button>
+          {verificationResult && <p role="status" className="text-xs font-semibold text-slate-700">Result: {verificationResult}</p>}
+        </CardContent>
+      </Card>
 
       <Tabs
         tabs={typeTabs}
@@ -329,22 +491,36 @@ function CertificatesContent() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(cert.id) && (
+                          <Button variant="outline" size="sm" onClick={() => setEditingCertificate(cert)} leftIcon={<Pencil className="w-3.5 h-3.5" />}>
+                            Edit
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setEditingCertificate(cert)}
-                          leftIcon={<Pencil className="w-3.5 h-3.5" />}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedCertificate(cert)}
+                          onClick={() => void handleViewCertificate(cert)}
                           leftIcon={<Eye className="w-3.5 h-3.5" />}
                         >
                           View / Print
                         </Button>
+                        {cert.status === 'Issued' && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(cert.id) && !cert.filePath && (
+                          <>
+                            <Button variant="outline" size="sm" onClick={() => void handleGenerateFile(cert)} leftIcon={<FileOutput className="h-3.5 w-3.5" />}>
+                              Generate PDF
+                            </Button>
+                          </>
+                        )}
+                        {cert.status === 'Issued' && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(cert.id) && !!cert.filePath && (
+                          <Button variant="outline" size="sm" onClick={() => void handleDownloadFile(cert)} leftIcon={<Download className="h-3.5 w-3.5" />}>
+                            Download PDF
+                          </Button>
+                        )}
+                        {cert.status === 'Revoked' && (
+                          <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => void handleDeleteCertificate(cert)} leftIcon={<Trash2 className="h-3.5 w-3.5" />}>
+                            Delete
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -387,11 +563,27 @@ function CertificatesContent() {
             label="Certificate Design Template *"
             value={wizardTemplateId}
             onChange={(e) => setWizardTemplateId(e.target.value)}
-            options={templates.map((tmpl) => ({
-              value: tmpl.id,
-              label: `${tmpl.name} (${tmpl.orientation})`,
-            }))}
+            disabled={templates.length === 0}
+            options={[
+              {
+                value: '',
+                label: templates.length > 0 ? 'Select an active saved template' : 'No active saved templates found',
+              },
+              ...templates.map((tmpl) => ({
+                value: tmpl.id,
+                label: `${tmpl.name} (${tmpl.orientation})`,
+              })),
+            ]}
           />
+          {templates.length === 0 && (
+            <p className="-mt-2 text-xs text-amber-700">
+              Save and activate a design in the{' '}
+              <a href="/templates" className="font-semibold underline underline-offset-2">
+                Certificate Templates
+              </a>{' '}
+              page first, then reopen this generator.
+            </p>
+          )}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
@@ -481,7 +673,7 @@ function CertificatesContent() {
               size="sm"
               onClick={handleGenerateBatch}
               isLoading={isGenerating}
-              disabled={selectedParticipantIds.length === 0}
+              disabled={selectedParticipantIds.length === 0 || !wizardTemplateId}
               leftIcon={<FileCheck className="w-4 h-4" />}
             >
               Generate {selectedParticipantIds.length} Certificates

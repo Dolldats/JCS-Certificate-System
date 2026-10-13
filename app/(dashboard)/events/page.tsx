@@ -21,6 +21,8 @@ import {
   MapPin,
   Calendar,
   Building,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { formatDate } from '../../../lib/utils';
 
@@ -51,6 +53,7 @@ export default function EventsPage() {
 
   // Create Event Modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newEvent, setNewEvent] = useState({
     name: '',
@@ -95,8 +98,7 @@ export default function EventsPage() {
     if (!user) return;
     setIsSubmitting(true);
     try {
-      await eventsApi.create(
-        {
+      const eventData = {
           name: newEvent.name,
           description: newEvent.description,
           eventType: newEvent.eventType,
@@ -108,10 +110,14 @@ export default function EventsPage() {
           status: newEvent.status,
           createdBy: user.fullName,
           theme: newEvent.theme,
-        },
-        user
-      );
+        };
+      if (editingEventId) {
+        await eventsApi.update(editingEventId, eventData, user);
+      } else {
+        await eventsApi.create(eventData, user);
+      }
       setIsCreateOpen(false);
+      setEditingEventId(null);
       setNewEvent({
         name: '',
         description: '',
@@ -129,6 +135,35 @@ export default function EventsPage() {
       console.error('Failed to create event', err);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEditEvent = async (event: Event) => {
+    const latest = await eventsApi.getById(event.id);
+    const target = latest || event;
+    setEditingEventId(target.id);
+    setNewEvent({
+      name: target.name,
+      description: target.description,
+      eventType: target.eventType,
+      date: target.date,
+      venue: target.venue,
+      auxiliary: target.auxiliary,
+      orgLevel: target.orgLevel,
+      orgUnitName: target.orgUnitName,
+      status: target.status,
+      theme: target.theme || '',
+    });
+    setIsCreateOpen(true);
+  };
+
+  const handleDeleteEvent = async (event: Event) => {
+    if (!user || !confirm(`Delete “${event.name}” and its event record?`)) return;
+    try {
+      await eventsApi.delete(event.id, user);
+      await loadEvents();
+    } catch (error) {
+      console.error('Failed to delete event', error);
     }
   };
 
@@ -232,7 +267,15 @@ export default function EventsPage() {
               <div className="p-5 space-y-4">
                 <div className="flex items-start justify-between gap-2">
                   <Badge auxiliary={event.auxiliary} />
-                  <Badge status={event.status} />
+                  <div className="flex items-center gap-2">
+                    <Badge status={event.status} />
+                    <button type="button" onClick={() => void handleEditEvent(event)} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-emerald-700" aria-label={`Edit ${event.name}`} title="Edit event">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => void handleDeleteEvent(event)} className="rounded-md p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-700" aria-label={`Delete ${event.name}`} title="Delete event">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -312,8 +355,8 @@ export default function EventsPage() {
       {/* Create Event Modal */}
       <Modal
         isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        title="Create New Auxiliary Event"
+        onClose={() => { setIsCreateOpen(false); setEditingEventId(null); }}
+        title={editingEventId ? 'Update Auxiliary Event' : 'Create New Auxiliary Event'}
         description="Configure event information and organizational hierarchy."
         maxWidth="lg"
       >
@@ -447,7 +490,7 @@ export default function EventsPage() {
               size="sm"
               isLoading={isSubmitting}
             >
-              Save &amp; Create Event
+              {editingEventId ? 'Save Event Changes' : 'Save &amp; Create Event'}
             </Button>
           </div>
         </form>

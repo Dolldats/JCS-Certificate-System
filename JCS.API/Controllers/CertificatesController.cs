@@ -134,17 +134,34 @@ public class CertificatesController : ControllerBase
             return BadRequest(ModelState);
         }
 
+        var participant = await _participantService.GetByIdAsync(dto.ParticipantId, token);
+        if (participant == null)
+        {
+            return NotFound(new { message = "Participant was not found." });
+        }
+        if (participant.EventId != dto.EventId)
+        {
+            return BadRequest(new { message = "The participant is not enrolled in the selected event." });
+        }
+
         if (User.IsInRole("GeneralAdmin"))
         {
-            var participant = await _participantService.GetByIdAsync(dto.ParticipantId, token);
             var userAux = User.FindFirst("Auxiliary")?.Value;
-            if (participant != null && userAux != "None" && !string.Equals(userAux, participant.Auxiliary.ToString(), StringComparison.OrdinalIgnoreCase))
+            if (userAux != "None" && !string.Equals(userAux, participant.Auxiliary.ToString(), StringComparison.OrdinalIgnoreCase))
             {
                 return StatusCode(403, new { message = "General Admins can only create certificates for participants in their own auxiliary body." });
             }
         }
 
-        var result = await _certificateService.CreateAsync(dto, token);
+        CertificateDto result;
+        try
+        {
+            result = await _certificateService.CreateAsync(dto, token);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
         return CreatedAtAction(nameof(GetCertificateById), new { id = result.Id }, result);
     }
 
@@ -191,6 +208,30 @@ public class CertificatesController : ControllerBase
             return NotFound(new { message = $"Certificate with id {id} not found." });
         }
 
+        // Remove the generated PDF only when it is inside the certificate upload folder.
+        // The database record remains deleted even if an old or missing file cannot be removed.
+        var certificateDirectory = Path.GetFullPath(Path.Combine(_environment.ContentRootPath, "uploads", "certificates"));
+        var certificatePath = string.IsNullOrWhiteSpace(existing.FilePath) ? null : Path.GetFullPath(existing.FilePath);
+        var directoryPrefix = certificateDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        if (certificatePath != null
+            && certificatePath.StartsWith(directoryPrefix, StringComparison.OrdinalIgnoreCase)
+            && System.IO.File.Exists(certificatePath))
+        {
+            try
+            {
+                System.IO.File.Delete(certificatePath);
+            }
+            catch (IOException)
+            {
+                // A stale PDF can be cleaned up later; do not undo the successful record deletion.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Preserve the successful API deletion even if the filesystem blocks cleanup.
+            }
+        }
+
         return NoContent();
     }
 
@@ -222,15 +263,25 @@ public class CertificatesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/generate")]
-    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin,Member")]
     public async Task<IActionResult> GenerateCertificate(Guid id, CancellationToken token)
     {
+        var certificateDetails = await _certificateService.GetByIdAsync(id, token);
+        if (certificateDetails == null)
+        {
+            return NotFound(new { message = $"Certificate with id {id} not found." });
+        }
+        if (!await CanAccessCertificateAsync(certificateDetails, token)) return Forbid();
+
         var certificate = await _certificateRepository.GetByIdAsync(id, token);
         if (certificate?.Participant == null || certificate.Event == null || certificate.CertificateTemplate == null)
         {
             return NotFound(new { message = "Certificate, participant, event, or template was not found." });
         }
-        if (!CanAccessAuxiliary(certificate.Participant.Auxiliary)) return Forbid();
+        if (certificate.Status == JCS.Domain.Enum.CertificateStatus.Revoked)
+        {
+            return Conflict(new { message = "A revoked certificate cannot be generated or downloaded." });
+        }
 
         var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson)
             ? new TemplateLayoutDto()

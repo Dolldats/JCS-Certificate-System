@@ -47,7 +47,13 @@ The .NET API project is in `JCS.API`. Configure backend connection details and a
 ## Project progress
 
 ### Completed
+- **2026-10-12:** Let members generate their own missing certificate PDF on download, with ownership checks, revoked-certificate protection, progress feedback, and visible download errors.
+- **2026-10-12:** Improved participant audit entries to show the member ID, name, event, verification status, and HTTP result; removed duplicate client-side enrollment logging and stopped audit-log writes from generating recursive audit entries.
+- **2026-10-12:** Made the certificate generator template selector show a clear empty state when no active saved templates are available, link admins to the template studio, and reset stale selections when templates change.
 
+- **2026-10-12:** Fixed the admin participant and certificate flows: map Jama'at verification status correctly, persist verified/pending member states, use the backend for pasted roster imports, preserve participant contact details when editing, block unsafe participant removal when certificates exist, prevent duplicate active certificates, and make revoke/delete actions reflect backend results.
+- **2026-10-12:** Bundled the Geist fonts locally so production builds work without fetching fonts from Google at build time.
+- **2026-10-12:** Connected the dashboard, event, participant, certificate, template, administrator, and audit screens to the corresponding Swagger endpoints, including paging, member lookup, template assets and preview, certificate verification and PDF actions, and participant/template maintenance.
 - **2026-10-12:** Replaced the raw 401 login error with a clear credential-neutral message asking users to check their Chanda number and password.
 - **2026-10-12:** Added concise reviewer comments around the member flow, chart calculations, legacy-data cleanup, and sticky navigation behavior.
 - **2026-10-11:** Documented the current application, API, and development setup in this README.

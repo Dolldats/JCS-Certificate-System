@@ -9,6 +9,7 @@ import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
+import { Modal } from '../../../components/ui/Modal';
 import {
   Table,
   TableHeader,
@@ -30,6 +31,7 @@ export default function AuditPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('all');
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   const loadLogs = async () => {
     setLoading(true);
@@ -75,12 +77,21 @@ export default function AuditPage() {
     'Event Created',
     'Event Updated',
     'Event Deleted',
+    'Participant Added',
     'Participant Import',
     'Member Verification',
     'Certificate Generated',
     'Certificate Revoked',
     'Template Modified',
   ];
+
+  const handleOpenLog = async (log: AuditLog) => {
+    try {
+      setSelectedLog(await auditApi.getById(log.id));
+    } catch {
+      setSelectedLog(log);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -179,7 +190,9 @@ export default function AuditPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-xs font-medium text-slate-700 max-w-[200px] truncate">
-                      {log.target}
+                      <button type="button" onClick={() => void handleOpenLog(log)} className="truncate text-left hover:text-emerald-700 hover:underline">
+                        {log.target}
+                      </button>
                     </TableCell>
                     <TableCell className="text-xs text-slate-600 max-w-md">
                       <div className="line-clamp-2">{log.details}</div>
@@ -196,6 +209,23 @@ export default function AuditPage() {
           )}
         </CardContent>
       </Card>
+
+      <Modal
+        isOpen={Boolean(selectedLog)}
+        onClose={() => setSelectedLog(null)}
+        title="Audit log details"
+        description={selectedLog?.action}
+        maxWidth="md"
+      >
+        {selectedLog && (
+          <dl className="space-y-3 text-sm">
+            <div><dt className="text-xs text-slate-500">Actor</dt><dd className="font-medium text-slate-900">{selectedLog.adminName} · {selectedLog.adminRole}</dd></div>
+            <div><dt className="text-xs text-slate-500">Target</dt><dd className="font-medium text-slate-900">{selectedLog.target}</dd></div>
+            <div><dt className="text-xs text-slate-500">Time</dt><dd className="font-medium text-slate-900">{formatDateTime(selectedLog.timestamp)}</dd></div>
+            <div><dt className="text-xs text-slate-500">Details</dt><dd className="whitespace-pre-wrap text-slate-800">{selectedLog.details}</dd></div>
+          </dl>
+        )}
+      </Modal>
     </div>
   );
 }

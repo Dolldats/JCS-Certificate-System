@@ -25,6 +25,7 @@ export function CertificateModal({
   const [isRevoking, setIsRevoking] = useState(false);
   const [revokeReason, setRevokeReason] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   if (!certificate) return null;
 
@@ -34,12 +35,14 @@ export function CertificateModal({
   const handleRevokeSubmit = async () => {
     if (!revokeReason.trim() || !onRevoke) return;
     setIsLoading(true);
+    setErrorMessage('');
     try {
       await onRevoke(certificate.id, revokeReason);
       setIsRevoking(false);
       onClose();
     } catch (err) {
       console.error('Failed to revoke certificate', err);
+      setErrorMessage(err instanceof Error ? err.message : 'Could not revoke this certificate.');
     } finally {
       setIsLoading(false);
     }
@@ -98,6 +101,7 @@ export function CertificateModal({
     >
       {isRevoking ? (
         <div className="space-y-4 py-2">
+          {errorMessage && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{errorMessage}</p>}
           <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 space-y-1">
             <div className="font-bold flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4 text-rose-600" />
