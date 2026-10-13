@@ -47,6 +47,7 @@ The .NET API project is in `JCS.API`. Configure backend connection details and a
 ## Project progress
 
 ### Completed
+- **2026-10-13:** Prevented blank member certificate PDFs by rendering a readable default layout for older saved templates and regenerating member downloads to replace stale blank files.
 - **2026-10-12:** Let members generate their own missing certificate PDF on download, with ownership checks, revoked-certificate protection, progress feedback, and visible download errors.
 - **2026-10-12:** Improved participant audit entries to show the member ID, name, event, verification status, and HTTP result; removed duplicate client-side enrollment logging and stopped audit-log writes from generating recursive audit entries.
 - **2026-10-12:** Made the certificate generator template selector show a clear empty state when no active saved templates are available, link admins to the template studio, and reset stale selections when templates change.

@@ -114,16 +114,8 @@ export default function MemberPage() {
     setCertificateDownloadError('');
     setDownloadingCertificateId(certificateId);
     try {
-      let blob: Blob;
-      try {
-        blob = await certificatesApi.download(certificateId);
-      } catch (error) {
-        const message = error instanceof Error ? error.message.toLowerCase() : '';
-        if (!message.includes('not been generated yet')) throw error;
-        // Some issued records predate PDF generation. Generate the file on demand,
-        // then download the PDF returned by the generation endpoint.
-        blob = await certificatesApi.generateFile(certificateId);
-      }
+      // Regenerate on each request so members don't keep receiving a stale blank PDF.
+      const blob = await certificatesApi.generateFile(certificateId);
 
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');

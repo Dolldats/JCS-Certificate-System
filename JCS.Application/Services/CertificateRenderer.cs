@@ -26,18 +26,15 @@ public class CertificateRenderer : ICertificateRenderer
                         {
                             layers.PrimaryLayer().Image(File.ReadAllBytes(request.BackgroundImagePath)).FitArea();
                         }
-                        if (request.Layout.TextElements != null)
+                        foreach (var element in GetTextElements(request.Layout))
                         {
-                            foreach (var element in request.Layout.TextElements)
-                            {
-                                var content = request.Values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
-                                var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
-                                var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
-                                var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
-                                var text = layers.Layer().TranslateX((float)element.X).TranslateY((float)element.Y).Text(content ?? string.Empty).FontFamily(fontFamily).FontSize(fontSize).FontColor(textColor);
-                                if (element.Bold) text.Bold();
-                                if (element.Italic) text.Italic();
-                            }
+                            var content = request.Values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
+                            var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
+                            var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
+                            var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
+                            var text = layers.Layer().TranslateX((float)element.X).TranslateY((float)element.Y).Text(content ?? string.Empty).FontFamily(fontFamily).FontSize(fontSize).FontColor(textColor);
+                            if (element.Bold) text.Bold();
+                            if (element.Italic) text.Italic();
                         }
                     });
                 });
@@ -58,32 +55,47 @@ public class CertificateRenderer : ICertificateRenderer
                 page.Content().Layers(layers =>
                 {
                     layers.PrimaryLayer().Background(Colors.White);
-                    if (layout.TextElements != null)
+                    foreach (var element in GetTextElements(layout))
                     {
-                        foreach (var element in layout.TextElements)
+                        var content = values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
+                        var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
+                        var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
+                        var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
+                        var text = layers.Layer().TranslateX((float)element.X).TranslateY((float)element.Y).Text(content ?? string.Empty)
+                            .FontFamily(fontFamily)
+                            .FontSize(fontSize)
+                            .FontColor(textColor);
+
+                        if (element.Bold)
                         {
-                            var content = values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
-                            var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
-                            var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
-                            var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
-                            var text = layers.Layer().TranslateX((float)element.X).TranslateY((float)element.Y).Text(content ?? string.Empty)
-                                .FontFamily(fontFamily)
-                                .FontSize(fontSize)
-                                .FontColor(textColor);
+                            text.Bold();
+                        }
 
-                            if (element.Bold)
-                            {
-                                text.Bold();
-                            }
-
-                            if (element.Italic)
-                            {
-                                text.Italic();
-                            }
+                        if (element.Italic)
+                        {
+                            text.Italic();
                         }
                     }
                 });
             });
         }).GeneratePdf();
+    }
+
+    // Older saved templates contain visual editor settings but no renderer text elements.
+    // Use a basic certificate layout so those templates still produce a readable PDF.
+    private static IReadOnlyList<TemplateTextElementDto> GetTextElements(TemplateLayoutDto layout)
+    {
+        if (layout.TextElements is { Count: > 0 })
+        {
+            return layout.TextElements;
+        }
+
+        return new List<TemplateTextElementDto>
+        {
+            new() { Placeholder = "CERTIFICATE OF PARTICIPATION", X = 0, Y = 110, FontFamily = "Arial", FontSize = 28, Bold = true, TextColor = "#0F5132", Alignment = "Center" },
+            new() { Placeholder = "EventName", X = 0, Y = 190, FontFamily = "Arial", FontSize = 24, Bold = true, TextColor = "#0F5132", Alignment = "Center" },
+            new() { Placeholder = "ParticipantName", X = 0, Y = 350, FontFamily = "Arial", FontSize = 32, Bold = true, TextColor = "#111827", Alignment = "Center" },
+            new() { Placeholder = "CertificateNumber", X = 0, Y = 640, FontFamily = "Arial", FontSize = 14, TextColor = "#475569", Alignment = "Center" }
+        };
     }
 }
