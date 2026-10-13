@@ -107,8 +107,7 @@ namespace JCS.API
                     if (!string.IsNullOrWhiteSpace(initialSuperAdminMembershipId))
                     {
                         var existing = db.AdminAssignments.FirstOrDefault(x =>
-                            x.MembershipId == initialSuperAdminMembershipId &&
-                            x.Role == JCS.Domain.Enum.AdminRole.SuperAdmin);
+                            x.MembershipId == initialSuperAdminMembershipId);
 
                         if (existing == null)
                         {
@@ -125,11 +124,19 @@ namespace JCS.API
                             db.SaveChanges();
                             logger.LogInformation("Initial Super Admin assignment was created.");
                         }
-                        else if (existing.Auxiliary != JCS.Domain.Enum.Auxiliary.Khuddam)
+                        else if (existing.Role != JCS.Domain.Enum.AdminRole.SuperAdmin ||
+                                 existing.Status != JCS.Domain.Enum.AdminStatus.Active ||
+                                 existing.Auxiliary != JCS.Domain.Enum.Auxiliary.Khuddam ||
+                                 existing.RevokedBy != null ||
+                                 existing.RevokedAt != null)
                         {
+                            existing.Role = JCS.Domain.Enum.AdminRole.SuperAdmin;
+                            existing.Status = JCS.Domain.Enum.AdminStatus.Active;
                             existing.Auxiliary = JCS.Domain.Enum.Auxiliary.Khuddam;
+                            existing.RevokedBy = null;
+                            existing.RevokedAt = null;
                             db.SaveChanges();
-                            logger.LogInformation("Updated initial Super Admin auxiliary to Khuddam.");
+                            logger.LogInformation("Restored initial Super Admin assignment.");
                         }
                     }
                 }
