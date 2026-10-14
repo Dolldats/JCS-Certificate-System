@@ -85,17 +85,28 @@ public class CertificateRenderer : ICertificateRenderer
     // Use a basic certificate layout so those templates still produce a readable PDF.
     private static IReadOnlyList<TemplateTextElementDto> GetTextElements(TemplateLayoutDto layout)
     {
-        if (layout.TextElements is { Count: > 0 })
+        var textElements = layout.TextElements?.ToList() ?? new List<TemplateTextElementDto>();
+        if (textElements.Count == 0)
         {
-            return layout.TextElements;
+            textElements.AddRange(new[]
+            {
+                new TemplateTextElementDto { Placeholder = "CERTIFICATE OF PARTICIPATION", X = 0, Y = 110, FontFamily = "Arial", FontSize = 28, Bold = true, TextColor = "#0F5132", Alignment = "Center" },
+                new TemplateTextElementDto { Placeholder = "EventName", X = 0, Y = 190, FontFamily = "Arial", FontSize = 24, Bold = true, TextColor = "#0F5132", Alignment = "Center" },
+                new TemplateTextElementDto { Placeholder = "ParticipantName", X = 0, Y = 350, FontFamily = "Arial", FontSize = 32, Bold = true, TextColor = "#111827", Alignment = "Center" },
+                new TemplateTextElementDto { Placeholder = "CertificateNumber", X = 0, Y = 640, FontFamily = "Arial", FontSize = 14, TextColor = "#475569", Alignment = "Center" }
+            });
         }
 
-        return new List<TemplateTextElementDto>
+        // Include the participant's Dila and Jama'at if the saved layout has no slots for them.
+        if (!textElements.Any(element => new[] { "Dila", "Dilla", "DilaLine" }.Contains(element.Placeholder, StringComparer.OrdinalIgnoreCase)))
         {
-            new() { Placeholder = "CERTIFICATE OF PARTICIPATION", X = 0, Y = 110, FontFamily = "Arial", FontSize = 28, Bold = true, TextColor = "#0F5132", Alignment = "Center" },
-            new() { Placeholder = "EventName", X = 0, Y = 190, FontFamily = "Arial", FontSize = 24, Bold = true, TextColor = "#0F5132", Alignment = "Center" },
-            new() { Placeholder = "ParticipantName", X = 0, Y = 350, FontFamily = "Arial", FontSize = 32, Bold = true, TextColor = "#111827", Alignment = "Center" },
-            new() { Placeholder = "CertificateNumber", X = 0, Y = 640, FontFamily = "Arial", FontSize = 14, TextColor = "#475569", Alignment = "Center" }
-        };
+            textElements.Add(new TemplateTextElementDto { Placeholder = "DilaLine", X = 0, Y = 420, FontFamily = "Arial", FontSize = 16, TextColor = "#334155", Alignment = "Center" });
+        }
+        if (!textElements.Any(element => new[] { "Jamaat", "JamaatLine" }.Contains(element.Placeholder, StringComparer.OrdinalIgnoreCase)))
+        {
+            textElements.Add(new TemplateTextElementDto { Placeholder = "JamaatLine", X = 0, Y = 455, FontFamily = "Arial", FontSize = 16, TextColor = "#334155", Alignment = "Center" });
+        }
+
+        return textElements;
     }
 }

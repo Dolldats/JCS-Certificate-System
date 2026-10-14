@@ -2,12 +2,15 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Award, CalendarDays, Download, LogOut, ShieldCheck } from 'lucide-react';
+import { Award, CalendarDays, Download, Eye, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeToggle } from '../../components/ui/ThemeToggle';
 import { Button } from '../../components/ui/Button';
 import { PieChart } from '../../components/ui/PieChart';
-import { certificatesApi, eventsApi, participantsApi } from '../../services/api';
+import { certificatesApi, eventsApi, participantsApi, templatesApi } from '../../services/api';
+import { Certificate, CertificateTemplate } from '../../types';
+import { CertificatePreview } from '../../components/certificates/CertificatePreview';
+import { Modal } from '../../components/ui/Modal';
 
 interface MemberEvent {
   eventId: string;
@@ -54,6 +57,9 @@ export default function MemberPage() {
   const [events, setEvents] = useState<MemberEvent[]>([]);
   const [downloadingCertificateId, setDownloadingCertificateId] = useState<string | null>(null);
   const [certificateDownloadError, setCertificateDownloadError] = useState('');
+  const [previewCertificate, setPreviewCertificate] = useState<Certificate | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<CertificateTemplate | null>(null);
+  const [openingCertificateId, setOpeningCertificateId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
@@ -127,6 +133,32 @@ export default function MemberPage() {
       setCertificateDownloadError(error instanceof Error ? error.message : 'Could not download this certificate.');
     } finally {
       setDownloadingCertificateId(null);
+    }
+  };
+
+  const viewCertificate = async (certificateId: string) => {
+    setCertificateDownloadError('');
+    setOpeningCertificateId(certificateId);
+    try {
+      const certificate = await certificatesApi.getById(certificateId);
+      const templates = await templatesApi.getAll(user?.assignedAuxiliary);
+      const template = templates.find((item) => item.id === certificate.templateId) || templates[0];
+      if (!template) throw new Error('No certificate template is available to preview.');
+
+      // The authenticated profile comes from the member endpoint and can fill
+      // missing legacy participant fields in the print preview.
+      setPreviewCertificate({
+        ...certificate,
+        participantName: certificate.participantName || user?.fullName || '',
+        memberId: certificate.memberId || user?.memberId || '',
+        dila: certificate.dila || user?.dila || '',
+        jamaat: certificate.jamaat || user?.jamaat || '',
+      });
+      setPreviewTemplate(template);
+    } catch (error) {
+      setCertificateDownloadError(error instanceof Error ? error.message : 'Could not open this certificate.');
+    } finally {
+      setOpeningCertificateId(null);
     }
   };
 
@@ -246,15 +278,26 @@ export default function MemberPage() {
                         {event.certificateNumber && <p className="mt-1 font-mono text-xs text-slate-600">{event.certificateNumber}</p>}
                         {event.certificateStatus && <p className="mt-1 text-xs text-slate-500">Status: {event.certificateStatus}</p>}
                         {event.certificateId && (
-                          <button
-                            type="button"
-                            onClick={() => void downloadCertificate(event.certificateId!, event.certificateNumber)}
-                            disabled={downloadingCertificateId === event.certificateId}
-                            className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 disabled:cursor-wait disabled:opacity-60"
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                            {downloadingCertificateId === event.certificateId ? 'Preparing download…' : 'Download certificate'}
-                          </button>
+                          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                            <button
+                              type="button"
+                              onClick={() => void viewCertificate(event.certificateId!)}
+                              disabled={openingCertificateId === event.certificateId}
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 disabled:cursor-wait disabled:opacity-60"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              {openingCertificateId === event.certificateId ? 'Opening…' : 'View / Print'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void downloadCertificate(event.certificateId!, event.certificateNumber)}
+                              disabled={downloadingCertificateId === event.certificateId}
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 disabled:cursor-wait disabled:opacity-60"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              {downloadingCertificateId === event.certificateId ? 'Preparing download…' : 'Download certificate'}
+                            </button>
+                          </div>
                         )}
                       </>
                     ) : <p className="text-sm text-slate-500">No certificate issued yet</p>}
@@ -265,6 +308,24 @@ export default function MemberPage() {
           )}
         </section>
       </div>
+      <Modal
+        isOpen={Boolean(previewCertificate && previewTemplate)}
+        onClose={() => {
+          setPreviewCertificate(null);
+          setPreviewTemplate(null);
+        }}
+        title="Certificate Preview"
+        description={previewCertificate?.certificateNumber || 'View and print your certificate'}
+        maxWidth="5xl"
+      >
+        {previewCertificate && previewTemplate && (
+          <CertificatePreview
+            certificate={previewCertificate}
+            template={previewTemplate}
+            showActions
+          />
+        )}
+      </Modal>
     </main>
   );
 }

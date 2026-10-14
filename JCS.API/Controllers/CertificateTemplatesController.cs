@@ -161,6 +161,8 @@ public class CertificateTemplatesController : ControllerBase
             ["EventDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd"),
             ["CertificateNumber"] = "JCS-SAMPLE-2026-0001",
             ["Jamaat"] = "Sample Jamaat",
+            ["Dila"] = "Sample Dila",
+            ["Dilla"] = "Sample Dila",
             ["Auxiliary"] = "Sample Auxiliary",
             ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
         };
@@ -186,7 +188,7 @@ public class CertificateTemplatesController : ControllerBase
                 return false;
             }
 
-            var supported = new[] { "ParticipantName", "EventName", "EventDate", "CertificateNumber", "Jamaat", "Auxiliary", "IssueDate" };
+            var supported = new[] { "ParticipantName", "EventName", "EventDate", "CertificateNumber", "Jamaat", "Dila", "Dilla", "Auxiliary", "IssueDate" };
             foreach (var element in layout.TextElements)
             {
                 if (!supported.Contains(element.Placeholder, StringComparer.OrdinalIgnoreCase))

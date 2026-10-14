@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 using JCS.Application.Interfaces.Repositories;
 using System.Text.Json;
 using JCS.Application.DTOs.CertificateTemplate;
+using JCS.Application.DTOs.Participant;
+using JCS.Domain.Entities;
+using JCS.Domain.Enum;
 using Microsoft.AspNetCore.Authorization;
 using JCS.API.Common;
 
@@ -19,14 +22,16 @@ public class CertificatesController : ControllerBase
     private readonly ICertificateRenderer _certificateRenderer;
     private readonly IWebHostEnvironment _environment;
     private readonly IParticipantService _participantService;
+    private readonly IJamaatMemberService _jamaatMemberService;
 
-    public CertificatesController(ICertificateService certificateService, ICertificateRepository certificateRepository, ICertificateRenderer certificateRenderer, IWebHostEnvironment environment, IParticipantService participantService)
+    public CertificatesController(ICertificateService certificateService, ICertificateRepository certificateRepository, ICertificateRenderer certificateRenderer, IWebHostEnvironment environment, IParticipantService participantService, IJamaatMemberService jamaatMemberService)
     {
         _certificateService = certificateService;
         _certificateRepository = certificateRepository;
         _certificateRenderer = certificateRenderer;
         _environment = environment;
         _participantService = participantService;
+        _jamaatMemberService = jamaatMemberService;
     }
 
     [HttpGet]
@@ -286,13 +291,18 @@ public class CertificatesController : ControllerBase
         var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson)
             ? new TemplateLayoutDto()
             : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+        var memberLocation = await ResolveMemberLocationAsync(certificate.Participant, token);
         var values = new Dictionary<string, string?>
         {
             ["ParticipantName"] = certificate.Participant.FullName,
             ["EventName"] = certificate.Event.Name,
             ["EventDate"] = certificate.Event.EventDate.ToString("yyyy-MM-dd"),
             ["CertificateNumber"] = certificate.CertificateNumber,
-            ["Jamaat"] = certificate.Participant.Jamaat,
+            ["Jamaat"] = memberLocation.Jamaat,
+            ["Dila"] = memberLocation.Dila,
+            ["Dilla"] = memberLocation.Dila,
+            ["JamaatLine"] = string.IsNullOrWhiteSpace(memberLocation.Jamaat) ? null : $"Jama'at: {memberLocation.Jamaat}",
+            ["DilaLine"] = string.IsNullOrWhiteSpace(memberLocation.Dila) ? null : $"Dila: {memberLocation.Dila}",
             ["Auxiliary"] = certificate.Participant.Auxiliary.ToString(),
             ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
         };
@@ -335,13 +345,18 @@ public class CertificatesController : ControllerBase
             var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson)
                 ? new TemplateLayoutDto()
                 : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+            var memberLocation = await ResolveMemberLocationAsync(certificate.Participant, token);
             var values = new Dictionary<string, string?>
             {
                 ["ParticipantName"] = certificate.Participant.FullName,
                 ["EventName"] = certificate.Event.Name,
                 ["EventDate"] = certificate.Event.EventDate.ToString("yyyy-MM-dd"),
                 ["CertificateNumber"] = certificate.CertificateNumber,
-                ["Jamaat"] = certificate.Participant.Jamaat,
+                ["Jamaat"] = memberLocation.Jamaat,
+                ["Dila"] = memberLocation.Dila,
+                ["Dilla"] = memberLocation.Dila,
+                ["JamaatLine"] = string.IsNullOrWhiteSpace(memberLocation.Jamaat) ? null : $"Jama'at: {memberLocation.Jamaat}",
+                ["DilaLine"] = string.IsNullOrWhiteSpace(memberLocation.Dila) ? null : $"Dila: {memberLocation.Dila}",
                 ["Auxiliary"] = certificate.Participant.Auxiliary.ToString(),
                 ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
             };
@@ -383,13 +398,18 @@ public class CertificatesController : ControllerBase
             }
 
             var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson) ? new TemplateLayoutDto() : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+            var memberLocation = await ResolveMemberLocationAsync(certificate.Participant, token);
             requests.Add(new CertificateRenderRequest(layout, new Dictionary<string, string?>
             {
                 ["ParticipantName"] = certificate.Participant.FullName,
                 ["EventName"] = certificate.Event.Name,
                 ["EventDate"] = certificate.Event.EventDate.ToString("yyyy-MM-dd"),
                 ["CertificateNumber"] = certificate.CertificateNumber,
-                ["Jamaat"] = certificate.Participant.Jamaat,
+                ["Jamaat"] = memberLocation.Jamaat,
+                ["Dila"] = memberLocation.Dila,
+                ["Dilla"] = memberLocation.Dila,
+                ["JamaatLine"] = string.IsNullOrWhiteSpace(memberLocation.Jamaat) ? null : $"Jama'at: {memberLocation.Jamaat}",
+                ["DilaLine"] = string.IsNullOrWhiteSpace(memberLocation.Dila) ? null : $"Dila: {memberLocation.Dila}",
                 ["Auxiliary"] = certificate.Participant.Auxiliary.ToString(),
                 ["IssueDate"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
             }, 
@@ -415,6 +435,35 @@ public class CertificatesController : ControllerBase
         }
 
         return Path.IsPathRooted(path) ? path : Path.Combine(_environment.ContentRootPath, path.Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    // Older participant rows may not contain location fields. Recover those from
+    // the verified Jama'at directory so certificate output uses the member record.
+    private async Task<(string? Jamaat, string? Dila)> ResolveMemberLocationAsync(Participant participant, CancellationToken token)
+    {
+        var jamaat = participant.Jamaat;
+        var dila = participant.Dila;
+        if (!string.IsNullOrWhiteSpace(jamaat) && !string.IsNullOrWhiteSpace(dila))
+        {
+            return (jamaat, dila);
+        }
+
+        try
+        {
+            var member = await _jamaatMemberService.VerifyMemberAsync(participant.MembershipId, token);
+            if (member.Status == VerificationStatus.Verified)
+            {
+                jamaat = string.IsNullOrWhiteSpace(jamaat) ? member.Jamaat : jamaat;
+                dila = string.IsNullOrWhiteSpace(dila) ? member.Dila : dila;
+            }
+        }
+        catch (HttpRequestException) when (!token.IsCancellationRequested)
+        {
+            // If the member directory is temporarily unavailable, retain whatever
+            // location data was already saved on the participant.
+        }
+
+        return (jamaat, dila);
     }
 
     private async Task<bool> CanAccessCertificateAsync(CertificateDto certificate, CancellationToken token)

@@ -9,8 +9,11 @@ public class CertificateDto
     public Guid ParticipantId { get; set; }
     public string? ParticipantName { get; set; }
     public string? ParticipantMembershipId { get; set; }
+    public string? Dila { get; set; }
+    public string? Jamaat { get; set; }
     public Guid EventId { get; set; }
     public string? EventName { get; set; }
+    public Auxiliary? Auxiliary { get; set; }
     public Guid CertificateTemplateId { get; set; }
     public string? TemplateName { get; set; }
     public CertificateType CertificateType { get; set; }

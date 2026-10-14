@@ -259,7 +259,23 @@ function CertificatesContent() {
   const handleViewCertificate = async (certificate: Certificate) => {
     if (/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(certificate.id)) {
       try {
-        setSelectedCertificate(await certificatesApi.getById(certificate.id));
+        const details = await certificatesApi.getById(certificate.id);
+        if (details.memberId && (!details.dila || !details.jamaat)) {
+          try {
+            const verification = await participantsApi.verifyMemberId(details.memberId, details.auxiliary);
+            if (verification.status === 'Verified' && verification.member) {
+              setSelectedCertificate({
+                ...details,
+                dila: details.dila || verification.member.dila,
+                jamaat: details.jamaat || verification.member.jamaat,
+              });
+              return;
+            }
+          } catch {
+            // Show the saved certificate values if the member directory is unavailable.
+          }
+        }
+        setSelectedCertificate(details);
         return;
       } catch {
         // Keep the already-loaded certificate available if the detail route is unavailable.
