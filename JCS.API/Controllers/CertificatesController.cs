@@ -37,7 +37,7 @@ public class CertificatesController : ControllerBase
         if (User.IsInRole("Member"))
         {
             var membershipId = User.GetMembershipId();
-            certificates = certificates.Where(x => string.Equals(x.ParticipantMembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).ToList();
+            certificates = certificates.Where(x => MembershipIdsMatch(x.ParticipantMembershipId, membershipId)).ToList();
         }
         else if (User.IsInRole("GeneralAdmin"))
         {
@@ -93,7 +93,7 @@ public class CertificatesController : ControllerBase
     {
         var certificates = await _certificateService.GetByEventIdAsync(eventId, token);
         if (User.IsInRole("Member"))
-            certificates = certificates.Where(x => string.Equals(x.ParticipantMembershipId, User.GetMembershipId(), StringComparison.OrdinalIgnoreCase)).ToList();
+            certificates = certificates.Where(x => MembershipIdsMatch(x.ParticipantMembershipId, User.GetMembershipId())).ToList();
         else if (User.IsInRole("GeneralAdmin"))
         {
             var allowed = new List<CertificateDto>();
@@ -113,7 +113,7 @@ public class CertificatesController : ControllerBase
         var membershipId = User.GetMembershipId();
         if (string.IsNullOrWhiteSpace(membershipId)) return Unauthorized();
         var certificates = await _certificateRepository.GetAllAsync(token);
-        return Ok(certificates.Where(x => string.Equals(x.Participant?.MembershipId, membershipId, StringComparison.OrdinalIgnoreCase)).Select(x => new
+        return Ok(certificates.Where(x => MembershipIdsMatch(x.Participant?.MembershipId, membershipId)).Select(x => new
         {
             x.Id,
             x.CertificateNumber,
@@ -206,7 +206,8 @@ public class CertificatesController : ControllerBase
 
         if (!await CanAccessCertificateAsync(certificate, token)) return Forbid();
 
-        if (string.IsNullOrWhiteSpace(certificate.FilePath) || !System.IO.File.Exists(certificate.FilePath))
+        // Re-render on download so changes to the event venue are reflected in an
+        // already-issued certificate instead of reusing a stale PDF file.
         {
             var entity = await _certificateRepository.GetByIdAsync(id, token);
             if (entity?.Participant == null || entity.Event == null || entity.CertificateTemplate == null)
@@ -239,8 +240,6 @@ public class CertificatesController : ControllerBase
             Directory.CreateDirectory(directory);
             entity.FilePath = Path.Combine(directory, $"{entity.CertificateNumber}.pdf");
             await System.IO.File.WriteAllBytesAsync(entity.FilePath, bytes, token);
-            entity.Status = JCS.Domain.Enum.CertificateStatus.Generated;
-            entity.GeneratedAt = DateTime.UtcNow;
             await _certificateRepository.UpdateAsync(entity, token);
             certificate.FilePath = entity.FilePath;
         }
@@ -364,7 +363,7 @@ public class CertificatesController : ControllerBase
     {
         var certificates = await _certificateRepository.GetByEventIdAsync(eventId, token);
         if (User.IsInRole("Member"))
-            certificates = certificates.Where(x => string.Equals(x.Participant?.MembershipId, User.GetMembershipId(), StringComparison.OrdinalIgnoreCase)).ToList();
+            certificates = certificates.Where(x => MembershipIdsMatch(x.Participant?.MembershipId, User.GetMembershipId())).ToList();
         else if (User.IsInRole("GeneralAdmin"))
             certificates = certificates.Where(x => x.Participant != null && CanAccessParticipant(x.Participant)).ToList();
 
@@ -426,7 +425,7 @@ public class CertificatesController : ControllerBase
     private async Task<bool> CanAccessCertificateAsync(CertificateDto certificate, CancellationToken token)
     {
         if (User.IsInRole("Member"))
-            return string.Equals(certificate.ParticipantMembershipId, User.GetMembershipId(), StringComparison.OrdinalIgnoreCase);
+            return MembershipIdsMatch(certificate.ParticipantMembershipId, User.GetMembershipId());
 
         if (User.IsInRole("GeneralAdmin"))
         {
@@ -436,6 +435,11 @@ public class CertificatesController : ControllerBase
 
         return User.IsInRole("SuperAdmin");
     }
+
+    private static bool MembershipIdsMatch(string? participantMembershipId, string? userMembershipId) =>
+        !string.IsNullOrWhiteSpace(participantMembershipId) &&
+        !string.IsNullOrWhiteSpace(userMembershipId) &&
+        string.Equals(participantMembershipId.Trim(), userMembershipId.Trim(), StringComparison.OrdinalIgnoreCase);
 
     private bool CanAccessAuxiliary(JCS.Domain.Enum.Auxiliary auxiliary) =>
         !User.IsInRole("GeneralAdmin") ||
