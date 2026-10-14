@@ -19,10 +19,7 @@ public class CertificateRenderer : ICertificateRenderer
                 {
                     page.Size((float)request.Width, (float)request.Height);
                     page.Margin(0);
-                    // Give the layers an explicit page-sized container. This is important
-                    // for multi-page documents: without a bounded content container,
-                    // QuestPDF can produce pages whose layer content is not laid out.
-                    page.Content().Width((float)request.Width).Height((float)request.Height).Layers(layers =>
+                    page.Content().Layers(layers =>
                     {
                         layers.PrimaryLayer().Background(Colors.White);
                         if (!string.IsNullOrWhiteSpace(request.BackgroundImagePath) && File.Exists(request.BackgroundImagePath))
