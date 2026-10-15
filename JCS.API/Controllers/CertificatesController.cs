@@ -215,9 +215,7 @@ public class CertificatesController : ControllerBase
                 return NotFound(new { message = "Certificate, participant, event, or template was not found." });
             }
 
-            var layout = string.IsNullOrWhiteSpace(entity.CertificateTemplate.ConfigurationJson)
-                ? new TemplateLayoutDto()
-                : JsonSerializer.Deserialize<TemplateLayoutDto>(entity.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+            var layout = TemplateLayoutJson.Deserialize(entity.CertificateTemplate.ConfigurationJson);
             ResolveLayoutAssets(layout);
             var values = new Dictionary<string, string?>
             {
@@ -266,9 +264,7 @@ public class CertificatesController : ControllerBase
         }
         if (!CanAccessParticipant(certificate.Participant)) return Forbid();
 
-        var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson)
-            ? new TemplateLayoutDto()
-            : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+        var layout = TemplateLayoutJson.Deserialize(certificate.CertificateTemplate.ConfigurationJson);
         ResolveLayoutAssets(layout);
         var values = new Dictionary<string, string?>
         {
@@ -320,9 +316,7 @@ public class CertificatesController : ControllerBase
                 continue;
             }
 
-            var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson)
-                ? new TemplateLayoutDto()
-                : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+            var layout = TemplateLayoutJson.Deserialize(certificate.CertificateTemplate.ConfigurationJson);
             ResolveLayoutAssets(layout);
             var values = new Dictionary<string, string?>
             {
@@ -375,7 +369,7 @@ public class CertificatesController : ControllerBase
                 continue;
             }
 
-            var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson) ? new TemplateLayoutDto() : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+            var layout = TemplateLayoutJson.Deserialize(certificate.CertificateTemplate.ConfigurationJson);
             ResolveLayoutAssets(layout);
             requests.Add(new CertificateRenderRequest(layout, new Dictionary<string, string?>
             {
