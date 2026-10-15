@@ -216,7 +216,7 @@ public class CertificatesController : ControllerBase
 
             var layout = string.IsNullOrWhiteSpace(entity.CertificateTemplate.ConfigurationJson)
                 ? new TemplateLayoutDto()
-                : JsonSerializer.Deserialize<TemplateLayoutDto>(entity.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+                : DeserializeLayout(entity.CertificateTemplate.ConfigurationJson);
             ResolveLayoutAssets(layout);
             var values = new Dictionary<string, string?>
             {
@@ -269,7 +269,7 @@ public class CertificatesController : ControllerBase
 
         var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson)
             ? new TemplateLayoutDto()
-            : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+            : DeserializeLayout(certificate.CertificateTemplate.ConfigurationJson);
         ResolveLayoutAssets(layout);
         var values = new Dictionary<string, string?>
         {
@@ -323,7 +323,7 @@ public class CertificatesController : ControllerBase
 
             var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson)
                 ? new TemplateLayoutDto()
-                : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+                : DeserializeLayout(certificate.CertificateTemplate.ConfigurationJson);
             ResolveLayoutAssets(layout);
             var values = new Dictionary<string, string?>
             {
@@ -376,7 +376,7 @@ public class CertificatesController : ControllerBase
                 continue;
             }
 
-            var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson) ? new TemplateLayoutDto() : JsonSerializer.Deserialize<TemplateLayoutDto>(certificate.CertificateTemplate.ConfigurationJson) ?? new TemplateLayoutDto();
+            var layout = string.IsNullOrWhiteSpace(certificate.CertificateTemplate.ConfigurationJson) ? new TemplateLayoutDto() : DeserializeLayout(certificate.CertificateTemplate.ConfigurationJson);
             ResolveLayoutAssets(layout);
             requests.Add(new CertificateRenderRequest(layout, new Dictionary<string, string?>
             {
@@ -422,6 +422,12 @@ public class CertificatesController : ControllerBase
             image.AssetKey = ResolveAssetPath(image.AssetKey) ?? image.AssetKey;
         }
     }
+
+    private static TemplateLayoutDto DeserializeLayout(string configurationJson) =>
+        JsonSerializer.Deserialize<TemplateLayoutDto>(configurationJson, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        }) ?? new TemplateLayoutDto();
 
     private async Task<bool> CanAccessCertificateAsync(CertificateDto certificate, CancellationToken token)
     {

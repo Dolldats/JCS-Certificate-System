@@ -31,7 +31,7 @@ public class CertificateRenderer : ICertificateRenderer
                         {
                             foreach (var element in request.Layout.TextElements)
                             {
-                                var content = request.Values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
+                                var content = GetValue(request.Values, element.Placeholder);
                                 var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
                                 var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
                                 var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
@@ -68,7 +68,7 @@ public class CertificateRenderer : ICertificateRenderer
                     {
                         foreach (var element in layout.TextElements)
                         {
-                            var content = values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
+                            var content = GetValue(values, element.Placeholder);
                             var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
                             var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
                             var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
@@ -115,5 +115,11 @@ public class CertificateRenderer : ICertificateRenderer
                 .Image(File.ReadAllBytes(element.AssetKey))
                 .FitArea();
         }
+    }
+
+    private static string? GetValue(IReadOnlyDictionary<string, string?> values, string placeholder)
+    {
+        var match = values.FirstOrDefault(x => string.Equals(x.Key, placeholder, StringComparison.OrdinalIgnoreCase));
+        return match.Key == null ? placeholder : match.Value;
     }
 }
