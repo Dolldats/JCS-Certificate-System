@@ -31,7 +31,7 @@ public class CertificateRenderer : ICertificateRenderer
                         {
                             foreach (var element in request.Layout.TextElements)
                             {
-                                var content = ResolveValue(request.Values, element.Placeholder);
+                                var content = request.Values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
                                 var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
                                 var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
                                 var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
@@ -68,7 +68,7 @@ public class CertificateRenderer : ICertificateRenderer
                     {
                         foreach (var element in layout.TextElements)
                         {
-                            var content = ResolveValue(values, element.Placeholder);
+                            var content = values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
                             var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
                             var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
                             var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
@@ -115,16 +115,5 @@ public class CertificateRenderer : ICertificateRenderer
                 .Image(File.ReadAllBytes(element.AssetKey))
                 .FitArea();
         }
-    }
-
-    private static string? ResolveValue(IReadOnlyDictionary<string, string?> values, string? placeholder)
-    {
-        var key = placeholder?.Trim() ?? string.Empty;
-        if (key.StartsWith("{{", StringComparison.Ordinal) && key.EndsWith("}}", StringComparison.Ordinal))
-        {
-            key = key[2..^2].Trim();
-        }
-
-        return values.TryGetValue(key, out var value) ? value : placeholder;
     }
 }

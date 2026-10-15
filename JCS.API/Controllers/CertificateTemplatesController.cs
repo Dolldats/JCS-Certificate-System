@@ -1,5 +1,4 @@
 using JCS.Application.DTOs.CertificateTemplate;
-using JCS.Application.Common;
 using JCS.Application.Interfaces.Services;
 using JCS.Domain.Enum;
 using Microsoft.AspNetCore.Mvc;
@@ -154,7 +153,7 @@ public class CertificateTemplatesController : ControllerBase
             return BadRequest(new { message = error });
         }
 
-        var layout = TemplateLayoutJson.Deserialize(request.ConfigurationJson);
+        var layout = JsonSerializer.Deserialize<TemplateLayoutDto>(request.ConfigurationJson) ?? new TemplateLayoutDto();
         var values = new Dictionary<string, string?>
         {
             ["ParticipantName"] = string.IsNullOrWhiteSpace(request.ParticipantName) ? "Sample Participant" : request.ParticipantName,
@@ -183,7 +182,7 @@ public class CertificateTemplatesController : ControllerBase
 
         try
         {
-            var layout = TemplateLayoutJson.Deserialize(configurationJson);
+            var layout = JsonSerializer.Deserialize<TemplateLayoutDto>(configurationJson);
             if (layout == null)
             {
                 error = "ConfigurationJson must contain a template layout.";
