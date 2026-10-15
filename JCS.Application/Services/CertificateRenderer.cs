@@ -31,7 +31,7 @@ public class CertificateRenderer : ICertificateRenderer
                         {
                             foreach (var element in request.Layout.TextElements)
                             {
-                                var content = ResolveValue(request.Values, element.Placeholder);
+                                var content = GetValue(request.Values, element.Placeholder);
                                 var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
                                 var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
                                 var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
@@ -68,7 +68,7 @@ public class CertificateRenderer : ICertificateRenderer
                     {
                         foreach (var element in layout.TextElements)
                         {
-                            var content = ResolveValue(values, element.Placeholder);
+                            var content = GetValue(values, element.Placeholder);
                             var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
                             var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
                             var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
@@ -117,14 +117,9 @@ public class CertificateRenderer : ICertificateRenderer
         }
     }
 
-    private static string? ResolveValue(IReadOnlyDictionary<string, string?> values, string? placeholder)
+    private static string? GetValue(IReadOnlyDictionary<string, string?> values, string placeholder)
     {
-        var key = placeholder?.Trim() ?? string.Empty;
-        if (key.StartsWith("{{", StringComparison.Ordinal) && key.EndsWith("}}", StringComparison.Ordinal))
-        {
-            key = key[2..^2].Trim();
-        }
-
-        return values.TryGetValue(key, out var value) ? value : placeholder;
+        var match = values.FirstOrDefault(x => string.Equals(x.Key, placeholder, StringComparison.OrdinalIgnoreCase));
+        return match.Key == null ? placeholder : match.Value;
     }
 }

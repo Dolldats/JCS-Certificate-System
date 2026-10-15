@@ -36,10 +36,11 @@ public class EventService : IEventService
             Ilaqa = eventItem.Ilaqa,
             OrganizationalLevel = eventItem.OrganizationalLevel,
             OrganizationalUnit = eventItem.OrganizationalUnit,
-            Status = eventItem.Status,
+            Status = DisplayStatus(eventItem.Status),
             CreatedAt = eventItem.CreatedAt,
             ParticipantCount = VerifiedParticipantCount(eventItem),
-            CertificateCount = GeneratedCertificateCount(eventItem)
+            TotalParticipantCount = TotalParticipantCount(eventItem),
+            CertificateCount = IssuedCertificateCount(eventItem)
         };
     }
 
@@ -63,10 +64,11 @@ public class EventService : IEventService
                 Ilaqa = eventItem.Ilaqa,
                 OrganizationalLevel = eventItem.OrganizationalLevel,
                 OrganizationalUnit = eventItem.OrganizationalUnit,
-                Status = eventItem.Status,
+                Status = DisplayStatus(eventItem.Status),
                 CreatedAt = eventItem.CreatedAt,
                 ParticipantCount = VerifiedParticipantCount(eventItem),
-                CertificateCount = GeneratedCertificateCount(eventItem)
+                TotalParticipantCount = TotalParticipantCount(eventItem),
+                CertificateCount = IssuedCertificateCount(eventItem)
             });
         }
 
@@ -93,10 +95,11 @@ public class EventService : IEventService
                 Ilaqa = eventItem.Ilaqa,
                 OrganizationalLevel = eventItem.OrganizationalLevel,
                 OrganizationalUnit = eventItem.OrganizationalUnit,
-                Status = eventItem.Status,
+                Status = DisplayStatus(eventItem.Status),
                 CreatedAt = eventItem.CreatedAt,
                 ParticipantCount = VerifiedParticipantCount(eventItem),
-                CertificateCount = GeneratedCertificateCount(eventItem)
+                TotalParticipantCount = TotalParticipantCount(eventItem),
+                CertificateCount = IssuedCertificateCount(eventItem)
             });
         }
 
@@ -118,7 +121,7 @@ public class EventService : IEventService
             Ilaqa = string.IsNullOrWhiteSpace(dto.Ilaqa) ? null : dto.Ilaqa.Trim(),
             OrganizationalLevel = dto.OrganizationalLevel,
             OrganizationalUnit = dto.OrganizationalUnit,
-            Status = "Draft",
+            Status = "Active",
             CreatedAt = DateTime.UtcNow
         };
 
@@ -140,7 +143,8 @@ public class EventService : IEventService
             Status = newEvent.Status,
             CreatedAt = newEvent.CreatedAt,
             ParticipantCount = VerifiedParticipantCount(newEvent),
-            CertificateCount = GeneratedCertificateCount(newEvent)
+            TotalParticipantCount = TotalParticipantCount(newEvent),
+            CertificateCount = IssuedCertificateCount(newEvent)
         };
     }
 
@@ -162,7 +166,7 @@ public class EventService : IEventService
         eventItem.Ilaqa = string.IsNullOrWhiteSpace(dto.Ilaqa) ? null : dto.Ilaqa.Trim();
         eventItem.OrganizationalLevel = dto.OrganizationalLevel;
         eventItem.OrganizationalUnit = dto.OrganizationalUnit;
-        eventItem.Status = dto.Status;
+        eventItem.Status = string.IsNullOrWhiteSpace(dto.Status) ? "Active" : dto.Status;
 
         await _eventRepository.UpdateAsync(eventItem, token);
 
@@ -179,10 +183,11 @@ public class EventService : IEventService
             Ilaqa = eventItem.Ilaqa,
             OrganizationalLevel = eventItem.OrganizationalLevel,
             OrganizationalUnit = eventItem.OrganizationalUnit,
-            Status = eventItem.Status,
+            Status = DisplayStatus(eventItem.Status),
             CreatedAt = eventItem.CreatedAt,
             ParticipantCount = VerifiedParticipantCount(eventItem),
-            CertificateCount = GeneratedCertificateCount(eventItem)
+            TotalParticipantCount = TotalParticipantCount(eventItem),
+            CertificateCount = IssuedCertificateCount(eventItem)
         };
     }
 
@@ -201,6 +206,11 @@ public class EventService : IEventService
     private static int VerifiedParticipantCount(Event eventItem) =>
         eventItem.Participants?.Count(x => x.IsVerified && x.VerificationStatus == VerificationStatus.Verified) ?? 0;
 
-    private static int GeneratedCertificateCount(Event eventItem) =>
-        eventItem.Certificates?.Count(x => x.Status == CertificateStatus.Generated || x.Status == CertificateStatus.Issued) ?? 0;
+    private static int TotalParticipantCount(Event eventItem) => eventItem.Participants?.Count ?? 0;
+
+    private static int IssuedCertificateCount(Event eventItem) =>
+        eventItem.Certificates?.Count(x => x.Status == CertificateStatus.Issued) ?? 0;
+
+    private static string DisplayStatus(string status) =>
+        string.Equals(status, "Draft", StringComparison.OrdinalIgnoreCase) ? "Active" : status;
 }

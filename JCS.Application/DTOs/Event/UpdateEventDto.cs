@@ -14,5 +14,5 @@ public class UpdateEventDto
     public string? Ilaqa { get; set; }
     public OrganizationalLevel OrganizationalLevel { get; set; }
     public string? OrganizationalUnit { get; set; }
-    public string Status { get; set; } = "Draft";
+    public string Status { get; set; } = "Active";
 }

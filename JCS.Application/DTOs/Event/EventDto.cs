@@ -18,5 +18,6 @@ public class EventDto
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public int ParticipantCount { get; set; }
+    public int TotalParticipantCount { get; set; }
     public int CertificateCount { get; set; }
 }

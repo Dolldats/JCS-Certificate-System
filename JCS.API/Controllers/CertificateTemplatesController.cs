@@ -153,7 +153,7 @@ public class CertificateTemplatesController : ControllerBase
             return BadRequest(new { message = error });
         }
 
-        var layout = JsonSerializer.Deserialize<TemplateLayoutDto>(request.ConfigurationJson) ?? new TemplateLayoutDto();
+        var layout = JsonSerializer.Deserialize<TemplateLayoutDto>(request.ConfigurationJson, JsonOptions) ?? new TemplateLayoutDto();
         var values = new Dictionary<string, string?>
         {
             ["ParticipantName"] = string.IsNullOrWhiteSpace(request.ParticipantName) ? "Sample Participant" : request.ParticipantName,
@@ -265,7 +265,7 @@ public class CertificateTemplatesController : ControllerBase
         {
             foreach (var text in layout.TextElements)
             {
-                var content = values.TryGetValue(text.Placeholder, out var value) ? value : text.Placeholder;
+                var content = GetValue(values, text.Placeholder);
                 var escaped = SecurityElement.Escape(content ?? string.Empty);
                 var weight = text.Bold ? "font-weight=\"bold\"" : string.Empty;
                 var style = text.Italic ? "font-style=\"italic\"" : string.Empty;
@@ -291,6 +291,17 @@ public class CertificateTemplatesController : ControllerBase
             _ => "start"
         };
     }
+
+    private static string? GetValue(IReadOnlyDictionary<string, string?> values, string placeholder)
+    {
+        var match = values.FirstOrDefault(x => string.Equals(x.Key, placeholder, StringComparison.OrdinalIgnoreCase));
+        return match.Key == null ? placeholder : match.Value;
+    }
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     private bool CanAccessAuxiliary(Auxiliary auxiliary) =>
         !User.IsInRole("GeneralAdmin") ||
