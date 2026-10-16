@@ -3,11 +3,13 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../components/ui/Toast';
 import {
   eventsApi,
   participantsApi,
   certificatesApi,
   templatesApi,
+  cleanTheme,
 } from '../../../services/api';
 import {
   Event,
@@ -33,6 +35,8 @@ import {
   TableCell,
 } from '../../../components/ui/Table';
 import { CertificateModal } from '../../../components/certificates/CertificateModal';
+import { CertificatePreview } from '../../../components/certificates/CertificatePreview';
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { EditCertificateModal } from '../../../components/certificates/EditCertificateModal';
 import {
   Award,
@@ -41,8 +45,9 @@ import {
   Pencil,
   Sparkles,
   FileCheck,
-  Download,
   FileOutput,
+  Printer,
+  Download,
   Trash2,
 } from 'lucide-react';
 import { formatDate } from '../../../lib/utils';
@@ -70,6 +75,7 @@ function CertificatesContent() {
   const initialEventId = searchParams.get('eventId') || '';
   const initialQuery = searchParams.get('q') || '';
   const { user, activeAuxiliary } = useAuth();
+  const { toast } = useToast();
 
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -80,7 +86,10 @@ function CertificatesContent() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
   const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
+  const [bulkQueue, setBulkQueue] = useState<Certificate[] | null>(null);
+  const [isDownloadingBulk, setIsDownloadingBulk] = useState(false);
   const [editingCertificate, setEditingCertificate] = useState<Certificate | null>(null);
+  const [certificateToDelete, setCertificateToDelete] = useState<Certificate | null>(null);
 
   // Batch Generation Wizard State
   const [isGenerateWizardOpen, setIsGenerateWizardOpen] = useState(false);
@@ -95,11 +104,29 @@ function CertificatesContent() {
   const [certificateNumberToVerify, setCertificateNumberToVerify] = useState('');
   const [verificationResult, setVerificationResult] = useState<string | null>(null);
   const [isVerifyingCertificate, setIsVerifyingCertificate] = useState(false);
-  const [eventActionError, setEventActionError] = useState('');
+  // The event is the source of truth for its own facts: venue, auxiliary,
+  // theme and dates always follow the current event record so editing the
+  // event updates every certificate automatically.
+  const enrichCertificates = (certs: Certificate[], allEvents: Event[]) =>
+    certs.map((c) => {
+      const event = allEvents.find((e) => e.id === c.eventId);
+      if (!event) return c;
+      const range =
+        event.endDate && event.endDate !== event.date
+          ? `${event.date} to ${event.endDate}`
+          : event.date;
+      return {
+        ...c,
+        venue: event.venue || c.venue || '',
+        auxiliary: event.auxiliary || c.auxiliary,
+        theme: cleanTheme(event.theme || c.theme),
+        eventDate: range || c.eventDate,
+      };
+    });
 
   const loadData = async () => {
     setLoading(true);
-    setEventActionError('');
+
     try {
       const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
       const [certs, allEvents, allTemplates] = await Promise.all([
@@ -108,7 +135,7 @@ function CertificatesContent() {
         templatesApi.getActive(aux),
       ]);
 
-      setCertificates(certs);
+      setCertificates(enrichCertificates(certs, allEvents));
       setEvents(allEvents);
       setTemplates(allTemplates);
 
@@ -119,7 +146,7 @@ function CertificatesContent() {
           : allTemplates[0]?.id || ''
       );
     } catch (error) {
-      setEventActionError(error instanceof Error ? error.message : 'Could not load certificate data from the backend.');
+      toast.error(error instanceof Error ? error.message : 'Could not load certificate data from the backend.');
     } finally {
       setLoading(false);
     }
@@ -136,13 +163,13 @@ function CertificatesContent() {
     if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(selectedEventId)) return;
     let cancelled = false;
     certificatesApi.getByEvent(selectedEventId).then((data) => {
-      if (!cancelled) setCertificates(data);
+      if (!cancelled) setCertificates(enrichCertificates(data, events));
     }).catch((error) => {
       console.error('Could not load certificates for the selected event', error);
-      if (!cancelled) setEventActionError(error instanceof Error ? error.message : 'Could not load certificates for this event.');
+      if (!cancelled) toast.error(error instanceof Error ? error.message : 'Could not load certificates for this event.');
     });
     return () => { cancelled = true; };
-  }, [selectedEventId]);
+  }, [selectedEventId, events, toast]);
 
   // Keep the search box in sync when arriving via the navbar search (?q=...).
   const navbarQuery = searchParams.get('q') || '';
@@ -169,16 +196,16 @@ function CertificatesContent() {
           .map((p) => p.id);
         setSelectedParticipantIds(unassigned);
       } catch (error) {
-        setEventActionError(error instanceof Error ? error.message : 'Could not load verified participants for this event.');
+        toast.error(error instanceof Error ? error.message : 'Could not load verified participants for this event.');
       }
     }
     loadWizardParticipants();
-  }, [wizardEventId, certificates]);
+  }, [wizardEventId, certificates, toast]);
 
   const handleGenerateBatch = async () => {
     if (!wizardEventId || selectedParticipantIds.length === 0 || !user) return;
     setIsGenerating(true);
-    setEventActionError('');
+
     try {
       await certificatesApi.generateBulk(
         wizardEventId,
@@ -189,11 +216,12 @@ function CertificatesContent() {
       );
       setIsGenerateWizardOpen(false);
       await loadData();
+      toast.success('Certificates generated for the selected participants.');
     } catch (err) {
       console.error('Failed to generate certificates', err);
       const message = err instanceof Error ? err.message : 'Could not generate certificates.';
       await loadData();
-      setEventActionError(message);
+      toast.error(message);
     } finally {
       setIsGenerating(false);
     }
@@ -201,12 +229,13 @@ function CertificatesContent() {
 
   const handleRevoke = async (certId: string, reason: string) => {
     if (!user) return;
-    setEventActionError('');
+
     try {
       await certificatesApi.revoke(certId, reason, user);
       await loadData();
+      toast.success('Certificate revoked and audit logged.');
     } catch (error) {
-      setEventActionError(error instanceof Error ? error.message : 'Could not revoke this certificate.');
+      toast.error(error instanceof Error ? error.message : 'Could not revoke this certificate.');
       throw error;
     }
   };
@@ -222,7 +251,6 @@ function CertificatesContent() {
         | 'jamaat'
         | 'eventName'
         | 'eventDate'
-        | 'venue'
         | 'theme'
         | 'type'
         | 'templateId'
@@ -257,6 +285,25 @@ function CertificatesContent() {
   };
 
   const handleViewCertificate = async (certificate: Certificate) => {
+    // The detail route doesn't send venue/auxiliary — fill both from the
+    // event so the modal and print match the enriched list.
+    const withEventDetails = async (cert: Certificate): Promise<Certificate> => {
+      try {
+        const evt = await eventsApi.getById(cert.eventId);
+        if (!evt) return cert;
+        const range =
+          evt.endDate && evt.endDate !== evt.date ? `${evt.date} to ${evt.endDate}` : evt.date;
+        return {
+          ...cert,
+          venue: evt.venue || cert.venue || '',
+          auxiliary: evt.auxiliary || cert.auxiliary,
+          theme: cleanTheme(evt.theme || cert.theme),
+          eventDate: range || cert.eventDate,
+        };
+      } catch {
+        return cert;
+      }
+    };
     if (/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(certificate.id)) {
       try {
         const details = await certificatesApi.getById(certificate.id);
@@ -264,77 +311,76 @@ function CertificatesContent() {
           try {
             const verification = await participantsApi.verifyMemberId(details.memberId, details.auxiliary);
             if (verification.status === 'Verified' && verification.member) {
-              setSelectedCertificate({
+              setSelectedCertificate(await withEventDetails({
                 ...details,
                 dila: details.dila || verification.member.dila,
                 jamaat: details.jamaat || verification.member.jamaat,
-              });
+              }));
               return;
             }
           } catch {
             // Show the saved certificate values if the member directory is unavailable.
           }
         }
-        setSelectedCertificate(details);
+        setSelectedCertificate(await withEventDetails(details));
         return;
       } catch {
         // Keep the already-loaded certificate available if the detail route is unavailable.
       }
     }
-    setSelectedCertificate(certificate);
+    setSelectedCertificate(await withEventDetails(certificate));
   };
 
   const handleGenerateFile = async (certificate: Certificate) => {
-    setEventActionError('');
+
     try {
       const blob = await certificatesApi.generateFile(certificate.id);
       downloadBlob(blob, `${certificate.certificateNumber}.pdf`);
       await loadData();
+      toast.success('Certificate PDF is ready and downloading.');
     } catch (error) {
-      setEventActionError(error instanceof Error ? error.message : 'Could not generate this certificate PDF.');
+      toast.error(error instanceof Error ? error.message : 'Could not generate this certificate PDF.');
     }
   };
 
-  const handleDownloadFile = async (certificate: Certificate) => {
-    setEventActionError('');
-    try {
-      const blob = await certificatesApi.download(certificate.id);
-      downloadBlob(blob, `${certificate.certificateNumber}.pdf`);
-    } catch (error) {
-      setEventActionError(error instanceof Error ? error.message : 'Could not download this certificate PDF.');
-    }
-  };
-
-  const handleGenerateEventFiles = async () => {
+  const handlePreviewEventPdfs = () => {
     if (!selectedEventId) return;
-    setEventActionError('');
-    try {
-      await certificatesApi.generateAllForEvent(selectedEventId);
-      await loadData();
-    } catch (error) {
-      setEventActionError(error instanceof Error ? error.message : 'Could not generate event PDFs');
+    const queue = certificates.filter(
+      (c) => c.eventId === selectedEventId && c.status !== 'Revoked'
+    );
+    if (queue.length === 0) {
+      toast.info('No certificates to preview for this event yet. Generate some first.');
+      return;
     }
+    setBulkQueue(queue);
   };
 
-  const handleDownloadEventFiles = async () => {
+  const handleDownloadBulkPdfs = async () => {
     if (!selectedEventId) return;
-    setEventActionError('');
+    setIsDownloadingBulk(true);
     try {
       const blob = await certificatesApi.downloadAllForEvent(selectedEventId);
       downloadBlob(blob, `event-${selectedEventId}-certificates.pdf`);
+      toast.success('Event PDFs saved.');
     } catch (error) {
-      setEventActionError(error instanceof Error ? error.message : 'Could not download event PDFs');
+      toast.error(error instanceof Error ? error.message : 'Could not download event PDFs');
+    } finally {
+      setIsDownloadingBulk(false);
     }
   };
 
-  const handleDeleteCertificate = async (certificate: Certificate) => {
-    if (!confirm(`Permanently delete certificate ${certificate.certificateNumber}?`)) return;
-    setEventActionError('');
+  const handleDeleteCertificate = (certificate: Certificate) => {
+    setCertificateToDelete(certificate);
+  };
+
+  const confirmDeleteCertificate = async () => {
+    if (!certificateToDelete) return;
+
     try {
-      await certificatesApi.delete(certificate.id, user || undefined);
+      await certificatesApi.delete(certificateToDelete.id, user || undefined);
       await loadData();
     } catch (error) {
-      setEventActionError(error instanceof Error ? error.message : 'Could not delete this certificate.');
+      toast.error(error instanceof Error ? error.message : 'Could not delete this certificate.');
     }
   };
 
@@ -381,17 +427,12 @@ function CertificatesContent() {
         </Button>
         {selectedEventId && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(selectedEventId) && (
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => void handleGenerateEventFiles()} leftIcon={<FileOutput className="h-4 w-4" />}>
-              Generate Event PDFs
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => void handleDownloadEventFiles()} leftIcon={<Download className="h-4 w-4" />}>
-              Download All PDFs
+            <Button variant="outline" size="sm" onClick={() => void handlePreviewEventPdfs()} leftIcon={<Eye className="h-4 w-4" />}>
+              Preview Bulk Event PDFs
             </Button>
           </div>
         )}
       </div>
-
-      {eventActionError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{eventActionError}</p>}
 
       <Card>
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
@@ -518,7 +559,7 @@ function CertificatesContent() {
                           onClick={() => void handleViewCertificate(cert)}
                           leftIcon={<Eye className="w-3.5 h-3.5" />}
                         >
-                          View / Print
+                          Preview
                         </Button>
                         {cert.status === 'Issued' && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(cert.id) && !cert.filePath && (
                           <>
@@ -528,9 +569,7 @@ function CertificatesContent() {
                           </>
                         )}
                         {cert.status === 'Issued' && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(cert.id) && !!cert.filePath && (
-                          <Button variant="outline" size="sm" onClick={() => void handleDownloadFile(cert)} leftIcon={<Download className="h-3.5 w-3.5" />}>
-                            Download PDF
-                          </Button>
+                          <span className="text-3xs font-semibold text-slate-400">PDF ready — open Preview to print</span>
                         )}
                         {cert.status === 'Revoked' && (
                           <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => void handleDeleteCertificate(cert)} leftIcon={<Trash2 className="h-3.5 w-3.5" />}>
@@ -706,12 +745,92 @@ function CertificatesContent() {
         onRevoke={handleRevoke}
       />
 
+      <Modal
+        isOpen={Boolean(bulkQueue)}
+        onClose={() => setBulkQueue(null)}
+        title={
+          bulkQueue && bulkQueue.length > 0
+            ? `Event Certificates (${bulkQueue.length})`
+            : 'Event Certificates'
+        }
+        description="Every issued certificate for this event — preview all, print all, or download the PDFs."
+        maxWidth="5xl"
+      >
+        <div className="space-y-6">
+          {(bulkQueue || []).map((cert) => {
+            const template = templates.find((t) => t.id === cert.templateId) || templates[0];
+            return (
+              <div key={cert.id} className="overflow-hidden rounded-2xl border border-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-4 py-2.5">
+                  <div className="text-xs">
+                    <span className="font-mono font-bold text-emerald-800">{cert.certificateNumber}</span>
+                    <span className="ml-2 font-semibold text-slate-700">{cert.participantName}</span>
+                  </div>
+                  <span className="text-3xs font-semibold uppercase tracking-wider text-slate-400">
+                    {cert.status}
+                  </span>
+                </div>
+                {template ? (
+                  <CertificatePreview
+                    certificate={cert}
+                    template={template}
+                    previewMode={true}
+                    showActions={false}
+                  />
+                ) : (
+                  <p className="p-6 text-center text-xs text-slate-500">
+                    No template available to render this certificate.
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => setBulkQueue(null)}>
+            Close
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.print()} leftIcon={<Printer className="h-4 w-4" />}>
+            Print All
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => void handleDownloadBulkPdfs()}
+            isLoading={isDownloadingBulk}
+            leftIcon={<Download className="h-4 w-4" />}
+          >
+            Save All PDFs
+          </Button>
+        </div>
+      </Modal>
+
       <EditCertificateModal
         isOpen={Boolean(editingCertificate)}
         onClose={() => setEditingCertificate(null)}
         certificate={editingCertificate}
         templates={templates}
         onSave={handleUpdate}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(certificateToDelete)}
+        onClose={() => setCertificateToDelete(null)}
+        onConfirm={confirmDeleteCertificate}
+        title="Delete Certificate?"
+        description={
+          certificateToDelete
+            ? `Permanently delete certificate ${certificateToDelete.certificateNumber} issued to ${certificateToDelete.participantName}? This cannot be undone.`
+            : undefined
+        }
+        confirmLabel="Yes, Delete"
+        tone="danger"
+        successTitle="Deleted Successfully!"
+        successDescription={
+          certificateToDelete
+            ? `Certificate ${certificateToDelete.certificateNumber} has been permanently deleted.`
+            : undefined
+        }
       />
     </div>
   );

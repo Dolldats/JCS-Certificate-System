@@ -5,7 +5,7 @@ import { Certificate, CertificateTemplate } from '../../types';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { CertificatePreview } from './CertificatePreview';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CertificateModalProps {
   isOpen: boolean;
@@ -13,6 +13,9 @@ interface CertificateModalProps {
   certificate: Certificate | null;
   templates: CertificateTemplate[];
   onRevoke?: (certId: string, reason: string) => Promise<void>;
+  onPrev?: () => void;
+  onNext?: () => void;
+  positionLabel?: string;
 }
 
 export function CertificateModal({
@@ -21,6 +24,9 @@ export function CertificateModal({
   certificate,
   templates,
   onRevoke,
+  onPrev,
+  onNext,
+  positionLabel,
 }: CertificateModalProps) {
   const [isRevoking, setIsRevoking] = useState(false);
   const [revokeReason, setRevokeReason] = useState('');
@@ -82,6 +88,19 @@ export function CertificateModal({
           </>
         ) : (
           <>
+            {onPrev && onNext && (
+              <div className="mr-auto flex items-center gap-1.5">
+                <Button variant="outline" size="sm" onClick={onPrev} aria-label="Previous certificate">
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                {positionLabel && (
+                  <span className="min-w-14 text-center text-xs font-semibold text-slate-500">{positionLabel}</span>
+                )}
+                <Button variant="outline" size="sm" onClick={onNext} aria-label="Next certificate">
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
             {certificate.status === 'Issued' && onRevoke && (
               <Button
                 variant="danger"

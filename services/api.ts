@@ -1,5 +1,5 @@
 import { jamaatMemberApi } from './jamaatMemberApi';
-import { backendDownload, backendFetch, getAuthToken } from './backendClient';
+import { backendDownload, backendFetch, friendlyErrorMessage, getAuthToken } from './backendClient';
 
 import {
   User,
@@ -42,6 +42,10 @@ const bBool = (value: unknown, fallback: boolean): boolean =>
 
 const bRec = (value: unknown): BackendRecord | undefined =>
   typeof value === 'object' && value !== null ? (value as BackendRecord) : undefined;
+
+/** Strips a leading "Theme:" label so stored values print clean and constant. */
+export const cleanTheme = (value: unknown): string =>
+  bStr(value).trim().replace(/^theme:\s*/i, '');
 
 function pageItems(value: unknown): BackendRecord[] {
   if (Array.isArray(value)) return value as BackendRecord[];
@@ -556,7 +560,7 @@ function mapBackendEventToEvent(raw: BackendRecord): Event {
     participantsCount: bNum(raw.participantsCount ?? (Array.isArray(raw.participants) ? raw.participants.length : 0)),
     verifiedCount: bNum(raw.verifiedParticipantsCount ?? raw.verifiedCount ?? 0),
     certificatesIssuedCount: bNum(raw.certificatesIssuedCount ?? raw.certificatesCount ?? 0),
-    theme: bStr(raw.theme) || undefined,
+    theme: cleanTheme(raw.theme) || undefined,
   };
 }
 
@@ -620,6 +624,7 @@ export const eventsApi = {
           auxiliary: data.auxiliary,
           organizationalLevel: data.orgLevel,
           organizationalUnit: data.orgUnitName.trim() || null,
+          theme: data.theme?.trim() || null,
         };
 
         const res = await backendFetch<BackendRecord>('Events', {
@@ -692,6 +697,7 @@ export const eventsApi = {
           organizationalLevel: data.orgLevel,
           organizationalUnit: data.orgUnitName,
           status: data.status,
+          theme: data.theme,
         };
 
         const res = await backendFetch<BackendRecord>(`Events/${id}`, {
@@ -1286,7 +1292,7 @@ function mapBackendTemplateToTemplate(raw: BackendRecord): CertificateTemplate {
     eventTitle: bStr(config.eventTitle, 'ISLAMIC VACATION COURSE/REGIONAL IJTEMA 2025'),
     typeBadgeText: bStr(config.typeBadgeText, 'CERTIFICATE OF PARTICIPATION'),
     participationLine: bStr(config.participationLine, 'Participated in a week Islamic Vacation Course which took place'),
-    themeTitle: bStr(config.themeTitle, 'Theme: My Faith, My Identity.'),
+    themeTitle: bStr(config.themeTitle, 'My Faith, My Identity.'),
     programDurationText: bStr(config.programDurationText, '3rd August to Sunday 10th August, 2025'),
     bodyIntroText: bStr(config.bodyIntroText, 'This is to congratulate and certify that {{Salutation}} {{ParticipantName}}, Dilla {{Dilla}}, Ilaqa {{Ilaqa}} from {{Jamaat}}.'),
     bodyDescriptionText: bStr(config.bodyDescriptionText, 'Participated in a week Islamic Vacation Course which took place at {{Venue}}.'),
@@ -1318,7 +1324,8 @@ function mapBackendCertificateToCertificate(raw: BackendRecord): Certificate {
     venue: bStr(evt?.venue || raw.venue),
     participantId: bStr(raw.participantId),
     participantName: bStr(part?.fullName || raw.participantName, 'Participant'),
-    memberId: bStr(part?.membershipId || raw.memberId),
+    // CertificateDto exposes the participant ID as participantMembershipId.
+    memberId: bStr(part?.membershipId || raw.participantMembershipId || raw.memberId),
     auxiliary: bStr(raw.auxiliary || evt?.auxiliary || part?.auxiliary, 'Atfal') as Auxiliary,
     dila: bStr(part?.dila || raw.dila),
     ilaqa: bStr(part?.ilaqa || raw.ilaqa) || undefined,
@@ -1333,7 +1340,7 @@ function mapBackendCertificateToCertificate(raw: BackendRecord): Certificate {
     revokedAt: bStr(raw.revokedAt) || undefined,
     revokedBy: bStr(raw.revokedBy) || undefined,
     verificationHash: bStr(raw.verificationHash || raw.qrCodeUrl) || Math.random().toString(36).substring(2, 14),
-    theme: bStr(evt?.theme || raw.theme) || undefined,
+    theme: cleanTheme(evt?.theme || raw.theme) || undefined,
   };
 }
 
@@ -1343,13 +1350,28 @@ export const templatesApi = {
     const token = getAuthToken();
     if (token) {
       try {
-        const res = await backendFetch<BackendRecord[]>('CertificateTemplates');
-        if (Array.isArray(res) && res.length > 0) {
-          const mapped = res.map(mapBackendTemplateToTemplate);
+        // NOTE: like every other list endpoint, the backend wraps results
+        // (paged envelope), so unwrap with getAllBackendPages — a bare
+        // Array.isArray check misses everything.
+        const records = await getAllBackendPages('CertificateTemplates');
+        if (records.length > 0) {
+          const mapped = records.map(mapBackendTemplateToTemplate);
           const savedOverrides = getStorage<Record<string, CertificateTemplate>>('template_overrides', {});
-          const merged = mapped.map((tmpl) =>
-            savedOverrides[tmpl.id] ? { ...tmpl, ...savedOverrides[tmpl.id] } : tmpl
-          );
+          const byId = new Map(mapped.map((tmpl) => [tmpl.id, tmpl]));
+          // Local Studio saves (edits + seed presets missing from the
+          // backend) stay visible alongside backend templates. Overrides
+          // are full templates, so ones with no base are appended as-is.
+          for (const [id, override] of Object.entries(savedOverrides)) {
+            const base = byId.get(id) ?? INITIAL_TEMPLATES.find((t) => t.id === id);
+            byId.set(id, base ? { ...base, ...override } : override);
+          }
+          for (const seed of INITIAL_TEMPLATES) {
+            if (!byId.has(seed.id)) {
+              const override = savedOverrides[seed.id];
+              byId.set(seed.id, override ? { ...seed, ...override } : seed);
+            }
+          }
+          const merged = [...byId.values()];
           if (!auxiliary) return merged;
           return merged.filter((t) => !t.auxiliary || t.auxiliary === 'All' || t.auxiliary === auxiliary);
         }
@@ -1360,9 +1382,15 @@ export const templatesApi = {
 
     await delay(100);
     const savedOverrides = getStorage<Record<string, CertificateTemplate>>('template_overrides', {});
-    const merged: CertificateTemplate[] = INITIAL_TEMPLATES.map((tmpl) =>
-      savedOverrides[tmpl.id] ? { ...tmpl, ...savedOverrides[tmpl.id] } : tmpl
-    );
+    const merged: CertificateTemplate[] = [
+      ...INITIAL_TEMPLATES.map((tmpl) =>
+        savedOverrides[tmpl.id] ? { ...tmpl, ...savedOverrides[tmpl.id] } : tmpl
+      ),
+      // Brand-new local designs (no seed base, backend unreachable/empty).
+      ...Object.values(savedOverrides).filter(
+        (o) => !INITIAL_TEMPLATES.some((t) => t.id === o.id)
+      ),
+    ];
 
     if (!auxiliary) return merged;
     return merged.filter(
@@ -1742,7 +1770,6 @@ export const certificatesApi = {
         | 'jamaat'
         | 'eventName'
         | 'eventDate'
-        | 'venue'
         | 'theme'
         | 'type'
         | 'templateId'
@@ -1865,9 +1892,8 @@ export async function loginReal(memberId: string, password: string) {
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ username: cleanId, password }),
     });
-  } catch (err) {
-    const reason = err instanceof Error && err.message ? `: ${err.message}` : '';
-    throw new Error(`Cannot reach the server. Check your network and try again${reason}`);
+  } catch {
+    throw new Error('Cannot reach the server. Check your connection and try again.');
   }
 
   if (!res.ok) {
@@ -1898,12 +1924,12 @@ export async function loginReal(memberId: string, password: string) {
     } catch {
       // ignore JSON parse errors, fall through to status-based message
     }
-    throw new Error(detail ? `Login failed (${res.status}): ${detail}` : `Login failed (${res.status}).`);
+    throw new Error(friendlyErrorMessage(res.status, detail, 'Incorrect Member ID or password. Please try again.'));
   }
 
   const data = (await res.json()) as BackendLoginResponse;
   if (!data?.accessToken || !data?.profile?.membershipId) {
-    throw new Error('Login failed: unexpected server response.');
+    throw new Error('We could not sign you in. Please try again.');
   }
 
   const normalizedRole = data.role.trim().toLowerCase();
@@ -1916,7 +1942,7 @@ export async function loginReal(memberId: string, password: string) {
         : undefined;
 
   if (!role) {
-    throw new Error('Login failed: the server returned an unrecognized account role.');
+    throw new Error('Your account role is not recognized. Please contact support.');
   }
 
   const user: User = {

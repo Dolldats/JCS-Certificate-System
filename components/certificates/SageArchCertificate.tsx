@@ -38,7 +38,7 @@ export function SageArchCertificate({
   const dilla = certificate?.dila || undefined;
   const jamaat = certificate?.jamaat || undefined;
   const muqami =
-    (certificate as unknown as { muqami?: string })?.muqami || certificate?.ilaqa || undefined;
+    (certificate as unknown as { muqami?: string })?.muqami || undefined;
   const venue = certificate?.venue || undefined;
 
   const durationParts = (template.programDurationText || '').split(/\s+to\s+/i);
@@ -186,7 +186,7 @@ export function SageArchCertificate({
             <p>
               This is to congratulate and certify that {salutation}{' '}
               <Blank value={participantName} width={130} />, Dilla{' '}
-              <Blank value={dilla} width={90} />, Ilaqa.
+              <Blank value={dilla} width={90} />.
             </p>
             <p>
               from <Blank value={jamaat} width={150} /> Muqami,{' '}
@@ -222,9 +222,9 @@ export function SageArchCertificate({
             <span className="h-px flex-1 bg-slate-200" />
           </div>
           <div className="flex items-end justify-between">
-            <div className="text-left">
+            <div className="w-24 shrink-0" />
+            <div className="flex-1 text-center px-4">
               <div className="font-mono text-[9px] text-slate-400 tracking-wider">{certNumber}</div>
-              <div className="text-[9px] text-slate-400">{template.signature1Date}</div>
             </div>
             <div className="w-52 text-center">
               <div className="h-8 flex items-end justify-center mb-0.5">

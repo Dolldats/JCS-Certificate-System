@@ -49,7 +49,7 @@ export function HeritageGoldCertificate({
   const dilla = certificate?.dila || undefined;
   const jamaat = certificate?.jamaat || undefined;
   const muqami =
-    (certificate as unknown as { muqami?: string })?.muqami || certificate?.ilaqa || undefined;
+    (certificate as unknown as { muqami?: string })?.muqami || undefined;
   const venue = certificate?.venue || undefined;
 
   const durationParts = (template.programDurationText || '').split(/\s+to\s+/i);
@@ -227,7 +227,7 @@ export function HeritageGoldCertificate({
             <p>
               This is to congratulate and certify that {salutation}{' '}
               <Blank value={participantName} width={130} />, Dilla{' '}
-              <Blank value={dilla} width={90} />, Ilaqa.
+              <Blank value={dilla} width={90} />.
             </p>
             <p>
               from <Blank value={jamaat} width={150} /> Muqami,{' '}
@@ -298,11 +298,8 @@ export function HeritageGoldCertificate({
               {template.signature1Name}
             </div>
             <div className="text-[9.5px] font-medium text-slate-600 leading-tight">
-              {template.signature1Title}
-            </div>
-            <div className="text-[9.5px] text-slate-500 font-medium mt-0.5">
-              {template.signature1Date}
-            </div>
+                {template.signature1Title}
+              </div>
           </div>
         </div>
       </div>

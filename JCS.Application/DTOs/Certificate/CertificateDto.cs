@@ -13,6 +13,7 @@ public class CertificateDto
     public string? Jamaat { get; set; }
     public Guid EventId { get; set; }
     public string? EventName { get; set; }
+    public string? Venue { get; set; }
     public Auxiliary? Auxiliary { get; set; }
     public Guid CertificateTemplateId { get; set; }
     public string? TemplateName { get; set; }

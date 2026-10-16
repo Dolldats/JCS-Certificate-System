@@ -3,6 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../components/ui/Toast';
 import { eventsApi, participantsApi } from '../../../services/api';
 import { Event, Participant, Auxiliary, BulkVerificationResult } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
@@ -11,6 +12,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import {
   Table,
   TableHeader,
@@ -36,6 +38,7 @@ function ParticipantsContent() {
   const searchParams = useSearchParams();
   const initialEventId = searchParams.get('eventId') || '';
   const { user, activeAuxiliary } = useAuth();
+  const { toast } = useToast();
 
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>(initialEventId);
@@ -44,7 +47,6 @@ function ParticipantsContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
-  const [participantActionError, setParticipantActionError] = useState('');
   const [isSavingParticipant, setIsSavingParticipant] = useState(false);
 
   // Single Add Modal
@@ -52,6 +54,7 @@ function ParticipantsContent() {
   const [singleMemberId, setSingleMemberId] = useState('');
   const [isVerifyingSingle, setIsVerifyingSingle] = useState(false);
   const [singleVerificationResult, setSingleVerificationResult] = useState<Participant | null>(null);
+  const [participantToDelete, setParticipantToDelete] = useState<Participant | null>(null);
 
   // Bulk Upload Modal
   const [isBulkOpen, setIsBulkOpen] = useState(false);
@@ -70,24 +73,24 @@ function ParticipantsContent() {
         if (allEvents.length > 0) setSelectedEventId((current) => current || allEvents[0].id);
         else setLoading(false);
       } catch (error) {
-        setParticipantActionError(error instanceof Error ? error.message : 'Could not load events.');
+        toast.error(error instanceof Error ? error.message : 'Could not load events.');
         setLoading(false);
       }
     }
     initEvents();
-  }, [activeAuxiliary]);
+  }, [activeAuxiliary, toast]);
 
   const loadParticipants = async () => {
     if (!selectedEventId) return;
     setLoading(true);
-    setParticipantActionError('');
+
     try {
       const data = selectedEventId === 'all'
         ? await participantsApi.getAll()
         : await participantsApi.getByEvent(selectedEventId);
       setParticipants(data);
     } catch (error) {
-      setParticipantActionError(error instanceof Error ? error.message : 'Could not load participants.');
+      toast.error(error instanceof Error ? error.message : 'Could not load participants.');
     } finally {
       setLoading(false);
     }
@@ -109,7 +112,7 @@ function ParticipantsContent() {
     if (!selectedEventId || !user || !singleMemberId.trim()) return;
     setIsVerifyingSingle(true);
     try {
-      setParticipantActionError('');
+  
       const res = await participantsApi.addSingle(
         selectedEventId,
         singleMemberId.trim(),
@@ -118,6 +121,7 @@ function ParticipantsContent() {
       setSingleVerificationResult(res);
       await loadParticipants();
       if (res.verificationStatus === 'Verified') {
+        toast.success(`${res.fullName} verified and added to the roster.`);
         setSingleMemberId('');
         setTimeout(() => {
           setIsSingleAddOpen(false);
@@ -126,7 +130,7 @@ function ParticipantsContent() {
       }
     } catch (err) {
       console.error('Failed to add participant', err);
-      setParticipantActionError(err instanceof Error ? err.message : 'Could not add this member ID.');
+      toast.error(err instanceof Error ? err.message : 'Could not add this member ID.');
     } finally {
       setIsVerifyingSingle(false);
     }
@@ -136,7 +140,7 @@ function ParticipantsContent() {
     if (!selectedEventId || !user || !bulkInputText.trim()) return;
     setIsBulkProcessing(true);
     try {
-      setParticipantActionError('');
+  
       const ids = bulkInputText
         .split(/[\n,;]+/)
         .map((id) => id.trim())
@@ -147,7 +151,7 @@ function ParticipantsContent() {
       await loadParticipants();
     } catch (err) {
       console.error('Failed to process bulk upload', err);
-      setParticipantActionError(err instanceof Error ? err.message : 'Could not process these member IDs.');
+      toast.error(err instanceof Error ? err.message : 'Could not process these member IDs.');
     } finally {
       setIsBulkProcessing(false);
     }
@@ -161,9 +165,10 @@ function ParticipantsContent() {
       await loadParticipants();
       setIsBulkOpen(false);
       setSelectedFile(null);
+      toast.success('Roster file uploaded and verified.');
     } catch (err) {
       console.error('Failed to upload roster file', err);
-      setParticipantActionError(err instanceof Error ? err.message : 'Could not upload this roster file.');
+      toast.error(err instanceof Error ? err.message : 'Could not upload this roster file.');
     } finally {
       setIsBulkProcessing(false);
     }
@@ -173,26 +178,30 @@ function ParticipantsContent() {
     event.preventDefault();
     if (!editingParticipant || !user) return;
     setIsSavingParticipant(true);
-    setParticipantActionError('');
+
     try {
       const updated = await participantsApi.update(editingParticipant, user);
       setParticipants((current) => current.map((item) => item.id === updated.id ? updated : item));
       setEditingParticipant(null);
     } catch (error) {
-      setParticipantActionError(error instanceof Error ? error.message : 'Could not update participant.');
+      toast.error(error instanceof Error ? error.message : 'Could not update participant.');
     } finally {
       setIsSavingParticipant(false);
     }
   };
 
-  const handleDeleteParticipant = async (participant: Participant) => {
-    if (!user || !confirm(`Remove ${participant.fullName} from this roster?`)) return;
-    setParticipantActionError('');
+  const handleDeleteParticipant = (participant: Participant) => {
+    setParticipantToDelete(participant);
+  };
+
+  const confirmDeleteParticipant = async () => {
+    if (!user || !participantToDelete) return;
+
     try {
-      await participantsApi.delete(participant.id, user);
-      setParticipants((current) => current.filter((item) => item.id !== participant.id));
+      await participantsApi.delete(participantToDelete.id, user);
+      setParticipants((current) => current.filter((item) => item.id !== participantToDelete.id));
     } catch (error) {
-      setParticipantActionError(error instanceof Error ? error.message : 'Could not remove participant.');
+      toast.error(error instanceof Error ? error.message : 'Could not remove participant.');
     }
   };
 
@@ -210,7 +219,6 @@ function ParticipantsContent() {
 
   return (
     <div className="space-y-6">
-      {participantActionError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{participantActionError}</p>}
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -407,7 +415,7 @@ function ParticipantsContent() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" aria-label={`Edit ${p.fullName}`} onClick={() => { setParticipantActionError(''); setEditingParticipant({ ...p }); }} leftIcon={<Pencil className="h-3.5 w-3.5" />}>Edit</Button>
+                        <Button variant="ghost" size="sm" aria-label={`Edit ${p.fullName}`} onClick={() => {  setEditingParticipant({ ...p }); }} leftIcon={<Pencil className="h-3.5 w-3.5" />}>Edit</Button>
                         <Button variant="ghost" size="sm" aria-label={`Remove ${p.fullName}`} className="text-rose-600" onClick={() => void handleDeleteParticipant(p)} leftIcon={<Trash2 className="h-3.5 w-3.5" />}>Remove</Button>
                       </div>
                     </TableCell>
@@ -444,7 +452,7 @@ function ParticipantsContent() {
         maxWidth="md"
       >
         <form onSubmit={handleSingleAdd} className="space-y-4">
-          {participantActionError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{participantActionError}</p>}
+
           <Input
             label="Jama'at Member ID *"
             value={singleMemberId}
@@ -500,7 +508,7 @@ function ParticipantsContent() {
         maxWidth="lg"
       >
         <div className="space-y-4">
-          {participantActionError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{participantActionError}</p>}
+
           {!bulkSummary ? (
             <>
               {/* Mode Switcher */}
@@ -674,6 +682,26 @@ function ParticipantsContent() {
           )}
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={Boolean(participantToDelete)}
+        onClose={() => setParticipantToDelete(null)}
+        onConfirm={confirmDeleteParticipant}
+        title="Remove Participant?"
+        description={
+          participantToDelete
+            ? `Remove ${participantToDelete.fullName} (${participantToDelete.memberId}) from this roster? This cannot be undone.`
+            : undefined
+        }
+        confirmLabel="Yes, Remove"
+        tone="danger"
+        successTitle="Removed Successfully!"
+        successDescription={
+          participantToDelete
+            ? `${participantToDelete.fullName} has been removed from this roster.`
+            : undefined
+        }
+      />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
-import { eventsApi, certificatesApi, auditApi, dashboardApi } from '../../../services/api';
+import { eventsApi, certificatesApi, auditApi, dashboardApi, participantsApi } from '../../../services/api';
 import { Event, Certificate, AuditLog, Auxiliary } from '../../../types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
@@ -99,7 +99,24 @@ export default function DashboardPage() {
         auditApi.getLogs(aux),
         dashboardApi.getSummary().catch(() => null),
       ]);
-      setEvents(allEvents);
+      // Count the real roster per event — event-record counters stay 0/0
+      // when the backend doesn't maintain them.
+      const withCounts = await Promise.all(
+        allEvents.map(async (event) => {
+          try {
+            const parts = await participantsApi.getByEvent(event.id);
+            if (parts.length === 0) return event;
+            return {
+              ...event,
+              participantsCount: parts.length,
+              verifiedCount: parts.filter((p) => p.verificationStatus === 'Verified').length,
+            };
+          } catch {
+            return event;
+          }
+        })
+      );
+      setEvents(withCounts);
       setCertificates(allCerts);
       setAuditLogs(logs);
       setSummary(dashboardSummary);

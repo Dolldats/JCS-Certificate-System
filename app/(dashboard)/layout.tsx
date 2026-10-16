@@ -2,11 +2,16 @@
 
 import React from 'react';
 import { DashboardShell } from '../../components/layout/DashboardShell';
+import { ToastProvider } from '../../components/ui/Toast';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <DashboardShell>{children}</DashboardShell>;
+  return (
+    <ToastProvider>
+      <DashboardShell>{children}</DashboardShell>
+    </ToastProvider>
+  );
 }

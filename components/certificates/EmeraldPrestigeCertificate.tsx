@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Certificate, CertificateTemplate } from '../../types';
-import { getSalutation, getRegionLabel } from './certificateText';
+import { getSalutation } from './certificateText';
 
 interface EmeraldPrestigeCertificateProps {
   certificate?: Partial<Certificate>;
@@ -39,10 +39,9 @@ export function EmeraldPrestigeCertificate({
   const participantName = certificate?.participantName || undefined;
   const dilla = certificate?.dila || undefined;
   const jamaat = certificate?.jamaat || undefined;
-  const ilaqa = certificate?.ilaqa || undefined;
   const venue = certificate?.venue || undefined;
   const salutation = getSalutation(template);
-  const regionLabel = getRegionLabel(template);
+
 
   const eventName = certificate?.eventName || template.eventTitle;
   const theme = certificate?.theme || template.themeTitle;
@@ -185,15 +184,6 @@ export function EmeraldPrestigeCertificate({
             <p>
               This is to congratulate and certify that <strong>{salutation}</strong>{' '}
               <Blank value={participantName} width={110} />, from{' '}
-              {regionLabel === 'District' ? (
-                <>
-                  District/Region <Blank value={ilaqa} width={90} />,{ ' ' }
-                </>
-              ) : (
-                <>
-                  <Blank value={ilaqa} width={90} /> {regionLabel},{' '}
-                </>
-              )}
               <Blank value={dilla} width={90} /> Dilla,{' '}
               <Blank value={jamaat} width={110} /> Jama&apos;at.
             </p>
@@ -267,9 +257,6 @@ export function EmeraldPrestigeCertificate({
               </div>
               <div className="text-[9.5px] font-medium text-slate-600 leading-tight">
                 {template.signature1Title}
-              </div>
-              <div className="text-[9.5px] text-slate-500 font-medium mt-0.5">
-                {template.signature1Date}
               </div>
             </div>
           </div>

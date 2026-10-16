@@ -26,7 +26,6 @@ interface EditCertificateModalProps {
         | 'jamaat'
         | 'eventName'
         | 'eventDate'
-        | 'venue'
         | 'theme'
         | 'type'
         | 'templateId'
@@ -58,7 +57,6 @@ export function EditCertificateModal({
     jamaat: '',
     eventName: '',
     eventDate: '',
-    venue: '',
     theme: '',
     type: 'Certificate of Participation' as CertificateType,
     templateId: '',
@@ -77,7 +75,6 @@ export function EditCertificateModal({
       jamaat: certificate.jamaat,
       eventName: certificate.eventName,
       eventDate: certificate.eventDate,
-      venue: certificate.venue || '',
       theme: certificate.theme || '',
       type: certificate.type,
       templateId: certificate.templateId,
@@ -104,7 +101,6 @@ export function EditCertificateModal({
         jamaat: form.jamaat.trim(),
         eventName: form.eventName.trim(),
         eventDate: form.eventDate.trim(),
-        venue: form.venue.trim(),
         theme: form.theme.trim(),
         type: form.type,
         templateId: form.templateId,
@@ -185,18 +181,11 @@ export function EditCertificateModal({
             value={form.eventName}
             onChange={(e) => set('eventName', e.target.value)}
           />
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Event Date"
-              value={form.eventDate}
-              onChange={(e) => set('eventDate', e.target.value)}
-            />
-            <Input
-              label="Venue"
-              value={form.venue}
-              onChange={(e) => set('venue', e.target.value)}
-            />
-          </div>
+          <Input
+            label="Event Date"
+            value={form.eventDate}
+            onChange={(e) => set('eventDate', e.target.value)}
+          />
           <Input
             label="Theme"
             value={form.theme}
@@ -237,7 +226,6 @@ export function EditCertificateModal({
               jamaat: form.jamaat,
               eventName: form.eventName,
               eventDate: form.eventDate,
-              venue: form.venue,
               theme: form.theme,
               type: form.type,
               templateId: form.templateId,

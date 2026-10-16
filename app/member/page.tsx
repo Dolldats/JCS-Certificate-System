@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Award, CalendarDays, Download, Eye, LogOut, ShieldCheck } from 'lucide-react';
+import { Award, CalendarDays, Eye, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../components/ui/Toast';
 import { ThemeToggle } from '../../components/ui/ThemeToggle';
 import { Button } from '../../components/ui/Button';
 import { PieChart } from '../../components/ui/PieChart';
-import { certificatesApi, eventsApi, participantsApi, templatesApi } from '../../services/api';
+import { certificatesApi, cleanTheme, eventsApi, participantsApi, templatesApi } from '../../services/api';
 import { Certificate, CertificateTemplate } from '../../types';
 import { CertificatePreview } from '../../components/certificates/CertificatePreview';
 import { Modal } from '../../components/ui/Modal';
@@ -53,10 +54,9 @@ function formatEventDate(value?: string): string {
 
 export default function MemberPage() {
   const { user, isLoading, logout } = useAuth();
+  const { toast } = useToast();
   const router = useRouter();
   const [events, setEvents] = useState<MemberEvent[]>([]);
-  const [downloadingCertificateId, setDownloadingCertificateId] = useState<string | null>(null);
-  const [certificateDownloadError, setCertificateDownloadError] = useState('');
   const [previewCertificate, setPreviewCertificate] = useState<Certificate | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<CertificateTemplate | null>(null);
   const [openingCertificateId, setOpeningCertificateId] = useState<string | null>(null);
@@ -116,28 +116,7 @@ export default function MemberPage() {
     return () => { cancelled = true; };
   }, [isLoading, router, user]);
 
-  const downloadCertificate = async (certificateId: string, certificateNumber?: string) => {
-    setCertificateDownloadError('');
-    setDownloadingCertificateId(certificateId);
-    try {
-      // Regenerate on each request so members don't keep receiving a stale blank PDF.
-      const blob = await certificatesApi.generateFile(certificateId);
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${certificateNumber || 'certificate'}.pdf`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (error) {
-      setCertificateDownloadError(error instanceof Error ? error.message : 'Could not download this certificate.');
-    } finally {
-      setDownloadingCertificateId(null);
-    }
-  };
-
   const viewCertificate = async (certificateId: string) => {
-    setCertificateDownloadError('');
     setOpeningCertificateId(certificateId);
     try {
       const certificate = await certificatesApi.getById(certificateId);
@@ -145,10 +124,30 @@ export default function MemberPage() {
       const template = templates.find((item) => item.id === certificate.templateId) || templates[0];
       if (!template) throw new Error('No certificate template is available to preview.');
 
+      // The event is the source of truth for its own facts: venue, theme
+      // and dates always follow the current event record.
+      let eventVenue = '';
+      let eventTheme = '';
+      let eventRange = '';
+      try {
+        const evt = await eventsApi.getById(certificate.eventId);
+        eventVenue = evt?.venue || '';
+        eventTheme = evt?.theme || '';
+        if (evt) {
+          eventRange =
+            evt.endDate && evt.endDate !== evt.date ? `${evt.date} to ${evt.endDate}` : evt.date;
+        }
+      } catch {
+        // leave blank — the preview still renders
+      }
+
       // The authenticated profile comes from the member endpoint and can fill
       // missing legacy participant fields in the print preview.
       setPreviewCertificate({
         ...certificate,
+        venue: eventVenue || certificate.venue,
+        theme: cleanTheme(eventTheme || certificate.theme),
+        eventDate: eventRange || certificate.eventDate,
         participantName: certificate.participantName || user?.fullName || '',
         memberId: certificate.memberId || user?.memberId || '',
         dila: certificate.dila || user?.dila || '',
@@ -156,7 +155,7 @@ export default function MemberPage() {
       });
       setPreviewTemplate(template);
     } catch (error) {
-      setCertificateDownloadError(error instanceof Error ? error.message : 'Could not open this certificate.');
+      toast.error(error instanceof Error ? error.message : 'Could not open this certificate.');
     } finally {
       setOpeningCertificateId(null);
     }
@@ -252,7 +251,7 @@ export default function MemberPage() {
             <h2 className="text-xl font-bold text-slate-900">My events and certificates</h2>
             <p className="mt-1 text-sm text-slate-500">Your event participation and certificate status from Jama&apos;at Certify.</p>
           </div>
-          {certificateDownloadError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{certificateDownloadError}</p>}
+
           {events.length === 0 ? (
             <div className="surface-card rounded-2xl px-6 py-12 text-center">
               <CalendarDays className="mx-auto h-9 w-9 text-slate-300" />
@@ -283,19 +282,10 @@ export default function MemberPage() {
                               type="button"
                               onClick={() => void viewCertificate(event.certificateId!)}
                               disabled={openingCertificateId === event.certificateId}
-                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 disabled:cursor-wait disabled:opacity-60"
+                              className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 disabled:cursor-wait disabled:opacity-60"
                             >
                               <Eye className="h-3.5 w-3.5" />
-                              {openingCertificateId === event.certificateId ? 'Opening…' : 'View / Print'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void downloadCertificate(event.certificateId!, event.certificateNumber)}
-                              disabled={downloadingCertificateId === event.certificateId}
-                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 disabled:cursor-wait disabled:opacity-60"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                              {downloadingCertificateId === event.certificateId ? 'Preparing download…' : 'Download certificate'}
+                              {openingCertificateId === event.certificateId ? 'Opening…' : 'Preview'}
                             </button>
                           </div>
                         )}

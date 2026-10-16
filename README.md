@@ -50,6 +50,7 @@ The .NET API project is in `JCS.API`. Configure backend connection details and a
 - **2026-10-13:** Pass each participant's Dila and Jama'at from the backend into certificate responses and generation; removed fabricated location defaults so missing directory data stays blank instead of displaying incorrect locations.
 - **2026-10-13:** When an older participant record lacks Dila or Jama'at, certificate generation now retrieves the missing value from the verified member directory before rendering.
 - **2026-10-13:** Hydrate missing Dila and Jama'at values in the admin certificate preview and add a member-side View / Print preview that uses the signed-in member profile.
+- **2026-10-14:** Map the backend's `participantMembershipId` field so the admin certificate preview can resolve missing member-directory details.
 - **2026-10-13:** Added the participant's auxiliary to certificate API responses so the certificate table displays the participant's actual auxiliary instead of defaulting missing values to Atfal.
 - **2026-10-13:** Prevented blank member certificate PDFs by rendering a readable default layout for older saved templates and regenerating member downloads to replace stale blank files.
 - **2026-10-12:** Let members generate their own missing certificate PDF on download, with ownership checks, revoked-certificate protection, progress feedback, and visible download errors.

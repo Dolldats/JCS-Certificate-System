@@ -10,6 +10,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import {
   Table,
   TableHeader,
@@ -72,8 +73,9 @@ export default function AdminsPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Assign Modal
-  const [isAssignOpen, setIsAssignOpen] = useState(false);
-  const [assignMemberId, setAssignMemberId] = useState('');
+  const [isAssignOpen, setIsAssignOpen] = useState(false);  const [assignMemberId, setAssignMemberId] = useState('');
+  const [adminToDelete, setAdminToDelete] = useState<string | null>(null);
+  const [adminToRevoke, setAdminToRevoke] = useState<string | null>(null);
   const [assignAuxiliary, setAssignAuxiliary] = useState<Auxiliary>('Atfal');
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignError, setAssignError] = useState('');
@@ -130,23 +132,33 @@ export default function AdminsPage() {
     }
   };
 
-  const handleDelete = async (adminId: string) => {
-    if (!confirm('Permanently delete this administrator assignment record?')) return;
+  const handleDelete = (adminId: string) => {
+    setAdminToDelete(adminId);
+  };
+
+  const confirmDelete = async () => {
+    if (!adminToDelete) return;
     try {
-      await authApi.deleteGeneralAdmin(adminId);
+      await authApi.deleteGeneralAdmin(adminToDelete);
       await loadAdmins();
     } catch (err) {
       setAssignError(err instanceof Error ? err.message : 'Could not delete this assignment');
     }
   };
 
-  const handleRevoke = async (adminId: string) => {
+  const handleRevoke = (adminId: string) => {
     if (!user) return;
-    if (confirm('Are you sure you want to revoke General Admin privileges for this user?')) {
-      await authApi.revokeGeneralAdmin(adminId, user);
-      await loadAdmins();
-    }
+    setAdminToRevoke(adminId);
   };
+
+  const confirmRevoke = async () => {
+    if (!user || !adminToRevoke) return;
+    await authApi.revokeGeneralAdmin(adminToRevoke, user);
+    await loadAdmins();
+  };
+
+  const targetAdminName = (id: string | null) =>
+    admins.find((a) => a.id === id)?.fullName || 'this administrator';
 
   const filteredAdmins = admins.filter((a) => {
     const q = searchQuery.toLowerCase();
@@ -368,6 +380,30 @@ export default function AdminsPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={Boolean(adminToRevoke)}
+        onClose={() => setAdminToRevoke(null)}
+        onConfirm={confirmRevoke}
+        title="Revoke Admin?"
+        description={`Revoke General Admin privileges for ${targetAdminName(adminToRevoke)}? They will lose access to manage their auxiliary.`}
+        confirmLabel="Yes, Revoke"
+        tone="warning"
+        successTitle="Revoked Successfully!"
+        successDescription={`${targetAdminName(adminToRevoke)} no longer has General Admin privileges.`}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(adminToDelete)}
+        onClose={() => setAdminToDelete(null)}
+        onConfirm={confirmDelete}
+        title="Delete Assignment?"
+        description={`Permanently delete the assignment record for ${targetAdminName(adminToDelete)}? This cannot be undone.`}
+        confirmLabel="Yes, Delete"
+        tone="danger"
+        successTitle="Deleted Successfully!"
+        successDescription={`The assignment record for ${targetAdminName(adminToDelete)} has been removed.`}
+      />
     </div>
   );
 }

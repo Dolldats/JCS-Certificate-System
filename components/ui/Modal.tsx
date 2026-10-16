@@ -52,20 +52,20 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+        className="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px] transition-opacity"
         onClick={onClose}
       />
       <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
         <div
           className={cn(
-            'modal-panel relative overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all w-full my-8 border border-slate-100',
+            'modal-panel relative overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all w-full my-8',
             maxWidths[maxWidth]
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-start justify-between">
+          <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+              <h3 className="text-lg font-bold tracking-tight text-slate-900">{title}</h3>
               {description && (
                 <p className="mt-1 text-xs text-slate-500">{description}</p>
               )}
@@ -73,9 +73,10 @@ export function Modal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              aria-label="Close dialog"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 

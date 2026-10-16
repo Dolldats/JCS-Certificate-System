@@ -71,7 +71,7 @@ async function liveFetch<T>(path: string): Promise<T> {
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
     });
-    if (!res.ok) throw new Error(`Jama'at API responded with ${res.status}`);
+    if (!res.ok) throw new Error('Member verification is unavailable right now. Please try again.');
     return (await res.json()) as T;
   } finally {
     clearTimeout(timer);

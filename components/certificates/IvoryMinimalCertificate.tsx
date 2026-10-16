@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Certificate, CertificateTemplate } from '../../types';
-import { getSalutation, getRegionLabel } from './certificateText';
+import { getSalutation } from './certificateText';
 
 interface IvoryMinimalCertificateProps {
   certificate?: Partial<Certificate>;
@@ -38,10 +38,9 @@ export function IvoryMinimalCertificate({
   const participantName = certificate?.participantName || undefined;
   const dilla = certificate?.dila || undefined;
   const jamaat = certificate?.jamaat || undefined;
-  const ilaqa = certificate?.ilaqa || undefined;
   const venue = certificate?.venue || undefined;
   const salutation = getSalutation(template);
-  const regionLabel = getRegionLabel(template);
+
 
   const eventName = certificate?.eventName || template.eventTitle;
   const theme = certificate?.theme || template.themeTitle;
@@ -166,15 +165,6 @@ export function IvoryMinimalCertificate({
             <p>
               This is to congratulate and certify that {salutation}{' '}
               <Blank value={participantName} width={120} />, from{' '}
-              {regionLabel === 'District' ? (
-                <>
-                  District/Region <Blank value={ilaqa} width={90} />,{ ' ' }
-                </>
-              ) : (
-                <>
-                  <Blank value={ilaqa} width={90} /> {regionLabel},{' '}
-                </>
-              )}
               <Blank value={dilla} width={90} /> Dilla,{' '}
               <Blank value={jamaat} width={120} /> Jama&apos;at.
             </p>
@@ -198,9 +188,9 @@ export function IvoryMinimalCertificate({
 
         {/* Footer */}
         <div className="flex items-end justify-between shrink-0">
-          <div className="text-left">
+          <div className="w-24 shrink-0" />
+          <div className="flex-1 text-center px-4">
             <div className="font-mono text-[9px] text-slate-400 tracking-wider">{certNumber}</div>
-            <div className="text-[9px] text-slate-400">{template.signature1Date}</div>
           </div>
           <div className="w-52 text-center">
             <div className="h-8 flex items-end justify-center mb-0.5">

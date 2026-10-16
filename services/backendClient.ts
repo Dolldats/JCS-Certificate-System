@@ -12,6 +12,31 @@ export function getAuthToken(): string | null {
   }
 }
 
+/**
+ * Turns technical request failures into plain, straight-to-the-point
+ * messages for admins. Raw status codes and fetch internals never reach
+ * the UI — callers can still find them in the devtools console.
+ */
+export function friendlyErrorMessage(status: number, detail = '', fallback401?: string): string {
+  const clean = detail.trim().replace(/\s+/g, ' ');
+  const bareToken = /^(unauthorized|forbidden|not found|bad request|internal server error|bad gateway|service unavailable|gateway timeout)$/i;
+  const looksTechnical =
+    clean.length === 0 ||
+    clean.length > 200 ||
+    bareToken.test(clean) ||
+    /failed to fetch|networkerror|network request|proxy|server error|status \d|request failed|login failed|doctype|<html|undefined|null$/i.test(clean);
+  if (!looksTechnical) return clean;
+  if (status === 401) return fallback401 || 'Your session has expired. Please sign in again.';
+  if (status === 403) return 'You do not have permission to do that.';
+  if (status === 404) return 'That record was not found. It may have been deleted.';
+  if (status === 408 || status === 504) return 'The server took too long to respond. Please try again.';
+  if (status === 409) return 'That already exists, so nothing was changed.';
+  if (status === 400 || status === 422) return 'Some details were not accepted. Please check and try again.';
+  if (status === 429) return 'Too many attempts. Please wait a moment and try again.';
+  if (status >= 500) return 'Something went wrong on our side. Please try again in a bit.';
+  return 'Something went wrong. Please try again.';
+}
+
 export async function backendFetch<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -38,7 +63,8 @@ export async function backendFetch<T>(
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Network request failed: ${msg}`);
+    console.warn(`Backend ${endpoint} unreachable:`, msg);
+    throw new Error('Cannot reach the server. Check your connection and try again.');
   }
 
   if (!res.ok) {
@@ -62,9 +88,8 @@ export async function backendFetch<T>(
       // Fallback
     }
 
-    throw new Error(
-      detail ? `Request failed (${res.status}): ${detail}` : `Request failed with status ${res.status}`
-    );
+    console.warn(`Backend ${endpoint} failed:`, res.status, detail || '(no detail)');
+    throw new Error(friendlyErrorMessage(res.status, detail));
   }
 
   // Handle empty 204 or 200 responses

@@ -26,7 +26,7 @@ export function SapphireModernCertificate({
   const dilla = certificate?.dila || BLANK_SHORT;
   const jamaat = certificate?.jamaat || BLANK;
   const muqami =
-    (certificate as unknown as { muqami?: string })?.muqami || certificate?.ilaqa || BLANK_SHORT;
+    (certificate as unknown as { muqami?: string })?.muqami || BLANK_SHORT;
   const venue = certificate?.venue || BLANK_SHORT;
 
   const durationParts = (template.programDurationText || '').split(/\s+to\s+/i);
@@ -217,7 +217,7 @@ export function SapphireModernCertificate({
             <p>
               This is to congratulate and certify that {salutation}{' '}
               <span className="font-black text-black px-1">{participantName}</span>, Dilla{' '}
-              <span className="font-black text-black px-1">{dilla}</span>, Ilaqa.
+              <span className="font-black text-black px-1">{dilla}</span>.
             </p>
             <p>
               from <span className="font-black text-black px-1">{jamaat}</span> Muqami,{' '}
@@ -296,9 +296,6 @@ export function SapphireModernCertificate({
             </div>
             <div className="text-[10px] font-medium text-slate-600 leading-tight">
               {template.signature1Title}
-            </div>
-            <div className="text-[10px] text-slate-500 font-medium mt-0.5">
-              {template.signature1Date}
             </div>
           </div>
         </div>

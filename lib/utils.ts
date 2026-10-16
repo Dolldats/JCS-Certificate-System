@@ -5,9 +5,24 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(dateString: string): string {
+export function formatDate(dateString: string, opts?: { weekday?: boolean }): string {
   try {
-    const date = new Date(dateString);
+    const raw = dateString.trim();
+    // Bare dates ("2026-10-23") and midnight datetimes ("2026-10-23T00:00:00Z")
+    // are calendar dates (events), not instants — construct them in local time
+    // so timezones behind UTC don't render the previous day.
+    const calendar = /^(\d{4})-(\d{2})-(\d{2})(?:[T ]00:00(?::00)?(?:\.0+)?(?:Z|[+-]\d{2}:?\d{2})?)?$/.exec(raw);
+    const date = calendar
+      ? new Date(Number(calendar[1]), Number(calendar[2]) - 1, Number(calendar[3]))
+      : new Date(raw);
+    if (opts?.weekday) {
+      return new Intl.DateTimeFormat('en-GB', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }).format(date);
+    }
     return new Intl.DateTimeFormat('en-GB', {
       day: 'numeric',
       month: 'short',

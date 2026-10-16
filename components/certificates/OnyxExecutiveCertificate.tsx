@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Certificate, CertificateTemplate } from '../../types';
-import { getSalutation, getRegionLabel } from './certificateText';
+import { getSalutation } from './certificateText';
 
 interface OnyxExecutiveCertificateProps {
   certificate?: Partial<Certificate>;
@@ -38,10 +38,9 @@ export function OnyxExecutiveCertificate({
   const participantName = certificate?.participantName || undefined;
   const dilla = certificate?.dila || undefined;
   const jamaat = certificate?.jamaat || undefined;
-  const ilaqa = certificate?.ilaqa || undefined;
   const venue = certificate?.venue || undefined;
   const salutation = getSalutation(template);
-  const regionLabel = getRegionLabel(template);
+
 
   const eventName = certificate?.eventName || template.eventTitle;
   const theme = certificate?.theme || template.themeTitle;
@@ -174,15 +173,6 @@ export function OnyxExecutiveCertificate({
             <p>
               This is to congratulate and certify that {salutation}{' '}
               <Blank value={participantName} width={120} />, from{' '}
-              {regionLabel === 'District' ? (
-                <>
-                  District/Region <Blank value={ilaqa} width={90} />,{ ' ' }
-                </>
-              ) : (
-                <>
-                  <Blank value={ilaqa} width={90} /> {regionLabel},{' '}
-                </>
-              )}
               <Blank value={dilla} width={90} /> Dilla,{' '}
               <Blank value={jamaat} width={120} /> Jama&apos;at.
             </p>
@@ -251,9 +241,6 @@ export function OnyxExecutiveCertificate({
             </div>
             <div className="text-[9.5px] font-medium text-slate-500 leading-tight">
               {template.signature1Title}
-            </div>
-            <div className="text-[9.5px] text-slate-400 font-medium mt-0.5">
-              {template.signature1Date}
             </div>
           </div>
         </div>

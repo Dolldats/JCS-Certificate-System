@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
-import { eventsApi } from '../../../services/api';
+import { useToast } from '../../../components/ui/Toast';
+import { eventsApi, participantsApi } from '../../../services/api';
 import { Event, EventType, Auxiliary, EventStatus } from '../../../types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
@@ -11,6 +12,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { Tabs } from '../../../components/ui/Tabs';
 import {
   CalendarDays,
@@ -45,6 +47,7 @@ const AUXILIARY_OPTIONS: Auxiliary[] = [
 
 export default function EventsPage() {
   const { user, activeAuxiliary } = useAuth();
+  const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,12 +57,14 @@ export default function EventsPage() {
   // Create Event Modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newEvent, setNewEvent] = useState({
     name: '',
     description: '',
     eventType: 'Ijtema' as EventType,
     date: new Date().toISOString().split('T')[0],
+    endDate: '',
     venue: '',
     auxiliary: (user?.assignedAuxiliary || 'Atfal') as Auxiliary,
     orgLevel: 'Ilaqa' as Event['orgLevel'],
@@ -72,7 +77,24 @@ export default function EventsPage() {
     setLoading(true);
     const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
     const data = await eventsApi.getAll(aux);
-    setEvents(data);
+    // Count the real roster per event instead of trusting the event record's
+    // counters, which stay 0/0 when the backend doesn't maintain them.
+    const withCounts = await Promise.all(
+      data.map(async (event) => {
+        try {
+          const parts = await participantsApi.getByEvent(event.id);
+          if (parts.length === 0) return event;
+          return {
+            ...event,
+            participantsCount: parts.length,
+            verifiedCount: parts.filter((p) => p.verificationStatus === 'Verified').length,
+          };
+        } catch {
+          return event;
+        }
+      })
+    );
+    setEvents(withCounts);
     setLoading(false);
   };
 
@@ -103,6 +125,7 @@ export default function EventsPage() {
           description: newEvent.description,
           eventType: newEvent.eventType,
           date: newEvent.date,
+          endDate: newEvent.endDate || undefined,
           venue: newEvent.venue,
           auxiliary: newEvent.auxiliary,
           orgLevel: newEvent.orgLevel,
@@ -116,6 +139,7 @@ export default function EventsPage() {
       } else {
         await eventsApi.create(eventData, user);
       }
+      const wasEditing = Boolean(editingEventId);
       setIsCreateOpen(false);
       setEditingEventId(null);
       setNewEvent({
@@ -123,6 +147,7 @@ export default function EventsPage() {
         description: '',
         eventType: 'Ijtema',
         date: new Date().toISOString().split('T')[0],
+        endDate: '',
         venue: '',
         auxiliary: (user?.assignedAuxiliary || 'Atfal') as Auxiliary,
         orgLevel: 'Ilaqa',
@@ -131,8 +156,10 @@ export default function EventsPage() {
         theme: '',
       });
       await loadEvents();
+      toast.success(wasEditing ? 'Event changes saved.' : 'Event created.');
     } catch (err) {
-      console.error('Failed to create event', err);
+      console.error('Failed to save event', err);
+      toast.error(err instanceof Error ? err.message : 'Could not save this event.');
     } finally {
       setIsSubmitting(false);
     }
@@ -147,6 +174,7 @@ export default function EventsPage() {
       description: target.description,
       eventType: target.eventType,
       date: target.date,
+      endDate: target.endDate || '',
       venue: target.venue,
       auxiliary: target.auxiliary,
       orgLevel: target.orgLevel,
@@ -157,10 +185,14 @@ export default function EventsPage() {
     setIsCreateOpen(true);
   };
 
-  const handleDeleteEvent = async (event: Event) => {
-    if (!user || !confirm(`Delete “${event.name}” and its event record?`)) return;
+  const handleDeleteEvent = (event: Event) => {
+    setEventToDelete(event);
+  };
+
+  const confirmDeleteEvent = async () => {
+    if (!user || !eventToDelete) return;
     try {
-      await eventsApi.delete(event.id, user);
+      await eventsApi.delete(eventToDelete.id, user);
       await loadEvents();
     } catch (error) {
       console.error('Failed to delete event', error);
@@ -370,10 +402,11 @@ export default function EventsPage() {
           />
 
           <Input
-            label="Event Theme (Optional)"
+            label="Event Theme *"
             value={newEvent.theme}
             onChange={(e) => setNewEvent({ ...newEvent, theme: e.target.value })}
             placeholder="e.g. My Faith, My Identity"
+            required
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -404,13 +437,20 @@ export default function EventsPage() {
               required
             />
             <Input
-              label="Venue / Location *"
-              value={newEvent.venue}
-              onChange={(e) => setNewEvent({ ...newEvent, venue: e.target.value })}
-              placeholder="e.g. Jamia Ahmadiyya Ilaro, Ogun State"
-              required
+              label="End Date"
+              type="date"
+              value={newEvent.endDate}
+              onChange={(e) => setNewEvent({ ...newEvent, endDate: e.target.value })}
             />
           </div>
+
+          <Input
+            label="Venue / Location *"
+            value={newEvent.venue}
+            onChange={(e) => setNewEvent({ ...newEvent, venue: e.target.value })}
+            placeholder="e.g. Jamia Ahmadiyya Ilaro, Ogun State"
+            required
+          />
 
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
             <div className="text-xs font-bold text-slate-700 flex items-center justify-between">
@@ -495,6 +535,26 @@ export default function EventsPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={Boolean(eventToDelete)}
+        onClose={() => setEventToDelete(null)}
+        onConfirm={confirmDeleteEvent}
+        title="Delete Event?"
+        description={
+          eventToDelete
+            ? `Delete “${eventToDelete.name}” and its event record? Participants and certificates linked to it will be orphaned.`
+            : undefined
+        }
+        confirmLabel="Yes, Delete"
+        tone="danger"
+        successTitle="Deleted Successfully!"
+        successDescription={
+          eventToDelete
+            ? `The “${eventToDelete.name}” event record has been permanently deleted.`
+            : undefined
+        }
+      />
     </div>
   );
 }

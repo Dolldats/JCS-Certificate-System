@@ -9,6 +9,7 @@ import { RoyalMaroonCertificate } from './RoyalMaroonCertificate';
 import { TealSurgeCertificate } from './TealSurgeCertificate';
 import { OnyxExecutiveCertificate } from './OnyxExecutiveCertificate';
 import { Button } from '../ui/Button';
+import { formatDate } from '../../lib/utils';
 import { Printer, Download, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 // Fixed design size (A4 landscape ratio). The certificate is rendered at
@@ -46,13 +47,31 @@ export function CertificatePreview({
   const certNumber =
     certificate?.certificateNumber || (previewMode ? 'JCS-ATF-2025-0001' : 'JCS-PENDING');
 
+  // Duration line always derives from the certificate's event dates — never
+  // retyped per template. Falls back to the template text when undeterminable.
+  // A same-day range collapses to a single date ("4 Oct 2026", not doubled).
+  const durationText = (() => {
+    const raw = (certificate?.eventDate || '').trim();
+    if (!raw) return template.programDurationText;
+    const parts = raw.split(/\s+to\s+/i).map((p) => p.trim()).filter(Boolean);
+    if (parts.length === 0) return template.programDurationText;
+    const parsed: string[] = [];
+    for (const part of parts) {
+      if (Number.isNaN(new Date(part).getTime())) return template.programDurationText;
+      parsed.push(formatDate(part, { weekday: true }));
+    }
+    return parsed.every((label) => label === parsed[0]) ? parsed[0] : parsed.join(' to ');
+  })();
+  const resolvedTemplate =
+    durationText === template.programDurationText ? template : { ...template, programDurationText: durationText };
+
   function renderCertificate() {
     switch (template.design || 'modern-rings') {
       case 'emerald-prestige':
         return (
           <EmeraldPrestigeCertificate
             certificate={certificate}
-            template={template}
+            template={resolvedTemplate}
             previewMode={previewMode}
           />
         );
@@ -60,7 +79,7 @@ export function CertificatePreview({
         return (
           <IvoryMinimalCertificate
             certificate={certificate}
-            template={template}
+            template={resolvedTemplate}
             previewMode={previewMode}
           />
         );
@@ -68,7 +87,7 @@ export function CertificatePreview({
         return (
           <RoyalMaroonCertificate
             certificate={certificate}
-            template={template}
+            template={resolvedTemplate}
             previewMode={previewMode}
           />
         );
@@ -76,7 +95,7 @@ export function CertificatePreview({
         return (
           <TealSurgeCertificate
             certificate={certificate}
-            template={template}
+            template={resolvedTemplate}
             previewMode={previewMode}
           />
         );
@@ -84,7 +103,7 @@ export function CertificatePreview({
         return (
           <OnyxExecutiveCertificate
             certificate={certificate}
-            template={template}
+            template={resolvedTemplate}
             previewMode={previewMode}
           />
         );
@@ -93,7 +112,7 @@ export function CertificatePreview({
         return (
           <ModernCertificate
             certificate={certificate}
-            template={template}
+            template={resolvedTemplate}
             previewMode={previewMode}
           />
         );

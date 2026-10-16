@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../components/ui/Toast';
 import { templatesApi } from '../../../services/api';
 import { CertificateTemplate, Auxiliary, CertificateType, CertificateDesign } from '../../../types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
@@ -10,7 +11,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
-import { getRegionLabel } from '../../../components/certificates/certificateText';
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { processSignatureImage } from '../../../lib/utils';
 import { CertificatePreview } from '../../../components/certificates/CertificatePreview';
 import {
@@ -83,11 +84,13 @@ const COLOR_PRESETS = [
 ];
 
 export default function TemplatesPage() {
-  const { user, activeAuxiliary } = useAuth();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [currentTemplate, setCurrentTemplate] = useState<CertificateTemplate | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<'visuals' | 'content' | 'signatories'>('visuals');
   // Preview-first: entering the studio shows only the certificate.
@@ -95,26 +98,10 @@ export default function TemplatesPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
   const [signatureError, setSignatureError] = useState('');
-  const [templateActionError, setTemplateActionError] = useState('');
   const [serverPreviewUrl, setServerPreviewUrl] = useState('');
   const [isLoadingServerPreview, setIsLoadingServerPreview] = useState(false);
   const signatureInputRef = useRef<HTMLInputElement>(null);
   const participationInputRef = useRef<HTMLInputElement>(null);
-  // Sample recipient — preview only (empty = blank handwriting lines).
-  const [sampleName, setSampleName] = useState('');
-  const [sampleDilla, setSampleDilla] = useState('');
-  const [sampleJamaat, setSampleJamaat] = useState('');
-  const [sampleRegion, setSampleRegion] = useState('');
-  const [sampleVenue, setSampleVenue] = useState('');
-
-  // One input per blank on the certificate, matching the original layout.
-  const previewCertificate = {
-    participantName: sampleName || undefined,
-    dila: sampleDilla || undefined,
-    ilaqa: sampleRegion || undefined,
-    jamaat: sampleJamaat || undefined,
-    venue: sampleVenue || undefined,
-  };
 
   const handleSignatureFile = useCallback(
     (file: File | undefined) => {
@@ -151,9 +138,9 @@ export default function TemplatesPage() {
   }, [currentTemplate]);
 
   useEffect(() => {
+    // Studio shows every auxiliary body's designs — no auxiliary filter.
     async function loadTemplates() {
-      const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
-      const data = await templatesApi.getAll(aux);
+      const data = await templatesApi.getAll(undefined);
       setTemplates(data);
       if (data.length > 0 && !selectedTemplateId) {
         setSelectedTemplateId(data[0].id);
@@ -161,7 +148,7 @@ export default function TemplatesPage() {
       }
     }
     loadTemplates();
-  }, [activeAuxiliary]);
+  }, []);
 
   const handleSelectTemplate = async (id: string) => {
     setSelectedTemplateId(id);
@@ -172,7 +159,7 @@ export default function TemplatesPage() {
         try {
           setCurrentTemplate(await templatesApi.getById(id));
         } catch (error) {
-          setTemplateActionError(error instanceof Error ? error.message : 'Could not load template details.');
+          toast.error(error instanceof Error ? error.message : 'Could not load template details.');
         }
       }
     }
@@ -187,12 +174,12 @@ export default function TemplatesPage() {
       setSelectedTemplateId(saved.id);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
-      const all = await templatesApi.getAll(
-        activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary)
-      );
+      toast.success('Template saved to your saved templates.');
+      const all = await templatesApi.getAll(undefined);
       setTemplates(all);
     } catch (err) {
       console.error('Failed to save template', err);
+      toast.error(err instanceof Error ? err.message : 'Could not save this template.');
     } finally {
       setIsSaving(false);
     }
@@ -205,37 +192,41 @@ export default function TemplatesPage() {
     try {
       const path = await templatesApi.uploadAsset(file, 'signatures');
       setCurrentTemplate((current) => current ? { ...current, signatureAssetPath: path } : current);
+      toast.success('Signature uploaded.');
     } catch (error) {
-      setTemplateActionError(error instanceof Error ? error.message : 'Signature image could not be uploaded to the server.');
+      toast.error(error instanceof Error ? error.message : 'Signature image could not be uploaded to the server.');
     }
   };
 
   const handleServerPreview = async () => {
     if (!currentTemplate) return;
     setIsLoadingServerPreview(true);
-    setTemplateActionError('');
     try {
       const svg = await templatesApi.preview(currentTemplate);
       if (serverPreviewUrl) URL.revokeObjectURL(serverPreviewUrl);
       setServerPreviewUrl(URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' })));
     } catch (error) {
-      setTemplateActionError(error instanceof Error ? error.message : 'Server preview could not be generated.');
+      toast.error(error instanceof Error ? error.message : 'Server preview could not be generated.');
     } finally {
       setIsLoadingServerPreview(false);
     }
   };
 
-  const handleDeleteTemplate = async () => {
+  const handleDeleteTemplate = () => {
     if (!currentTemplate || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(currentTemplate.id)) return;
-    if (!confirm(`Delete template "${currentTemplate.name}"?`)) return;
+    setIsDeleteOpen(true);
+  };
+
+  const confirmDeleteTemplate = async () => {
+    if (!currentTemplate) return;
     try {
       await templatesApi.delete(currentTemplate.id);
-      const remaining = await templatesApi.getAll(activeAuxiliary === 'All' ? undefined : activeAuxiliary as Auxiliary);
+      const remaining = await templatesApi.getAll(undefined);
       setTemplates(remaining);
       setCurrentTemplate(remaining[0] || null);
       setSelectedTemplateId(remaining[0]?.id || '');
     } catch (error) {
-      setTemplateActionError(error instanceof Error ? error.message : 'Template could not be deleted.');
+      toast.error(error instanceof Error ? error.message : 'Template could not be deleted.');
     }
   };
 
@@ -283,8 +274,6 @@ export default function TemplatesPage() {
         </div>
       </div>
 
-      {templateActionError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{templateActionError}</p>}
-
       <Modal isOpen={!!serverPreviewUrl} onClose={() => { if (serverPreviewUrl) URL.revokeObjectURL(serverPreviewUrl); setServerPreviewUrl(''); }} title="Backend Template Preview" description="Rendered by the certificate template preview endpoint." maxWidth="xl">
         {serverPreviewUrl && <img src={serverPreviewUrl} alt="Server-rendered certificate template preview" className="w-full rounded-lg border border-slate-200" />}
       </Modal>
@@ -318,7 +307,6 @@ export default function TemplatesPage() {
       {currentTemplate && !isEditing && (
         <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <CertificatePreview
-            certificate={previewCertificate}
             template={currentTemplate}
             previewMode={true}
             showActions={false}
@@ -949,7 +937,7 @@ export default function TemplatesPage() {
                   </div>
 
                   <Input
-                    label="Theme Callout"
+                    label="Theme Callout (fallback until events carry themes)"
                     value={currentTemplate.themeTitle}
                     onChange={(e) =>
                       setCurrentTemplate({
@@ -957,19 +945,8 @@ export default function TemplatesPage() {
                         themeTitle: e.target.value,
                       })
                     }
-                    placeholder="e.g. Theme: My Faith, My Identity."
-                  />
-
-                  <Input
-                    label="Program Duration &amp; Dates"
-                    value={currentTemplate.programDurationText}
-                    onChange={(e) =>
-                      setCurrentTemplate({
-                        ...currentTemplate,
-                        programDurationText: e.target.value,
-                      })
-                    }
-                    placeholder="e.g. 3rd August to Sunday 10th August, 2025"
+                    placeholder="e.g. Honor Thy Pledge"
+                    helperText="Shows only when the event has no theme saved yet."
                   />
 
                   <Select
@@ -1030,51 +1007,6 @@ export default function TemplatesPage() {
                       rows={3}
                       className="w-full text-xs rounded-lg border border-slate-300 p-2.5 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none"
                     />
-                  </div>
-
-                  {/* Sample recipient — fills the preview blanks */}
-                  <div className="pt-3 border-t border-slate-100 space-y-3">
-                    <div>
-                      <p className="text-xs font-bold text-slate-800">Sample Recipient (preview only)</p>
-                      <p className="text-3xs text-slate-500">
-                        Type here to fill the live preview. Clear a field to show its blank line again. Not saved to the template.
-                      </p>
-                    </div>
-                    <Input
-                      label="Recipient Name (Tifl)"
-                      value={sampleName}
-                      onChange={(e) => setSampleName(e.target.value)}
-                      placeholder="e.g. Kabeer Olasunkanmi"
-                    />
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        label={getRegionLabel(currentTemplate)}
-                        value={sampleRegion}
-                        onChange={(e) => setSampleRegion(e.target.value)}
-                        placeholder="e.g. South West"
-                      />
-                      <Input
-                        label="Dilla"
-                        value={sampleDilla}
-                        onChange={(e) => setSampleDilla(e.target.value)}
-                        placeholder="e.g. Lagos"
-                      />
-                    </div>
-                    <Input
-                      label="Jama'at"
-                      value={sampleJamaat}
-                      onChange={(e) => setSampleJamaat(e.target.value)}
-                      placeholder="e.g. Ilasamaja"
-                    />
-                    <Input
-                      label="Venue (took place at)"
-                      value={sampleVenue}
-                      onChange={(e) => setSampleVenue(e.target.value)}
-                      placeholder="e.g. Jamia Ahmadiyya Ilaro, Ogun State"
-                    />
-                    <p className="text-3xs text-slate-500">
-                      Dates show once, in the duration line above the theme.
-                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -1253,7 +1185,6 @@ export default function TemplatesPage() {
               <CardContent className="p-3 sm:p-4 flex flex-col items-center bg-slate-100/70 rounded-b-xl">
                 <div className="w-full">
                   <CertificatePreview
-                    certificate={previewCertificate}
                     template={currentTemplate}
                     previewMode={true}
                     showActions={true}
@@ -1264,6 +1195,26 @@ export default function TemplatesPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={confirmDeleteTemplate}
+        title="Delete Template?"
+        description={
+          currentTemplate
+            ? `Permanently delete the "${currentTemplate.name}" design? Certificates already issued with it are not affected.`
+            : undefined
+        }
+        confirmLabel="Yes, Delete"
+        tone="danger"
+        successTitle="Deleted Successfully!"
+        successDescription={
+          currentTemplate
+            ? `The "${currentTemplate.name}" design has been permanently deleted.`
+            : undefined
+        }
+      />
     </div>
   );
 }
