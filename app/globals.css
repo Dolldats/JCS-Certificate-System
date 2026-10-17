@@ -364,4 +364,23 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     page-break-inside: avoid;
     break-inside: avoid;
   }
+
+  /* Bulk mode (stacked previews): every certificate flows in normal layout,
+     one per page, instead of all stacking fixed on a single page. The
+     <body> gets .printing-bulk while the bulk modal is open. */
+  body.printing-bulk #certificate-print-area {
+    position: static !important;
+    inset: auto !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    break-inside: avoid-page;
+    break-after: page;
+  }
+  body.printing-bulk .modal-panel > :not(.modal-scroll-content) {
+    display: none !important;
+  }
 }

@@ -87,7 +87,6 @@ function CertificatesContent() {
 
   const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
   const [bulkQueue, setBulkQueue] = useState<Certificate[] | null>(null);
-  const [isDownloadingBulk, setIsDownloadingBulk] = useState(false);
   const [editingCertificate, setEditingCertificate] = useState<Certificate | null>(null);
   const [certificateToDelete, setCertificateToDelete] = useState<Certificate | null>(null);
 
@@ -343,7 +342,7 @@ function CertificatesContent() {
     }
   };
 
-  const handlePreviewEventPdfs = () => {
+  const handlePreviewEventPdfs = async () => {
     if (!selectedEventId) return;
     const queue = certificates.filter(
       (c) => c.eventId === selectedEventId && c.status !== 'Revoked'
@@ -352,21 +351,34 @@ function CertificatesContent() {
       toast.info('No certificates to preview for this event yet. Generate some first.');
       return;
     }
-    setBulkQueue(queue);
+    // Fill each card's Dilla/Jama'at from the event roster — the raw
+    // certificate rows don't always carry member details.
+    try {
+      const parts = await participantsApi.getByEvent(selectedEventId);
+      const byMember = new Map(parts.map((p) => [p.memberId.toUpperCase(), p]));
+      setBulkQueue(
+        queue.map((c) => {
+          const p = byMember.get(c.memberId.toUpperCase());
+          if (!p) return c;
+          return {
+            ...c,
+            participantName: c.participantName || p.fullName,
+            auxiliary: c.auxiliary || p.auxiliary,
+            dila: c.dila || p.dila,
+            jamaat: c.jamaat || p.jamaat,
+          };
+        })
+      );
+    } catch {
+      setBulkQueue(queue);
+    }
+    // Bulk print CSS keys off this class (stacked pages vs single fixed page).
+    document.body.classList.add('printing-bulk');
   };
 
-  const handleDownloadBulkPdfs = async () => {
-    if (!selectedEventId) return;
-    setIsDownloadingBulk(true);
-    try {
-      const blob = await certificatesApi.downloadAllForEvent(selectedEventId);
-      downloadBlob(blob, `event-${selectedEventId}-certificates.pdf`);
-      toast.success('Event PDFs saved.');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not download event PDFs');
-    } finally {
-      setIsDownloadingBulk(false);
-    }
+  const closeBulkQueue = () => {
+    document.body.classList.remove('printing-bulk');
+    setBulkQueue(null);
   };
 
   const handleDeleteCertificate = (certificate: Certificate) => {
@@ -747,7 +759,7 @@ function CertificatesContent() {
 
       <Modal
         isOpen={Boolean(bulkQueue)}
-        onClose={() => setBulkQueue(null)}
+        onClose={closeBulkQueue}
         title={
           bulkQueue && bulkQueue.length > 0
             ? `Event Certificates (${bulkQueue.length})`
@@ -760,8 +772,8 @@ function CertificatesContent() {
           {(bulkQueue || []).map((cert) => {
             const template = templates.find((t) => t.id === cert.templateId) || templates[0];
             return (
-              <div key={cert.id} className="overflow-hidden rounded-2xl border border-slate-200">
-                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-4 py-2.5">
+              <div key={cert.id} className="overflow-hidden rounded-2xl border border-slate-200 print:overflow-visible print:rounded-none print:border-0 print:break-after-page print:last:break-after-auto">
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-4 py-2.5 print:hidden">
                   <div className="text-xs">
                     <span className="font-mono font-bold text-emerald-800">{cert.certificateNumber}</span>
                     <span className="ml-2 font-semibold text-slate-700">{cert.participantName}</span>
@@ -786,8 +798,8 @@ function CertificatesContent() {
             );
           })}
         </div>
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={() => setBulkQueue(null)}>
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2 print:hidden">
+          <Button variant="outline" size="sm" onClick={closeBulkQueue}>
             Close
           </Button>
           <Button variant="outline" size="sm" onClick={() => window.print()} leftIcon={<Printer className="h-4 w-4" />}>
@@ -796,11 +808,10 @@ function CertificatesContent() {
           <Button
             variant="primary"
             size="sm"
-            onClick={() => void handleDownloadBulkPdfs()}
-            isLoading={isDownloadingBulk}
+            onClick={() => window.print()}
             leftIcon={<Download className="h-4 w-4" />}
           >
-            Save All PDFs
+            Save All as PDFs
           </Button>
         </div>
       </Modal>
