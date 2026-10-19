@@ -3,6 +3,7 @@ using JCS.Application.Interfaces.Services;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using QRCoder;
 
 namespace JCS.Application.Services;
 
@@ -27,6 +28,7 @@ public class CertificateRenderer : ICertificateRenderer
                             layers.PrimaryLayer().Image(File.ReadAllBytes(request.BackgroundImagePath)).FitArea();
                         }
                         AddImages(layers, request.Layout);
+                        AddQrCode(layers, request.VerificationUrl, request.Width, request.Height);
                         if (request.Layout.TextElements != null)
                         {
                             foreach (var element in request.Layout.TextElements)
@@ -44,6 +46,23 @@ public class CertificateRenderer : ICertificateRenderer
                 });
             }
         }).GeneratePdf();
+    }
+
+    private static void AddQrCode(LayersDescriptor layers, string? verificationUrl, decimal width, decimal height)
+    {
+        if (string.IsNullOrWhiteSpace(verificationUrl)) return;
+
+        using var generator = new QRCodeGenerator();
+        using var data = generator.CreateQrCode(verificationUrl, QRCodeGenerator.ECCLevel.Q);
+        var png = new PngByteQRCode(data).GetGraphic(5);
+        const float size = 96;
+        layers.Layer()
+            .TranslateX(Math.Max(0, (float)width - size - 18))
+            .TranslateY(Math.Max(0, (float)height - size - 18))
+            .Width(size)
+            .Height(size)
+            .Image(png)
+            .FitArea();
     }
 
     public byte[] RenderPdf(TemplateLayoutDto layout, IReadOnlyDictionary<string, string?> values, decimal width = 1122, decimal height = 793, string? backgroundImagePath = null)

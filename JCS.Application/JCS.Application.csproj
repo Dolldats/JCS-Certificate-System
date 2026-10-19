@@ -9,6 +9,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="QuestPDF" Version="2025.7.0" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
     <ProjectReference Include="..\JCS.Domain\JCS.Domain.csproj" />
   </ItemGroup>
 

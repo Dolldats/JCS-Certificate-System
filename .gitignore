@@ -397,6 +397,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Local ASP.NET development settings may contain credentials.
+JCS.API/appsettings.Development.json
+
 # vercel
 .vercel
 

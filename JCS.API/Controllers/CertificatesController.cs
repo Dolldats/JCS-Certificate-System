@@ -33,6 +33,8 @@ public class CertificatesController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAllCertificates([FromQuery] PageQuery query, CancellationToken token)
     {
+        Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+        Response.Headers.Pragma = "no-cache";
         var certificates = await _certificateService.GetAllAsync(token);
         if (User.IsInRole("Member"))
         {
@@ -362,6 +364,8 @@ public class CertificatesController : ControllerBase
     [HttpGet("event/{eventId:guid}/download-all-pdf")]
     public async Task<IActionResult> DownloadAllPdf(Guid eventId, CancellationToken token)
     {
+        Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+        Response.Headers.Pragma = "no-cache";
         var certificates = await _certificateRepository.GetByEventIdAsync(eventId, token);
         if (User.IsInRole("Member"))
             certificates = certificates.Where(x => string.Equals(x.Participant?.MembershipId, User.GetMembershipId(), StringComparison.OrdinalIgnoreCase)).ToList();
@@ -393,7 +397,8 @@ public class CertificatesController : ControllerBase
             }, 
             certificate.CertificateTemplate.Width > 0 ? certificate.CertificateTemplate.Width : 1122, 
             certificate.CertificateTemplate.Height > 0 ? certificate.CertificateTemplate.Height : 793,
-            ResolveAssetPath(certificate.CertificateTemplate.BackgroundImagePath)));
+            ResolveAssetPath(certificate.CertificateTemplate.BackgroundImagePath),
+            BuildVerificationUrl(certificate.CertificateNumber)));
         }
 
         if (requests.Count == 0)
@@ -403,6 +408,12 @@ public class CertificatesController : ControllerBase
 
         var bytes = _certificateRenderer.RenderPdfBatch(requests);
         return File(bytes, "application/pdf", $"event-{eventId}-certificates.pdf");
+    }
+
+    private string BuildVerificationUrl(string certificateNumber)
+    {
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        return $"{baseUrl}/api/certificates/verify/{Uri.EscapeDataString(certificateNumber)}";
     }
 
     private string? ResolveAssetPath(string? path)
