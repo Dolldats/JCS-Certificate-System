@@ -13,5 +13,5 @@ public interface ICertificateRenderer
     byte[] RenderPdfBatch(IReadOnlyCollection<CertificateRenderRequest> requests);
 }
 
-public record CertificateRenderRequest(TemplateLayoutDto Layout, IReadOnlyDictionary<string, string?> Values, decimal Width = 1122, decimal Height = 793, string? BackgroundImagePath = null);
+public record CertificateRenderRequest(TemplateLayoutDto Layout, IReadOnlyDictionary<string, string?> Values, decimal Width = 1122, decimal Height = 793, string? BackgroundImagePath = null, string? VerificationUrl = null);
 
