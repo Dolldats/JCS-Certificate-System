@@ -36,7 +36,7 @@ public class EventService : IEventService
             Ilaqa = eventItem.Ilaqa,
             OrganizationalLevel = eventItem.OrganizationalLevel,
             OrganizationalUnit = eventItem.OrganizationalUnit,
-            Status = DisplayStatus(eventItem.Status),
+            Status = GetDateBasedStatus(eventItem),
             CreatedAt = eventItem.CreatedAt,
             ParticipantCount = VerifiedParticipantCount(eventItem),
             TotalParticipantCount = TotalParticipantCount(eventItem),
@@ -64,7 +64,7 @@ public class EventService : IEventService
                 Ilaqa = eventItem.Ilaqa,
                 OrganizationalLevel = eventItem.OrganizationalLevel,
                 OrganizationalUnit = eventItem.OrganizationalUnit,
-                Status = DisplayStatus(eventItem.Status),
+                Status = GetDateBasedStatus(eventItem),
                 CreatedAt = eventItem.CreatedAt,
                 ParticipantCount = VerifiedParticipantCount(eventItem),
                 TotalParticipantCount = TotalParticipantCount(eventItem),
@@ -95,7 +95,7 @@ public class EventService : IEventService
                 Ilaqa = eventItem.Ilaqa,
                 OrganizationalLevel = eventItem.OrganizationalLevel,
                 OrganizationalUnit = eventItem.OrganizationalUnit,
-                Status = DisplayStatus(eventItem.Status),
+                Status = GetDateBasedStatus(eventItem),
                 CreatedAt = eventItem.CreatedAt,
                 ParticipantCount = VerifiedParticipantCount(eventItem),
                 TotalParticipantCount = TotalParticipantCount(eventItem),
@@ -140,7 +140,7 @@ public class EventService : IEventService
             Ilaqa = newEvent.Ilaqa,
             OrganizationalLevel = newEvent.OrganizationalLevel,
             OrganizationalUnit = newEvent.OrganizationalUnit,
-            Status = newEvent.Status,
+            Status = GetDateBasedStatus(newEvent),
             CreatedAt = newEvent.CreatedAt,
             ParticipantCount = VerifiedParticipantCount(newEvent),
             TotalParticipantCount = TotalParticipantCount(newEvent),
@@ -183,7 +183,7 @@ public class EventService : IEventService
             Ilaqa = eventItem.Ilaqa,
             OrganizationalLevel = eventItem.OrganizationalLevel,
             OrganizationalUnit = eventItem.OrganizationalUnit,
-            Status = DisplayStatus(eventItem.Status),
+            Status = GetDateBasedStatus(eventItem),
             CreatedAt = eventItem.CreatedAt,
             ParticipantCount = VerifiedParticipantCount(eventItem),
             TotalParticipantCount = TotalParticipantCount(eventItem),
@@ -211,6 +211,17 @@ public class EventService : IEventService
     private static int IssuedCertificateCount(Event eventItem) =>
         eventItem.Certificates?.Count(x => x.Status == CertificateStatus.Issued) ?? 0;
 
-    private static string DisplayStatus(string status) =>
-        string.Equals(status, "Draft", StringComparison.OrdinalIgnoreCase) ? "Active" : status;
+    private static string GetDateBasedStatus(Event eventItem)
+    {
+        var today = DateTime.UtcNow.Date;
+        var startDate = eventItem.EventDate.Date;
+        var endDate = (eventItem.EndDate ?? eventItem.EventDate).Date;
+
+        if (today < startDate)
+        {
+            return "Upcoming";
+        }
+
+        return today <= endDate ? "In Progress" : "Completed";
+    }
 }

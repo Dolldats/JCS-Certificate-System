@@ -50,7 +50,7 @@ public sealed class DashboardController : ControllerBase
         return Ok(new
         {
             totalEvents = events.Count,
-            activeEvents = events.Count(x => string.Equals(x.Status, "Active", StringComparison.OrdinalIgnoreCase) || string.Equals(x.Status, "InProgress", StringComparison.OrdinalIgnoreCase)),
+            activeEvents = events.Count(x => string.Equals(x.Status, "In Progress", StringComparison.OrdinalIgnoreCase)),
             totalParticipants = participants.Count,
             verifiedParticipants = participants.Count(x => x.IsVerified),
             certificatesIssued = certificates.Count(x => x.Status == JCS.Domain.Enum.CertificateStatus.Issued || x.Status == JCS.Domain.Enum.CertificateStatus.Generated),
