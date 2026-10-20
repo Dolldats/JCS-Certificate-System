@@ -106,15 +106,18 @@ namespace JCS.API
                     var initialSuperAdminMembershipId = builder.Configuration["InitialSuperAdminMembershipId"];
                     if (!string.IsNullOrWhiteSpace(initialSuperAdminMembershipId))
                     {
-                        var existing = db.AdminAssignments.FirstOrDefault(x =>
-                            x.MembershipId == initialSuperAdminMembershipId);
+                        var configuredMembershipId = initialSuperAdminMembershipId.Trim();
+                        var existingAssignments = db.AdminAssignments
+                            .Where(x => x.MembershipId == configuredMembershipId)
+                            .ToList();
+                        var existing = existingAssignments.FirstOrDefault();
 
                         if (existing == null)
                         {
                             db.AdminAssignments.Add(new JCS.Domain.Entities.AdminAssignment
                             {
                                 Id = Guid.NewGuid(),
-                                MembershipId = initialSuperAdminMembershipId.Trim(),
+                                MembershipId = configuredMembershipId,
                                 Auxiliary = JCS.Domain.Enum.Auxiliary.Khuddam,
                                 Role = JCS.Domain.Enum.AdminRole.SuperAdmin,
                                 Status = JCS.Domain.Enum.AdminStatus.Active,
@@ -137,6 +140,21 @@ namespace JCS.API
                             existing.RevokedAt = null;
                             db.SaveChanges();
                             logger.LogInformation("Restored initial Super Admin assignment.");
+                        }
+
+                        foreach (var duplicate in existingAssignments.Skip(1))
+                        {
+                            duplicate.Role = JCS.Domain.Enum.AdminRole.SuperAdmin;
+                            duplicate.Status = JCS.Domain.Enum.AdminStatus.Active;
+                            duplicate.Auxiliary = JCS.Domain.Enum.Auxiliary.Khuddam;
+                            duplicate.RevokedBy = null;
+                            duplicate.RevokedAt = null;
+                        }
+
+                        if (existingAssignments.Count > 1)
+                        {
+                            db.SaveChanges();
+                            logger.LogInformation("Restored duplicate initial Super Admin assignments.");
                         }
                     }
                 }
