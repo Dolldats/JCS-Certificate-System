@@ -13,19 +13,43 @@ export function getAuthToken(): string | null {
 }
 
 /**
+ * Trims, collapses whitespace and strips markup out of an upstream error body
+ * so the real reason can be shown instead of a generic sentence.
+ */
+function normalizeDetail(detail: string): string {
+  return detail
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 300);
+}
+
+/**
+ * True when the text is a raw framework/transport artifact rather than a
+ * message written for a human (HTML error pages, stack dumps, empty bodies).
+ */
+function isTechnicalNoise(clean: string): boolean {
+  return (
+    clean.length === 0 ||
+    /^(unauthorized|forbidden|not found|bad request|internal server error|bad gateway|service unavailable|gateway timeout|error)$/i.test(
+      clean
+    ) ||
+    /failed to fetch|networkerror|network request|\bproxy\b|doctype|<html|^\[object|undefined$|null$/i.test(
+      clean
+    )
+  );
+}
+
+/**
  * Turns technical request failures into plain, straight-to-the-point
- * messages for admins. Raw status codes and fetch internals never reach
- * the UI — callers can still find them in the devtools console.
+ * messages for admins. When the backend actually explained what went wrong
+ * we show that verbatim instead of hiding it behind a generic message.
  */
 export function friendlyErrorMessage(status: number, detail = '', fallback401?: string): string {
-  const clean = detail.trim().replace(/\s+/g, ' ');
-  const bareToken = /^(unauthorized|forbidden|not found|bad request|internal server error|bad gateway|service unavailable|gateway timeout)$/i;
-  const looksTechnical =
-    clean.length === 0 ||
-    clean.length > 200 ||
-    bareToken.test(clean) ||
-    /failed to fetch|networkerror|network request|proxy|server error|status \d|request failed|login failed|doctype|<html|undefined|null$/i.test(clean);
-  if (!looksTechnical) return clean;
+  const clean = normalizeDetail(detail);
+
+  if (clean && !isTechnicalNoise(clean)) return clean;
+
   if (status === 401) return fallback401 || 'Your session has expired. Please sign in again.';
   if (status === 403) return 'You do not have permission to do that.';
   if (status === 404) return 'That record was not found. It may have been deleted.';
@@ -33,8 +57,8 @@ export function friendlyErrorMessage(status: number, detail = '', fallback401?: 
   if (status === 409) return 'That already exists, so nothing was changed.';
   if (status === 400 || status === 422) return 'Some details were not accepted. Please check and try again.';
   if (status === 429) return 'Too many attempts. Please wait a moment and try again.';
-  if (status >= 500) return 'Something went wrong on our side. Please try again in a bit.';
-  return 'Something went wrong. Please try again.';
+  if (status >= 500) return `The server failed while handling this request (HTTP ${status}). Please try again.`;
+  return `The request did not complete (HTTP ${status}).`;
 }
 
 export async function backendFetch<T>(
@@ -68,28 +92,48 @@ export async function backendFetch<T>(
   }
 
   if (!res.ok) {
+    // Read the raw body once so we can mine it for whatever the backend said,
+    // whichever shape it used (ProblemDetails, validation bag, plain text).
     let detail = '';
+    let rawBody = '';
     try {
-      const errBody = (await res.json()) as unknown;
-      if (typeof errBody === 'object' && errBody !== null) {
-        const record = errBody as Record<string, unknown>;
-        if (typeof record.message === 'string' && record.message) {
-          detail = record.message;
-        } else if (typeof record.title === 'string' && record.title) {
-          detail = record.title;
-        } else if (record.errors && typeof record.errors === 'object') {
-          const first = Object.values(record.errors as Record<string, unknown>).flat()[0];
-          if (typeof first === 'string') detail = first;
-        }
-      } else if (typeof errBody === 'string' && errBody) {
-        detail = errBody;
-      }
+      rawBody = await res.text();
     } catch {
-      // Fallback
+      // Nothing readable in the body.
+    }
+
+    if (rawBody.trim()) {
+      try {
+        const errBody = JSON.parse(rawBody) as unknown;
+        if (typeof errBody === 'object' && errBody !== null) {
+          const record = errBody as Record<string, unknown>;
+          const candidates: string[] = [];
+          if (typeof record.message === 'string') candidates.push(record.message);
+          if (typeof record.detail === 'string') candidates.push(record.detail);
+          if (typeof record.title === 'string') candidates.push(record.title);
+          if (record.errors && typeof record.errors === 'object') {
+            const flat = Object.values(record.errors as Record<string, unknown>).flat();
+            for (const entry of flat) if (typeof entry === 'string') candidates.push(entry);
+          }
+          if (candidates.length === 0) candidates.push(rawBody);
+          // Prefer the first field a human would actually understand.
+          detail = candidates.find((c) => !isTechnicalNoise(normalizeDetail(c))) ?? candidates[0];
+        } else if (typeof errBody === 'string' && errBody) {
+          detail = errBody;
+        }
+      } catch {
+        detail = rawBody;
+      }
     }
 
     console.warn(`Backend ${endpoint} failed:`, res.status, detail || '(no detail)');
-    throw new Error(friendlyErrorMessage(res.status, detail));
+    // Keep the HTTP status on the error so callers can branch on it
+    // (e.g. treat a 404 as "already gone") instead of matching message text.
+    const error = new Error(friendlyErrorMessage(res.status, detail)) as Error & {
+      status?: number;
+    };
+    error.status = res.status;
+    throw error;
   }
 
   // Handle empty 204 or 200 responses

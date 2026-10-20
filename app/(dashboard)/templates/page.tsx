@@ -27,6 +27,7 @@ import {
   X,
   ImagePlus,
   Trash2,
+  RefreshCw,
 } from 'lucide-react';
 
 const CERTIFICATE_TYPES: CertificateType[] = [
@@ -89,8 +90,10 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [currentTemplate, setCurrentTemplate] = useState<CertificateTemplate | null>(null);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<CertificateTemplate | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<'visuals' | 'content' | 'signatories'>('visuals');
   // Preview-first: entering the studio shows only the certificate.
@@ -137,29 +140,53 @@ export default function TemplatesPage() {
     if (signatureInputRef.current) signatureInputRef.current.value = '';
   }, [currentTemplate]);
 
-  useEffect(() => {
-    // Studio shows every auxiliary body's designs — no auxiliary filter.
-    async function loadTemplates() {
-      const data = await templatesApi.getAll(undefined);
+  // Studio shows every auxiliary body's designs — no auxiliary filter.
+  const applyTemplates = useCallback(
+    (data: CertificateTemplate[]) => {
       setTemplates(data);
       if (data.length > 0 && !selectedTemplateId) {
         setSelectedTemplateId(data[0].id);
         setCurrentTemplate({ ...data[0] });
       }
+    },
+    [selectedTemplateId]
+  );
+
+  useEffect(() => {
+    async function loadTemplates() {
+      const data = await templatesApi.getAll(undefined);
+      applyTemplates(data);
     }
     loadTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleRefreshTemplates = async () => {
+    setIsLoadingTemplates(true);
+    try {
+      const data = await templatesApi.getAll(undefined);
+      applyTemplates(data);
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  };
 
   const handleSelectTemplate = async (id: string) => {
     setSelectedTemplateId(id);
     const found = templates.find((t) => t.id === id);
-    if (found) {
-      setCurrentTemplate({ ...found });
-      if (/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id)) {
-        try {
-          setCurrentTemplate(await templatesApi.getById(id));
-        } catch (error) {
-          toast.error(error instanceof Error ? error.message : 'Could not load template details.');
+    if (!found) return;
+    // Show the list copy immediately so selection never feels laggy.
+    setCurrentTemplate({ ...found });
+    if (/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id)) {
+      try {
+        setCurrentTemplate(await templatesApi.getById(id));
+      } catch (error) {
+        // A design held only in localStorage (edited while the backend was
+        // unreachable) has no server record — keep the local copy rather than
+        // crying 404 at the admin. Anything else is a real failure worth showing.
+        const message = error instanceof Error ? error.message : '';
+        if (!/not found/i.test(message)) {
+          toast.error(message || 'Could not load template details.');
         }
       }
     }
@@ -212,22 +239,26 @@ export default function TemplatesPage() {
     }
   };
 
-  const handleDeleteTemplate = () => {
-    if (!currentTemplate || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(currentTemplate.id)) return;
+  const handleDeleteTemplate = (tmpl: CertificateTemplate | null) => {
+    if (!tmpl || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(tmpl.id)) return;
+    setDeleteTarget(tmpl);
+    setCurrentTemplate(tmpl);
     setIsDeleteOpen(true);
   };
 
   const confirmDeleteTemplate = async () => {
-    if (!currentTemplate) return;
-    try {
-      await templatesApi.delete(currentTemplate.id);
-      const remaining = await templatesApi.getAll(undefined);
-      setTemplates(remaining);
-      setCurrentTemplate(remaining[0] || null);
-      setSelectedTemplateId(remaining[0]?.id || '');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Template could not be deleted.');
-    }
+    const target = deleteTarget;
+    if (!target) return;
+    // Let the ConfirmDialog surface the real failure reason (its own error
+    // stage) instead of claiming success here.
+    const remaining = await templatesApi
+      .delete(target.id, user ?? undefined, target.name)
+      .then(() => templatesApi.getAll(undefined));
+    setTemplates(remaining);
+    setCurrentTemplate(remaining[0] || null);
+    setSelectedTemplateId(remaining[0]?.id || '');
+    setDeleteTarget(null);
+    toast.success(`"${target.name}" was deleted.`);
   };
 
   return (
@@ -244,11 +275,22 @@ export default function TemplatesPage() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="md" onClick={() => void handleServerPreview()} isLoading={isLoadingServerPreview} leftIcon={<Eye className="h-4 w-4" />}>
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => void handleRefreshTemplates()}
+            disabled={isLoadingTemplates}
+            leftIcon={
+              <RefreshCw className={`w-4 h-4 ${isLoadingTemplates ? 'animate-spin' : ''}`} />
+            }
+          >
+            Refresh
+          </Button>
+          <Button variant="outline" size="md" onClick={() => void handleServerPreview()} isLoading={isLoadingServerPreview} leftIcon={<Eye className="w-4 h-4" />}>
             Server Preview
           </Button>
           {currentTemplate && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(currentTemplate.id) && (
-            <Button variant="outline" size="md" className="text-rose-600" onClick={() => void handleDeleteTemplate()} leftIcon={<Trash2 className="h-4 w-4" />}>
+            <Button variant="outline" size="md" className="text-rose-600" onClick={() => void handleDeleteTemplate(currentTemplate)} leftIcon={<Trash2 className="h-4 w-4" />}>
               Delete
             </Button>
           )}
@@ -1202,16 +1244,18 @@ export default function TemplatesPage() {
         onConfirm={confirmDeleteTemplate}
         title="Delete Template?"
         description={
-          currentTemplate
-            ? `Permanently delete the "${currentTemplate.name}" design? Certificates already issued with it are not affected.`
+          deleteTarget
+            ? `Permanently delete the "${deleteTarget.name}" design? Certificates already issued with it are not affected.`
             : undefined
         }
         confirmLabel="Yes, Delete"
         tone="danger"
+        busyTitle="Deleting template"
+        busyDescription="Removing this design and its saved settings…"
         successTitle="Deleted Successfully!"
         successDescription={
-          currentTemplate
-            ? `The "${currentTemplate.name}" design has been permanently deleted.`
+          deleteTarget
+            ? `The "${deleteTarget.name}" design has been permanently deleted.`
             : undefined
         }
       />

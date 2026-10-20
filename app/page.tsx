@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { CountUp } from '../components/ui/CountUp';
 import {
   ArrowRight,
   Award,
@@ -21,6 +22,31 @@ export const metadata: Metadata = {
 };
 
 const AUXILIARIES = ['Atfal', 'Khuddam', 'Ansarullah', 'Lajna', 'Nasra'];
+
+// Hero figures — these count up when the section scrolls into view.
+const HERO_STATS = [
+  {
+    value: 5,
+    prefix: '',
+    suffix: '',
+    label: 'Auxiliaries',
+    description: 'Atfal to Nasra, each with its own identity',
+  },
+  {
+    value: 4,
+    prefix: 'A',
+    suffix: '',
+    label: 'Print-ready',
+    description: 'A4 landscape, exact colour output',
+  },
+  {
+    value: 100,
+    prefix: '',
+    suffix: '%',
+    label: 'Audited',
+    description: 'Every action logged with admin and time',
+  },
+];
 
 const FEATURES = [
   {
@@ -152,24 +178,38 @@ export default function LandingPage() {
               print-ready certificates — with a full audit trail.
             </p>
 
-            <div className="mt-8 grid max-w-md grid-cols-3 gap-4 border-t border-white/10 pt-6 text-center">
-              <div>
-                <div className="text-xl font-bold sm:text-2xl">5</div>
-                <div className="mt-1 text-[11px] uppercase tracking-wider text-emerald-100/60">
-                  Auxiliaries
-                </div>
-              </div>
-              <div>
-                <div className="text-xl font-bold sm:text-2xl">A4</div>
-                <div className="mt-1 text-[11px] uppercase tracking-wider text-emerald-100/60">
-                  Print-ready
-                </div>
-              </div>
-              <div>
-                <div className="text-xl font-bold sm:text-2xl">100%</div>
-                <div className="mt-1 text-[11px] uppercase tracking-wider text-emerald-100/60">
-                  Audited
-                </div>
+            <div className="relative mt-8 overflow-hidden rounded-2xl border border-white/15 bg-white/[0.06] backdrop-blur-sm">
+              {/* Gold accent line across the top of the panel */}
+              <div
+                aria-hidden="true"
+                className="absolute inset-x-0 top-0 h-px"
+                style={{
+                  background:
+                    'linear-gradient(90deg, transparent 0%, rgba(245,158,11,0.9) 50%, transparent 100%)',
+                }}
+              />
+              <div className="grid grid-cols-3 divide-x divide-white/10">
+                {HERO_STATS.map((stat) => (
+                  <div key={stat.label} className="px-4 py-5 text-center">
+                    <div className="text-3xl font-bold leading-none text-amber-400 sm:text-4xl">
+                      {stat.prefix ? (
+                        <CountUp
+                          to={stat.value}
+                          prefix={stat.prefix}
+                          suffix={stat.suffix}
+                        />
+                      ) : (
+                        <CountUp to={stat.value} suffix={stat.suffix} />
+                      )}
+                    </div>
+                    <div className="mt-2.5 text-xs font-bold uppercase tracking-wider text-white">
+                      {stat.label}
+                    </div>
+                    <div className="mt-1 text-[11px] leading-snug text-emerald-100/55">
+                      {stat.description}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

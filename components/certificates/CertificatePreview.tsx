@@ -9,8 +9,18 @@ import { RoyalMaroonCertificate } from './RoyalMaroonCertificate';
 import { TealSurgeCertificate } from './TealSurgeCertificate';
 import { OnyxExecutiveCertificate } from './OnyxExecutiveCertificate';
 import { Button } from '../ui/Button';
+import { QrCode } from '../ui/QrCode';
 import { formatDate } from '../../lib/utils';
 import { Printer, Download, CheckCircle2, ShieldCheck } from 'lucide-react';
+
+// Auxiliary emblem shown at the center of the verification QR code.
+const AUXILIARY_QR_LOGO: Record<string, string> = {
+  Khuddam: '/MKAN-logo1.png',
+  Lajna: '/lajna_logo.png',
+  Ansarullah: '/ansar.jpg',
+  Atfal: '/ahmadiyyah_logo.png',
+  Nasra: '/ahmadiyyah_logo.png',
+};
 
 // Fixed design size (A4 landscape ratio). The certificate is rendered at
 // this size internally, then scaled down to fit the container width —
@@ -203,6 +213,22 @@ export function CertificatePreview({
             }}
           >
             {renderCertificate()}
+            {/* QR code rendered directly on the certificate artwork — scales/prints with it */}
+            {certNumber && certNumber !== 'JCS-PENDING' && (
+              <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center pointer-events-none">
+                <QrCode
+                  value={`${window.location.origin}/verify/${certNumber}`}
+                  size={72}
+                  logo={
+                    AUXILIARY_QR_LOGO[
+                      template?.auxiliary ??
+                        (certificate?.auxiliary as string | undefined) ??
+                        'All'
+                    ]
+                  }
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

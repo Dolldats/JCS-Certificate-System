@@ -112,6 +112,7 @@ export default function MemberPage() {
         }
       }
     };
+
     void loadMemberRecords();
     return () => { cancelled = true; };
   }, [isLoading, router, user]);

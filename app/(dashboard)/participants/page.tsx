@@ -127,6 +127,17 @@ function ParticipantsContent() {
           setIsSingleAddOpen(false);
           setSingleVerificationResult(null);
         }, 1500);
+      } else {
+        // The member was added but did not verify — say so plainly instead of
+        // leaving the admin with no feedback at all.
+        toast.info(
+          `${res.fullName} was added to the roster with status "${res.verificationStatus}".`
+        );
+        setSingleMemberId('');
+        setTimeout(() => {
+          setIsSingleAddOpen(false);
+          setSingleVerificationResult(null);
+        }, 2500);
       }
     } catch (err) {
       console.error('Failed to add participant', err);
@@ -149,6 +160,22 @@ function ParticipantsContent() {
       const result = await participantsApi.bulkUpload(selectedEventId, ids, user);
       setBulkSummary(result);
       await loadParticipants();
+      // Always report the outcome — the summary in the modal is not enough
+      // on its own, and silent success left the admin guessing.
+      const skipped = result.notFoundCount + result.invalidCount + result.duplicateCount + result.failedCount;
+      if (result.verifiedCount > 0) {
+        toast.success(
+          `${result.verifiedCount} participant${result.verifiedCount === 1 ? '' : 's'} verified and added to the roster.`
+        );
+      }
+      if (skipped > 0) {
+        toast.info(
+          `${skipped} row${skipped === 1 ? '' : 's'} skipped — ${result.notFoundCount} not found, ${result.invalidCount} invalid, ${result.duplicateCount} duplicate, ${result.failedCount} failed.`
+        );
+      }
+      if (result.verifiedCount === 0 && skipped === 0) {
+        toast.info('No member IDs were processed.');
+      }
     } catch (err) {
       console.error('Failed to process bulk upload', err);
       toast.error(err instanceof Error ? err.message : 'Could not process these member IDs.');
@@ -197,12 +224,11 @@ function ParticipantsContent() {
   const confirmDeleteParticipant = async () => {
     if (!user || !participantToDelete) return;
 
-    try {
-      await participantsApi.delete(participantToDelete.id, user);
-      setParticipants((current) => current.filter((item) => item.id !== participantToDelete.id));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not remove participant.');
-    }
+    // Let the dialog surface the real reason: catching here would show
+    // "Removed Successfully!" while a toast said the opposite.
+    await participantsApi.delete(participantToDelete.id, user, participantToDelete);
+    setParticipants((current) => current.filter((item) => item.id !== participantToDelete.id));
+    toast.success(`${participantToDelete.fullName} was removed from this roster.`);
   };
 
   const filteredParticipants = participants.filter((p) => {
@@ -301,6 +327,7 @@ function ParticipantsContent() {
         <div className="w-full sm:w-80">
           <Input
             placeholder="Search by Member ID, name, or Jama'at..."
+            className="focus:border-slate-300 focus:ring-slate-200"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             leftIcon={<Search className="w-4 h-4 text-slate-400" />}
@@ -328,7 +355,10 @@ function ParticipantsContent() {
             variant="ghost"
             size="sm"
             onClick={loadParticipants}
-            leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+            disabled={loading}
+            leftIcon={
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            }
           >
             Refresh
           </Button>

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../components/ui/Toast';
 import { authApi } from '../../../services/api';
 import { User, Auxiliary } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
@@ -27,6 +28,7 @@ import {
   ShieldCheck,
   AlertCircle,
   Pencil,
+  RefreshCw,
 } from 'lucide-react';
 
 const AUXILIARY_OPTIONS: Auxiliary[] = [
@@ -68,6 +70,7 @@ function getAdminDisplayName(admin: User): string {
 
 export default function AdminsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [admins, setAdmins] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -111,8 +114,14 @@ export default function AdminsPage() {
       setAssignMemberId('');
       setEditingAssignmentId(null);
       await loadAdmins();
+      toast.success(
+        editingAssignmentId
+          ? 'Administrator assignment updated.'
+          : `${assignMemberId.trim().toUpperCase()} was assigned as ${assignAuxiliary} Admin.`
+      );
     } catch (err) {
       setAssignError(err instanceof Error ? err.message : 'Failed to assign administrator');
+      toast.error(err instanceof Error ? err.message : 'Failed to assign administrator');
     } finally {
       setIsAssigning(false);
     }
@@ -138,12 +147,12 @@ export default function AdminsPage() {
 
   const confirmDelete = async () => {
     if (!adminToDelete) return;
-    try {
-      await authApi.deleteGeneralAdmin(adminToDelete);
-      await loadAdmins();
-    } catch (err) {
-      setAssignError(err instanceof Error ? err.message : 'Could not delete this assignment');
-    }
+    // Let the dialog surface the real reason instead of claiming success
+    // while the error only lands in an inline field.
+    const name = targetAdminName(adminToDelete);
+    await authApi.deleteGeneralAdmin(adminToDelete, user || undefined);
+    await loadAdmins();
+    toast.success(`The assignment record for ${name} was removed.`);
   };
 
   const handleRevoke = (adminId: string) => {
@@ -153,8 +162,10 @@ export default function AdminsPage() {
 
   const confirmRevoke = async () => {
     if (!user || !adminToRevoke) return;
+    const name = targetAdminName(adminToRevoke);
     await authApi.revokeGeneralAdmin(adminToRevoke, user);
     await loadAdmins();
+    toast.success(`The assignment for ${name} was revoked.`);
   };
 
   const targetAdminName = (id: string | null) =>
@@ -197,14 +208,27 @@ export default function AdminsPage() {
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          size="md"
-          onClick={() => { setEditingAssignmentId(null); setAssignMemberId(''); setAssignError(''); setIsAssignOpen(true); }}
-          leftIcon={<UserPlus className="w-4 h-4" />}
-        >
-          Assign Auxiliary Admin
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => void loadAdmins()}
+            disabled={loading}
+            leftIcon={
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            }
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => { setEditingAssignmentId(null); setAssignMemberId(''); setAssignError(''); setIsAssignOpen(true); }}
+            leftIcon={<UserPlus className="w-4 h-4" />}
+          >
+            Assign Auxiliary Admin
+          </Button>
+        </div>
       </div>
 
       <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-start gap-3">
@@ -221,6 +245,7 @@ export default function AdminsPage() {
         <div className="w-full sm:w-80">
           <Input
             placeholder="Search admins by name, Member ID, or auxiliary..."
+            className="focus:border-slate-300 focus:ring-slate-200"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             leftIcon={<Search className="w-4 h-4 text-slate-400" />}

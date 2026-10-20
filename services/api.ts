@@ -1,4 +1,4 @@
-import { jamaatMemberApi } from './jamaatMemberApi';
+import { jamaatMemberApi, isLiveJamaatApi } from './jamaatMemberApi';
 import { backendDownload, backendFetch, friendlyErrorMessage, getAuthToken } from './backendClient';
 
 import {
@@ -524,11 +524,34 @@ export const authApi = {
     });
   },
 
-  async deleteGeneralAdmin(assignmentId: string): Promise<void> {
+  async deleteGeneralAdmin(assignmentId: string, performedBy?: User): Promise<void> {
     const token = getAuthToken();
-    if (token) await backendFetch<void>(`AdminAssignments/${assignmentId}`, { method: 'DELETE' });
+    if (token) {
+      try {
+        await backendFetch<void>(`AdminAssignments/${assignmentId}`, { method: 'DELETE' });
+      } catch (err) {
+        // "Already gone" is still a successful removal from the admin's view.
+        const status = (err as { status?: number } | null)?.status;
+        const message = err instanceof Error ? err.message : '';
+        const alreadyGone = status === 404 || /not found|no such|does not exist/i.test(message);
+        if (!alreadyGone) throw err;
+      }
+    }
     const users = getStorage<User[]>('users', INITIAL_USERS);
+    const target = users.find((u) => u.id === assignmentId);
     setStorage('users', users.filter((u) => u.id !== assignmentId));
+
+    // Deleting an assignment used to leave no trace at all.
+    if (performedBy) {
+      await auditApi.recordLog({
+        action: 'General Admin Revoked',
+        adminName: performedBy.fullName,
+        adminRole: performedBy.role,
+        auxiliary: target?.assignedAuxiliary,
+        target: target ? `${target.fullName} (${target.memberId})` : assignmentId,
+        details: `General Admin assignment${target?.assignedAuxiliary ? ` for ${target.assignedAuxiliary}` : ''} was deleted.`,
+      });
+    }
   },
 };
 
@@ -551,7 +574,9 @@ function mapBackendEventToEvent(raw: BackendRecord): Event {
     date: eventDate.includes('T') ? eventDate.split('T')[0] : eventDate,
     endDate: endDateRaw ? (endDateRaw.includes('T') ? endDateRaw.split('T')[0] : endDateRaw) : undefined,
     venue: bStr(raw.venue),
-    auxiliary: bStr(raw.auxiliary, 'Atfal') as Auxiliary,
+    // No invented auxiliary: a record with no auxiliary stays unassigned so
+    // it can never surface under the wrong majlis.
+    auxiliary: (bStr(raw.auxiliary) || undefined) as Auxiliary | undefined,
     orgLevel: bStr(raw.organizationalLevel || raw.orgLevel, 'Ilaqa') as Event['orgLevel'],
     orgUnitName: bStr(raw.organizationalUnit || raw.orgUnitName, 'General'),
     status: bStr(raw.status, 'Upcoming') as EventStatus,
@@ -786,7 +811,9 @@ function mapBackendParticipantToParticipant(raw: BackendRecord, fallbackEventId?
     fullName: bStr(raw.fullName, 'Unknown Member'),
     email: bStr(raw.email) || undefined,
     phone: bStr(raw.phone) || undefined,
-    auxiliary: bStr(raw.auxiliary, 'Atfal') as Auxiliary,
+    // No invented auxiliary: an unassigned participant must not be filed
+    // under a real majlis by default.
+    auxiliary: (bStr(raw.auxiliary) || undefined) as Auxiliary | undefined,
     // Do not substitute demo locations for missing member-directory data.
     dila: bStr(raw.dila),
     ilaqa: bStr(raw.ilaqa) || undefined,
@@ -883,38 +910,59 @@ export const participantsApi = {
     return updated;
   },
 
-  async delete(id: string, performedBy: User): Promise<void> {
+  async delete(id: string, performedBy: User, participant?: Participant): Promise<void> {
     const token = getAuthToken();
     const isBackendId = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id);
     if (!token || !isBackendId) {
       const participants = getStorage<Participant[]>('participants', INITIAL_PARTICIPANTS);
-      const participant = participants.find((item) => item.id === id);
-      if (!participant) throw new Error('Participant was not found in the current roster.');
+      const record = participant ?? participants.find((item) => item.id === id);
+      if (!record) throw new Error('Participant was not found in the current roster.');
       setStorage('participants', participants.filter((item) => item.id !== id));
       await auditApi.recordLog({
         action: 'Participant Import',
         adminName: performedBy.fullName,
         adminRole: performedBy.role,
-        auxiliary: participant.auxiliary,
-        target: `${participant.memberId} (${participant.eventId})`,
+        auxiliary: record.auxiliary,
+        target: `${record.memberId} (${record.eventId})`,
         details: 'Removed participant from the local demo roster.',
       });
       return;
     }
 
-    const participant = await this.getById(id);
-    await backendFetch<void>(`Participants/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    // Do not pre-fetch the record just to describe it in the audit entry —
+    // a detail lookup can 404 even when the enrollment is still there, and
+    // that used to abort the delete before it was ever attempted.
+    let known = participant;
+    if (!known) {
+      try {
+        known = await this.getById(id);
+      } catch {
+        known = undefined;
+      }
+    }
+
+    try {
+      await backendFetch<void>(`Participants/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch (err) {
+      // "Already gone" is still a successful removal from the admin's view.
+      const status = (err as { status?: number } | null)?.status;
+      const message = err instanceof Error ? err.message : '';
+      const alreadyGone = status === 404 || /not found|no such|does not exist/i.test(message);
+      if (!alreadyGone) throw err;
+      console.warn(`Participant ${id} was already absent on the backend.`);
+    }
+
     await auditApi.recordLog({
       action: 'Participant Import',
       adminName: performedBy.fullName,
       adminRole: performedBy.role,
-      auxiliary: participant.auxiliary,
-      target: `${participant.memberId} (${participant.eventId})`,
+      auxiliary: known?.auxiliary,
+      target: known ? `${known.memberId} (${known.eventId})` : id,
       details: 'Removed participant enrollment.',
     });
   },
 
-  async verifyMemberId(memberId: string, auxiliary: Auxiliary): Promise<{
+  async verifyMemberId(memberId: string, auxiliary?: Auxiliary): Promise<{
     status: Participant['verificationStatus'];
     details: string;
     member?: JamaatMember;
@@ -934,7 +982,9 @@ export const participantsApi = {
               memberId: cleanId,
               fullName: bStr(res.fullName, `Brother ${cleanId}`),
               auxiliary: (res.auxiliary || auxiliary) as Auxiliary,
-              mulkOrDistrict: bStr(res.mulkOrDistrict, 'National HQ'),
+              // Left undefined when the registry omits it — 'National HQ' was
+              // an invented value printed on certificates.
+              mulkOrDistrict: bStr(res.mulkOrDistrict) || undefined,
               ilaqa: bStr(res.ilaqa) || undefined,
               dila: bStr(res.dila),
               jamaat: bStr(res.jamaat),
@@ -950,10 +1000,19 @@ export const participantsApi = {
       }
     }
 
-    // Fallback to local registry adapter
-    return jamaatMemberApi.verifyMember(cleanId, auxiliary);
+    // Fallback to local registry adapter. The central Jama'at member API is
+    // not connected yet, so this only ever runs in the signed-out demo mode —
+    // but the result must say so, otherwise a local/demo lookup is
+    // indistinguishable from a real central verification.
+    const fallback = await jamaatMemberApi.verifyMember(cleanId, auxiliary);
+    if (!isLiveJamaatApi()) {
+      return {
+        ...fallback,
+        details: `${fallback.details} (verified against the local registry — the central Jama'at member API is not connected)`,
+      };
+    }
+    return fallback;
   },
-
   async addSingle(eventId: string, memberId: string, performedBy: User): Promise<Participant> {
     const event = await eventsApi.getById(eventId);
     if (!event) throw new Error('Event not found');
@@ -1001,6 +1060,17 @@ export const participantsApi = {
 
         const participants = getStorage<Participant[]>('participants', INITIAL_PARTICIPANTS);
         setStorage('participants', [newParticipant, ...participants.filter((p) => p.id !== newParticipant.id)]);
+
+        // The signed-in path must be audited too — only the offline path
+        // used to write this entry, so real enrollments went unrecorded.
+        await auditApi.recordLog({
+          action: 'Member Verification',
+          adminName: performedBy.fullName,
+          adminRole: performedBy.role,
+          auxiliary: event.auxiliary,
+          target: `${cleanId} (${event.name})`,
+          details: `Enrolled participant: Status ${verification.status}`,
+        });
 
         return newParticipant;
       } catch (err) {
@@ -1052,6 +1122,7 @@ export const participantsApi = {
       let invalidCount = 0;
       let duplicateCount = 0;
       let failedCount = 0;
+      const failures: string[] = [];
 
       for (const rawId of memberIds) {
         const cleanId = rawId.trim().toUpperCase();
@@ -1062,53 +1133,61 @@ export const participantsApi = {
         }
         knownIds.add(cleanId);
 
-        const verification = await this.verifyMemberId(cleanId, event.auxiliary);
-        if (verification.status === 'Not Found') {
-          notFoundCount += 1;
-          continue;
-        }
-        if (verification.status === 'Invalid') {
-          invalidCount += 1;
-          continue;
-        }
-        if (verification.status !== 'Verified') {
+        // Every row is independent: a failed lookup or create must not abort
+        // the whole batch, otherwise one bad Member ID discards every row.
+        try {
+          const verification = await this.verifyMemberId(cleanId, event.auxiliary);
+          if (verification.status === 'Not Found') {
+            notFoundCount += 1;
+            continue;
+          }
+          if (verification.status === 'Invalid') {
+            invalidCount += 1;
+            continue;
+          }
+          if (verification.status !== 'Verified') {
+            failedCount += 1;
+            continue;
+          }
+          if (verification.member?.auxiliary && verification.member.auxiliary !== event.auxiliary) {
+            invalidCount += 1;
+            continue;
+          }
+
+          const member = verification.member;
+          const response = await backendFetch<BackendRecord>('Participants', {
+            method: 'POST',
+            body: JSON.stringify({
+              eventId,
+              membershipId: cleanId,
+              fullName: member?.fullName || `Member ${cleanId}`,
+              email: member?.email || null,
+              phone: member?.phone || null,
+              jamaat: member?.jamaat || null,
+              dila: member?.dila || null,
+              ilaqa: member?.ilaqa || null,
+              auxiliary: event.auxiliary,
+            }),
+          });
+          newlyAdded.push(mapBackendParticipantToParticipant(response, eventId));
+          verifiedCount += 1;
+        } catch (error) {
           failedCount += 1;
-          continue;
+          const reason = error instanceof Error ? error.message : 'Unknown error';
+          failures.push(`${cleanId}: ${reason}`);
         }
-        if (verification.member?.auxiliary && verification.member.auxiliary !== event.auxiliary) {
-          invalidCount += 1;
-          continue;
-        }
-
-        const member = verification.member;
-        const response = await backendFetch<BackendRecord>('Participants', {
-          method: 'POST',
-          body: JSON.stringify({
-            eventId,
-            membershipId: cleanId,
-            fullName: member?.fullName || `Member ${cleanId}`,
-            email: member?.email || null,
-            phone: member?.phone || null,
-            jamaat: member?.jamaat || null,
-            dila: member?.dila || null,
-            ilaqa: member?.ilaqa || null,
-            auxiliary: event.auxiliary,
-          }),
-        });
-        newlyAdded.push(mapBackendParticipantToParticipant(response, eventId));
-        verifiedCount += 1;
       }
 
-      if (newlyAdded.length > 0) {
-        await auditApi.recordLog({
-          action: 'Participant Import',
-          adminName: performedBy.fullName,
-          adminRole: performedBy.role,
-          auxiliary: event.auxiliary,
-          target: `${newlyAdded.length} Participants (${event.name})`,
-          details: `Bulk verified import: ${verifiedCount} verified, ${notFoundCount} not found, ${invalidCount} invalid, ${duplicateCount} duplicate, ${failedCount} failed.`,
-        });
-      }
+      // Always write the summary — even when nothing was added — so the
+      // attempt itself stays auditable and no rows are silently dropped.
+      await auditApi.recordLog({
+        action: 'Participant Import',
+        adminName: performedBy.fullName,
+        adminRole: performedBy.role,
+        auxiliary: event.auxiliary,
+        target: `${newlyAdded.length} Participants (${event.name})`,
+        details: `Bulk verified import: ${verifiedCount} verified, ${notFoundCount} not found, ${invalidCount} invalid, ${duplicateCount} duplicate, ${failedCount} failed.${failures.length ? ` Errors: ${failures.slice(0, 5).join('; ')}` : ''}`,
+      });
 
       return {
         totalRows: memberIds.length,
@@ -1150,10 +1229,18 @@ export const participantsApi = {
         continue;
       } else {
         existingSet.add(cleanId);
-        const res = await this.verifyMemberId(cleanId, event.auxiliary);
-        status = res.status;
-        details = res.details;
-        if (res.member) memberInfo = res.member;
+        // Same per-row isolation as the signed-in path.
+        try {
+          const res = await this.verifyMemberId(cleanId, event.auxiliary);
+          status = res.status;
+          details = res.details;
+          if (res.member) memberInfo = res.member;
+        } catch (error) {
+          status = 'Verification Failed';
+          details = error instanceof Error ? error.message : 'Member verification failed.';
+          failedCount++;
+          continue;
+        }
 
         if (status === 'Verified') verifiedCount++;
         else if (status === 'Not Found') notFoundCount++;
@@ -1257,6 +1344,135 @@ function fromBackendCertType(typeStr: string | undefined): CertificateType {
   return `Certificate of ${typeStr}` as CertificateType;
 }
 
+interface AuxiliaryTemplateDefaults {
+  organizationName: string;
+  organizationSubtitle: string;
+  logoType: CertificateTemplate['logoType'];
+  eventTitle: string;
+  typeBadgeText: string;
+  participationLine: string;
+  themeTitle: string;
+  programDurationText: string;
+  bodyIntroText: string;
+  bodyDescriptionText: string;
+  bodyFocusText: string;
+  signature1Date: string;
+  primaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+}
+
+/**
+ * Fallback artwork per auxiliary. One system serves all five auxiliaries, so a
+ * template that omits these fields must never inherit another majlis' name,
+ * salutation or event wording — that would print the wrong organisation (and
+ * previously a named individual) on an official certificate.
+ */
+const AUXILIARY_TEMPLATE_DEFAULTS: Record<Auxiliary | 'All', AuxiliaryTemplateDefaults> = {
+  All: {
+    organizationName: "AHMADIYYA JAMA'AT",
+    organizationSubtitle: '(Certificate of Participation)',
+    logoType: 'jamaat-crest',
+    eventTitle: 'CERTIFICATE OF PARTICIPATION',
+    typeBadgeText: 'CERTIFICATE OF PARTICIPATION',
+    participationLine: 'Participated in the programme which took place',
+    themeTitle: 'Faith, Discipline and Service.',
+    programDurationText: '',
+    bodyIntroText: 'This is to certify that {{ParticipantName}}, Dilla {{Dilla}}, from {{Jamaat}}.',
+    bodyDescriptionText: 'Participated in the programme which took place at {{Venue}}.',
+    bodyFocusText: 'In recognition of commitment to faith, discipline and service to the nation.',
+    signature1Date: '',
+    primaryColor: '#0f766e',
+    accentColor: '#d97706',
+    backgroundColor: '#ffffff',
+  },
+  Atfal: {
+    organizationName: 'MAJLIS ATFAL-UL AHMADIYYA NIGERIA',
+    organizationSubtitle: '(Ahmadiyya Muslims Children Organization)',
+    logoType: 'atfal-emblem',
+    eventTitle: 'ISLAMIC VACATION COURSE/REGIONAL IJTEMA 2025',
+    typeBadgeText: 'CERTIFICATE OF PARTICIPATION',
+    participationLine: 'Participated in a week Islamic Vacation Course which took place',
+    themeTitle: 'My Faith, My Identity.',
+    programDurationText: '3rd August to Sunday 10th August, 2025',
+    bodyIntroText: 'This is to congratulate and certify that Tifl {{ParticipantName}}, Dilla {{Dilla}}, Ilaqa {{Ilaqa}} from {{Jamaat}}.',
+    bodyDescriptionText: 'Participated in a week Islamic Vacation Course which took place at {{Venue}}.',
+    bodyFocusText: 'The program focussed on enhancing Islamic knowledge, promoting religious tolerance, and fostering nation-building by raising children who will contribute to peace and societal growth.',
+    signature1Date: '10th August, 2025',
+    primaryColor: '#15803d',
+    accentColor: '#84cc16',
+    backgroundColor: '#ffffff',
+  },
+  Khuddam: {
+    organizationName: 'MAJLIS KHUDDAM-UL-AHMADIYYA',
+    organizationSubtitle: '(Ahmadiyya Muslim Youth Association)',
+    logoType: 'khuddam-emblem',
+    eventTitle: 'ANNUAL NATIONAL IJTEMA 2026',
+    typeBadgeText: 'CERTIFICATE OF EXCELLENCE',
+    participationLine: 'Participated in the Annual National Ijtema which took place',
+    themeTitle: 'Honor Thy Pledge',
+    programDurationText: '18th to 20th September, 2026',
+    bodyIntroText: 'Awarded with high distinction to Khadim {{ParticipantName}}, Dilla {{Dilla}}, representing {{Jamaat}} Jama\'at.',
+    bodyDescriptionText: 'For securing exceptional academic merit and outstanding commitment during the National Ijtema at {{Venue}}.',
+    bodyFocusText: 'In recognition of steadfast dedication to moral excellence, discipline, and selfless service to faith and nation.',
+    signature1Date: '20th September, 2026',
+    primaryColor: '#046a38',
+    accentColor: '#d97706',
+    backgroundColor: '#fcfdfb',
+  },
+  Ansarullah: {
+    organizationName: 'MAJLIS ANSARULLAH NIGERIA',
+    organizationSubtitle: '(Ahmadiyya Muslim Elders Association)',
+    logoType: 'ansarullah-emblem',
+    eventTitle: 'NATIONAL IJTEMA & TARBIYYAT CONVENTION 2026',
+    typeBadgeText: 'CERTIFICATE OF RECOGNITION',
+    participationLine: 'Participated in the Annual National Ijtema which took place',
+    themeTitle: 'Steadfast Servants of Allah',
+    programDurationText: '22nd to 24th November, 2026',
+    bodyIntroText: 'This is to proudly certify and honour Nasir {{ParticipantName}}, Dilla {{Dilla}}, Ilaqa {{Ilaqa}}, from {{Jamaat}} Jama\'at.',
+    bodyDescriptionText: 'For his distinguished participation in the National Ijtema & Tarbiyyat Convention held at {{Venue}}.',
+    bodyFocusText: 'A gathering dedicated to upholding the highest ideals of service, wisdom, and unwavering faith in Ahmadiyyat — for the glory of Islam and the service of humanity.',
+    signature1Date: '24th November, 2026',
+    primaryColor: '#1e3a8a',
+    accentColor: '#d97706',
+    backgroundColor: '#eff6ff',
+  },
+  Lajna: {
+    organizationName: "LAJNA IMA'ILLAH",
+    organizationSubtitle: "(Ahmadiyya Muslim Women's Association)",
+    logoType: 'lajna-emblem',
+    eventTitle: 'NATIONAL TARBIYYAT & ACADEMIC SEMINAR 2026',
+    typeBadgeText: 'CERTIFICATE OF APPRECIATION',
+    participationLine: 'Participated in the National Tarbiyyat Seminar which took place',
+    themeTitle: 'Women as Pillars of Peace',
+    programDurationText: '15th October, 2026',
+    bodyIntroText: 'Warmly presented to Lajna member {{ParticipantName}}, Dilla {{Dilla}}, {{Jamaat}} Jama\'at.',
+    bodyDescriptionText: 'In gracious appreciation for her active participation and presentation at {{Venue}}.',
+    bodyFocusText: 'Exemplifying virtue, spiritual leadership, and devotion in educating future generations.',
+    signature1Date: '15th October, 2026',
+    primaryColor: '#0f766e',
+    accentColor: '#f59e0b',
+    backgroundColor: '#fafcfb',
+  },
+  Nasra: {
+    organizationName: 'MAJLIS NASRA-TUL-AHMADIYYA NIGERIA',
+    organizationSubtitle: "(Ahmadiyya Muslim Boys' Association)",
+    logoType: 'nasra-emblem',
+    eventTitle: 'NATIONAL NASRA IJTEMA & SKILLS EXPOSITION 2026',
+    typeBadgeText: 'CERTIFICATE OF MERIT',
+    participationLine: 'Participated in a week Islamic Vacation Course which took place',
+    themeTitle: 'Young Minds, Strong Iman',
+    programDurationText: '8th to 10th December, 2026',
+    bodyIntroText: 'This is to commend and certify Nasirah {{ParticipantName}}, Dilla {{Dilla}}, Ilaqa {{Ilaqa}}, from {{Jamaat}} Jama\'at.',
+    bodyDescriptionText: 'For commendable participation and dedication displayed at the National Nasra Ijtema held at {{Venue}}.',
+    bodyFocusText: 'Championing youth excellence, spiritual growth, and practical service — building a generation of young Ahmadi men rooted in faith and prepared to serve the nation.',
+    signature1Date: '10th December, 2026',
+    primaryColor: '#6d28d9',
+    accentColor: '#a78bfa',
+    backgroundColor: '#faf5ff',
+  },
+};
+
 function mapBackendTemplateToTemplate(raw: BackendRecord): CertificateTemplate {
   let config: BackendRecord = {};
   if (typeof raw.configurationJson === 'string' && raw.configurationJson) {
@@ -1271,39 +1487,100 @@ function mapBackendTemplateToTemplate(raw: BackendRecord): CertificateTemplate {
   const orientationStr = bStr(raw.orientation || config.orientation, 'landscape').toLowerCase();
   const orientation: 'landscape' | 'portrait' = orientationStr === 'portrait' ? 'portrait' : 'landscape';
 
+  const auxiliary = (bStr(raw.auxiliary, 'All')) as Auxiliary | 'All';
+  // Fallbacks follow the template's own auxiliary, so a Khuddam design never
+  // inherits Atfal's organisation name, salutation or event wording.
+  const defaults = AUXILIARY_TEMPLATE_DEFAULTS[auxiliary] ?? AUXILIARY_TEMPLATE_DEFAULTS.All;
+
   return {
     id: bStr(raw.id, `tmpl-${Date.now()}`),
     name: bStr(raw.name, 'Official Template'),
-    auxiliary: (bStr(raw.auxiliary, 'All')) as Auxiliary | 'All',
+    auxiliary,
     certificateType: fromBackendCertType(bStr(raw.certificateType || config.certificateType) || undefined),
     design: bStr(config.design, 'modern-rings') as CertificateTemplate['design'],
     orientation,
-    primaryColor: bStr(config.primaryColor, '#15803d'),
-    accentColor: bStr(config.accentColor, '#84cc16'),
+    primaryColor: bStr(config.primaryColor, defaults.primaryColor),
+    accentColor: bStr(config.accentColor, defaults.accentColor),
     neutralColor: bStr(config.neutralColor, '#0f172a'),
-    backgroundColor: bStr(config.backgroundColor, '#ffffff'),
+    backgroundColor: bStr(config.backgroundColor, defaults.backgroundColor),
     showWaveWatermark: bBool(config.showWaveWatermark, true),
     showTorusRings: bBool(config.showTorusRings, true),
     showRosetteBadge: bBool(config.showRosetteBadge, true),
-    organizationName: bStr(config.organizationName, 'MAJLIS ATFAL-UL AHMADIYYA NIGERIA'),
-    organizationSubtitle: bStr(config.organizationSubtitle, '(Ahmadiyya Muslims Children Organization)'),
-    logoType: bStr(config.logoType, 'atfal-emblem') as CertificateTemplate['logoType'],
-    logoUrl: bStr(raw.filePath || raw.backgroundImagePath || config.logoUrl, '/ahmadiyyah_logo.png'),
-    eventTitle: bStr(config.eventTitle, 'ISLAMIC VACATION COURSE/REGIONAL IJTEMA 2025'),
-    typeBadgeText: bStr(config.typeBadgeText, 'CERTIFICATE OF PARTICIPATION'),
-    participationLine: bStr(config.participationLine, 'Participated in a week Islamic Vacation Course which took place'),
-    themeTitle: bStr(config.themeTitle, 'My Faith, My Identity.'),
-    programDurationText: bStr(config.programDurationText, '3rd August to Sunday 10th August, 2025'),
-    bodyIntroText: bStr(config.bodyIntroText, 'This is to congratulate and certify that {{Salutation}} {{ParticipantName}}, Dilla {{Dilla}}, Ilaqa {{Ilaqa}} from {{Jamaat}}.'),
-    bodyDescriptionText: bStr(config.bodyDescriptionText, 'Participated in a week Islamic Vacation Course which took place at {{Venue}}.'),
-    bodyFocusText: bStr(config.bodyFocusText, 'The program focussed on enhancing Islamic knowledge, promoting religious tolerance...'),
-    signature1Name: bStr(config.signature1Name, 'Abdur Raob Akhryemi'),
-    signature1Title: bStr(config.signature1Title, 'Sadr Majlis Khuddamul Ahmadiyya Nigeria'),
-    signature1Date: bStr(config.signature1Date, '10th August, 2025'),
+    organizationName: bStr(config.organizationName, defaults.organizationName),
+    organizationSubtitle: bStr(config.organizationSubtitle, defaults.organizationSubtitle),
+    logoType: bStr(config.logoType, defaults.logoType) as CertificateTemplate['logoType'],
+    // Only an explicitly uploaded logo belongs here. The background artwork is
+    // a different asset, and defaulting to the Ahmadiyya mark made every
+    // template render the mosque instead of its own auxiliary emblem.
+    logoUrl: bStr(config.logoUrl || raw.filePath) || undefined,
+    backgroundImagePath: bStr(raw.backgroundImagePath) || undefined,
+    eventTitle: bStr(config.eventTitle, defaults.eventTitle),
+    typeBadgeText: bStr(config.typeBadgeText, defaults.typeBadgeText),
+    participationLine: bStr(config.participationLine, defaults.participationLine),
+    themeTitle: bStr(config.themeTitle, defaults.themeTitle),
+    programDurationText: bStr(config.programDurationText, defaults.programDurationText),
+    bodyIntroText: bStr(config.bodyIntroText, defaults.bodyIntroText),
+    bodyDescriptionText: bStr(config.bodyDescriptionText, defaults.bodyDescriptionText),
+    bodyFocusText: bStr(config.bodyFocusText, defaults.bodyFocusText),
+    signature1Name: bStr(config.signature1Name, 'National Sadr'),
+    signature1Title: bStr(config.signature1Title, defaults.organizationName),
+    signature1Date: bStr(config.signature1Date, defaults.signature1Date),
     signature1Image: bStr(config.signature1Image) || undefined,
     signatureAssetPath: bStr(config.signatureAssetPath) || undefined,
     isDefault: bBool(raw.isActive, false),
     updatedAt: bStr(raw.updatedAt, new Date().toISOString()),
+  };
+}
+
+/**
+ * The generic Ahmadiyya mark was once used as the default `logoUrl` for every
+ * template, and the certificate background artwork was briefly written into
+ * the same field. Neither is a real per-auxiliary logo, so both are treated as
+ * "no logo set" — the artwork then falls back to the auxiliary's own emblem.
+ */
+const NON_LOGO_URLS = new Set([
+  '/ahmadiyyah_logo.png',
+  '/certificate-design1.png',
+  '/certificate-design2.png',
+]);
+
+/**
+ * Every certificate is signed by the National Sadr of the auxiliary body that
+ * issued it, and carries that auxiliary's emblem as its logo. Applies the
+ * standardized signature name/title + logoType so cached/local overrides and
+ * backend records can't keep stale person-specific names or the wrong majlis
+ * logo.
+ */
+function normalizeTemplateSignature(tmpl: CertificateTemplate): CertificateTemplate {
+  const titleByAuxiliary: Record<Auxiliary | 'All', string> = {
+    All: 'Majlis Atfal-ul-Ahmadiyya',
+    Khuddam: 'Majlis Khuddam-ul-Ahmadiyya',
+    Atfal: 'Majlis Atfal-ul-Ahmadiyya',
+    Ansarullah: 'Majlis Ansarullah Nigeria',
+    Lajna: 'Lajna Ima\'illah',
+    Nasra: 'Nasra-tul-Ahmadiyya',
+  };
+  const emblemByAuxiliary: Record<Auxiliary | 'All', string | undefined> = {
+    All: undefined,
+    Khuddam: 'khuddam-emblem',
+    Atfal: 'atfal-emblem',
+    Ansarullah: 'ansarullah-emblem',
+    Lajna: 'lajna-emblem',
+    Nasra: 'nasra-emblem',
+  };
+  const auxiliary = tmpl.auxiliary ?? 'All';
+  // A generic mark or a background artwork is not a logo — drop it so the
+  // auxiliary emblem (header logo + watermark) is used instead.
+  const logoUrl =
+    tmpl.logoUrl && !NON_LOGO_URLS.has(tmpl.logoUrl) ? tmpl.logoUrl : undefined;
+  return {
+    ...tmpl,
+    signature1Name: 'National Sadr',
+    signature1Title: titleByAuxiliary[auxiliary] ?? 'Majlis Atfal-ul-Ahmadiyya',
+    logoUrl,
+    ...(!logoUrl && emblemByAuxiliary[auxiliary]
+      ? { logoType: emblemByAuxiliary[auxiliary] as CertificateTemplate['logoType'] }
+      : {}),
   };
 }
 
@@ -1326,7 +1603,9 @@ function mapBackendCertificateToCertificate(raw: BackendRecord): Certificate {
     participantName: bStr(part?.fullName || raw.participantName, 'Participant'),
     // CertificateDto exposes the participant ID as participantMembershipId.
     memberId: bStr(part?.membershipId || raw.participantMembershipId || raw.memberId),
-    auxiliary: bStr(raw.auxiliary || evt?.auxiliary || part?.auxiliary, 'Atfal') as Auxiliary,
+    // The event owns its auxiliary; fall back to the participant only when
+    // the event itself is missing one. Never invent a value.
+    auxiliary: (bStr(raw.auxiliary) || bStr(evt?.auxiliary) || bStr(part?.auxiliary) || undefined) as Auxiliary | undefined,
     dila: bStr(part?.dila || raw.dila),
     ilaqa: bStr(part?.ilaqa || raw.ilaqa) || undefined,
     jamaat: bStr(part?.jamaat || raw.jamaat),
@@ -1371,7 +1650,10 @@ export const templatesApi = {
               byId.set(seed.id, override ? { ...seed, ...override } : seed);
             }
           }
-          const merged = [...byId.values()];
+          // Every certificate is signed by the National Sadr of the auxiliary
+          // body, and carries that auxiliary's emblem. `map`, not `forEach` —
+          // forEach discards the returned object and never applied this.
+          const merged = [...byId.values()].map(normalizeTemplateSignature);
           if (!auxiliary) return merged;
           return merged.filter((t) => !t.auxiliary || t.auxiliary === 'All' || t.auxiliary === auxiliary);
         }
@@ -1390,7 +1672,7 @@ export const templatesApi = {
       ...Object.values(savedOverrides).filter(
         (o) => !INITIAL_TEMPLATES.some((t) => t.id === o.id)
       ),
-    ];
+    ].map(normalizeTemplateSignature);
 
     if (!auxiliary) return merged;
     return merged.filter(
@@ -1416,11 +1698,52 @@ export const templatesApi = {
 
   async getById(id: string): Promise<CertificateTemplate> {
     const response = await backendFetch<BackendRecord>(`CertificateTemplates/${encodeURIComponent(id)}`);
-    return mapBackendTemplateToTemplate(response);
+    return normalizeTemplateSignature(mapBackendTemplateToTemplate(response));
   },
 
-  async delete(id: string): Promise<void> {
-    await backendFetch<void>(`CertificateTemplates/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  async delete(id: string, performedBy?: User, templateName?: string): Promise<void> {
+    let deletedName = templateName;
+    if (!deletedName) {
+      try {
+        const existing = await this.getById(id);
+        deletedName = existing.name;
+      } catch {
+        // The template may already be gone from the backend; the id is enough
+        // to write an accurate audit entry.
+      }
+    }
+    try {
+      await backendFetch<void>(`CertificateTemplates/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch (err) {
+      // "Not found" (whatever status the API used for it) means it is already
+      // gone on the server — often a design that only ever existed in this
+      // browser's localStorage. That is still a successful delete from the
+      // admin's point of view, so fall through to the local cleanup.
+      const status = (err as { status?: number } | null)?.status;
+      const message = err instanceof Error ? err.message : '';
+      const alreadyGone = status === 404 || /not found|no such|does not exist/i.test(message);
+      if (!alreadyGone) throw err;
+      console.warn(`Template ${id} was already absent on the backend; removing local copy only.`);
+    }
+    // Drop the local shadow copy as well. getAll() merges `template_overrides`
+    // back into the list, so a deleted design would come back from localStorage
+    // and every later click on it would 404 on the detail fetch.
+    const savedOverrides = getStorage<Record<string, CertificateTemplate>>('template_overrides', {});
+    if (savedOverrides[id]) {
+      delete savedOverrides[id];
+      setStorage('template_overrides', savedOverrides);
+    }
+
+    // Deleting a design is an auditable action — it used to leave no trace.
+    if (performedBy) {
+      await auditApi.recordLog({
+        action: 'Template Deleted',
+        adminName: performedBy.fullName,
+        adminRole: performedBy.role,
+        target: deletedName || id,
+        details: `Deleted certificate template "${deletedName || id}". Certificates already issued with it are unaffected.`,
+      });
+    }
   },
 
   async uploadAsset(file: File, folder: 'templates' | 'signatures' | 'logos' = 'templates'): Promise<string> {
@@ -1449,12 +1772,15 @@ export const templatesApi = {
         configurationJson,
         width: 1122,
         height: 793,
-        backgroundImagePath: template.logoUrl || null,
+        backgroundImagePath: template.backgroundImagePath || template.logoUrl || null,
       }),
     });
   },
 
   async save(templateData: CertificateTemplate, performedBy: User): Promise<CertificateTemplate> {
+    // Set when the server rejects the save — the local copy is kept but the
+    // failure is surfaced instead of being logged as a success.
+    let backendSaveError: string | null = null;
     let updatedTemplate: CertificateTemplate = {
       ...templateData,
       updatedAt: new Date().toISOString(),
@@ -1475,7 +1801,13 @@ export const templatesApi = {
           organizationName: templateData.organizationName,
           organizationSubtitle: templateData.organizationSubtitle,
           logoType: templateData.logoType,
-          logoUrl: templateData.logoUrl,
+          // Never persist a generic mark or background artwork as this
+          // template's logo — it would override the auxiliary's own emblem on
+          // every render.
+          logoUrl:
+            templateData.logoUrl && !NON_LOGO_URLS.has(templateData.logoUrl)
+              ? templateData.logoUrl
+              : undefined,
           eventTitle: templateData.eventTitle,
           typeBadgeText: templateData.typeBadgeText,
           participationLine: templateData.participationLine,
@@ -1512,13 +1844,39 @@ export const templatesApi = {
           });
         if (response.id) updatedTemplate = { ...updatedTemplate, id: bStr(response.id) };
       } catch (err) {
+        // The server rejected the save. Keep the local copy so no work is
+        // lost, but record the real failure and tell the caller — logging
+        // "Template Modified" here would claim a success that never happened
+        // and the admin would only discover the problem later, when
+        // certificate generation refuses the template.
+        const reason = err instanceof Error ? err.message : 'Unknown error';
         console.warn('Failed to save template to backend, saving locally:', err);
+        backendSaveError = reason;
       }
     }
 
+    const normalizedTemplate = normalizeTemplateSignature(updatedTemplate);
+
     const savedOverrides = getStorage<Record<string, CertificateTemplate>>('template_overrides', {});
-    savedOverrides[updatedTemplate.id] = updatedTemplate;
+    savedOverrides[normalizedTemplate.id] = normalizedTemplate;
     setStorage('template_overrides', savedOverrides);
+
+    if (backendSaveError) {
+      await auditApi.recordLog({
+        action: 'Template Save Failed',
+        adminName: performedBy.fullName,
+        adminRole: performedBy.role,
+        auxiliary:
+          updatedTemplate.auxiliary === 'All'
+            ? undefined
+            : (updatedTemplate.auxiliary as Auxiliary),
+        target: updatedTemplate.name,
+        details: `Server rejected the template save: ${backendSaveError}. The design was kept on this device only and cannot be used for certificate generation until the server save succeeds.`,
+      });
+      throw new Error(
+        `The server rejected this template save: ${backendSaveError}. Your design was kept on this device, but it cannot be used to generate certificates until the server save succeeds.`
+      );
+    }
 
     await auditApi.recordLog({
       action: 'Template Modified',
@@ -1532,7 +1890,7 @@ export const templatesApi = {
       details: `Customized certificate template style: Primary ${updatedTemplate.primaryColor}, Accent ${updatedTemplate.accentColor}, Background ${updatedTemplate.backgroundColor}`,
     });
 
-    return updatedTemplate;
+    return normalizedTemplate;
   },
 };
 
@@ -1613,34 +1971,51 @@ export const certificatesApi = {
     return backendDownload(`Certificates/event/${encodeURIComponent(eventId)}/download-all-pdf`);
   },
 
-  async delete(id: string, performedBy?: User): Promise<void> {
+  async delete(id: string, performedBy?: User, certificate?: Certificate): Promise<void> {
     const isBackendId = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id);
     if (getAuthToken() && isBackendId) {
-      const certificate = await this.getById(id);
-      await backendFetch<void>(`Certificates/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      // No detail pre-fetch — it can 404 and block the delete.
+      let known = certificate;
+      if (!known) {
+        try {
+          known = await this.getById(id);
+        } catch {
+          known = undefined;
+        }
+      }
+      try {
+        await backendFetch<void>(`Certificates/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      } catch (err) {
+        // "Already gone" is still a successful deletion from the admin's view.
+        const status = (err as { status?: number } | null)?.status;
+        const message = err instanceof Error ? err.message : '';
+        const alreadyGone = status === 404 || /not found|no such|does not exist/i.test(message);
+        if (!alreadyGone) throw err;
+        console.warn(`Certificate ${id} was already absent on the backend.`);
+      }
       if (performedBy) {
         await auditApi.recordLog({
           action: 'Certificate Deleted',
           adminName: performedBy.fullName,
           adminRole: performedBy.role,
-          auxiliary: certificate.auxiliary,
-          target: certificate.certificateNumber,
+          auxiliary: known?.auxiliary,
+          target: known?.certificateNumber || id,
           details: 'Deleted revoked certificate record.',
         });
       }
       return;
     }
     const cached = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
-    const certificate = cached.find((item) => item.id === id);
-    if (!certificate) throw new Error('Certificate was not found.');
-    setStorage('certificates', cached.filter((certificate) => certificate.id !== id));
+    const cachedCertificate = cached.find((item) => item.id === id);
+    if (!cachedCertificate) throw new Error('Certificate was not found.');
+    setStorage('certificates', cached.filter((item) => item.id !== id));
     if (performedBy) {
       await auditApi.recordLog({
         action: 'Certificate Deleted',
         adminName: performedBy.fullName,
         adminRole: performedBy.role,
-        auxiliary: certificate.auxiliary,
-        target: certificate.certificateNumber,
+        auxiliary: cachedCertificate.auxiliary,
+        target: cachedCertificate.certificateNumber,
         details: 'Deleted revoked certificate from local storage.',
       });
     }
@@ -1682,6 +2057,16 @@ export const certificatesApi = {
           const cached = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
           setStorage('certificates', [...newlyGenerated, ...cached]);
         }
+        // A batch that fails partway through must still leave a trace of what
+        // was issued before the failure — the admin needs to know which
+        // certificates exist so they can be retried or revoked.
+        await auditApi.recordLog({
+          action: 'Certificate Generated',
+          adminName: performedBy.fullName,
+          adminRole: performedBy.role,
+          target: `Batch of ${newlyGenerated.length} Certificates (partial)`,
+          details: `Batch generation failed partway: ${newlyGenerated.length} certificate(s) were issued before the error. Reason: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        });
         throw error;
       }
 
@@ -1706,7 +2091,8 @@ export const certificatesApi = {
 
     const participants = getStorage<Participant[]>('participants', INITIAL_PARTICIPANTS);
     const certs = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
-    const auxCode = event.auxiliary.slice(0, 3).toUpperCase();
+    // Falls back to a neutral prefix when the event carries no auxiliary.
+    const auxCode = event.auxiliary ? event.auxiliary.slice(0, 3).toUpperCase() : 'GEN';
     const currentYear = new Date().getFullYear();
 
     for (let i = 0; i < participantIds.length; i++) {

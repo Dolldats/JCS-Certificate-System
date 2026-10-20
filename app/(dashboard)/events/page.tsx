@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
-import { eventsApi, participantsApi } from '../../../services/api';
-import { Event, EventType, Auxiliary, EventStatus } from '../../../types';
+import { certificatesApi, eventsApi, participantsApi } from '../../../services/api';
+import { Event, EventType, Auxiliary, EventStatus, Participant } from '../../../types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -13,7 +13,7 @@ import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
-import { Tabs } from '../../../components/ui/Tabs';
+import { FilterDropdown } from '../../../components/ui/FilterDropdown';
 import {
   CalendarDays,
   Plus,
@@ -25,6 +25,7 @@ import {
   Building,
   Pencil,
   Trash2,
+  RefreshCw,
 } from 'lucide-react';
 import { formatDate } from '../../../lib/utils';
 
@@ -66,7 +67,9 @@ export default function EventsPage() {
     date: new Date().toISOString().split('T')[0],
     endDate: '',
     venue: '',
-    auxiliary: (user?.assignedAuxiliary || 'Atfal') as Auxiliary,
+    // '' means "not yet chosen" — an event with no auxiliary must not be
+    // silently filed under a real majlis.
+    auxiliary: (user?.assignedAuxiliary || 'Atfal') as Auxiliary | '',
     orgLevel: 'Ilaqa' as Event['orgLevel'],
     orgUnitName: 'Western Region',
     status: 'Upcoming' as EventStatus,
@@ -77,17 +80,21 @@ export default function EventsPage() {
     setLoading(true);
     const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
     const data = await eventsApi.getAll(aux);
-    // Count the real roster per event instead of trusting the event record's
-    // counters, which stay 0/0 when the backend doesn't maintain them.
+    // Reconcile both roster and certificate counts against the live API instead
+    // of trusting the event record's counters, which stay 0/0 when the backend
+    // doesn't maintain them. Issuing/revoking certificates now updates the card.
     const withCounts = await Promise.all(
       data.map(async (event) => {
         try {
-          const parts = await participantsApi.getByEvent(event.id);
-          if (parts.length === 0) return event;
+          const [parts, certs] = await Promise.all([
+            participantsApi.getByEvent(event.id),
+            certificatesApi.getByEvent(event.id),
+          ]);
           return {
             ...event,
             participantsCount: parts.length,
-            verifiedCount: parts.filter((p) => p.verificationStatus === 'Verified').length,
+            verifiedCount: parts.filter((p: Participant) => p.verificationStatus === 'Verified').length,
+            certificatesIssuedCount: certs.length,
           };
         } catch {
           return event;
@@ -118,6 +125,12 @@ export default function EventsPage() {
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    // An event must belong to an auxiliary — otherwise it would be visible
+    // to the wrong majlis (or to none at all).
+    if (!newEvent.auxiliary) {
+      toast.error('Choose the auxiliary that is hosting this event.');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const eventData = {
@@ -149,7 +162,7 @@ export default function EventsPage() {
         date: new Date().toISOString().split('T')[0],
         endDate: '',
         venue: '',
-        auxiliary: (user?.assignedAuxiliary || 'Atfal') as Auxiliary,
+        auxiliary: (user?.assignedAuxiliary || 'Atfal') as Auxiliary | '',
         orgLevel: 'Ilaqa',
         orgUnitName: 'Western Region',
         status: 'Upcoming',
@@ -176,7 +189,7 @@ export default function EventsPage() {
       date: target.date,
       endDate: target.endDate || '',
       venue: target.venue,
-      auxiliary: target.auxiliary,
+      auxiliary: target.auxiliary || '',
       orgLevel: target.orgLevel,
       orgUnitName: target.orgUnitName,
       status: target.status,
@@ -191,12 +204,11 @@ export default function EventsPage() {
 
   const confirmDeleteEvent = async () => {
     if (!user || !eventToDelete) return;
-    try {
-      await eventsApi.delete(eventToDelete.id, user);
-      await loadEvents();
-    } catch (error) {
-      console.error('Failed to delete event', error);
-    }
+    // Let the dialog surface the real reason — swallowing it here showed
+    // "Deleted Successfully!" even when the delete had failed.
+    await eventsApi.delete(eventToDelete.id, user);
+    await loadEvents();
+    toast.success(`"${eventToDelete.name}" was deleted.`);
   };
 
   const filteredEvents = events.filter((e) => {
@@ -209,10 +221,12 @@ export default function EventsPage() {
     return matchesSearch && matchesType && matchesStatus;
   });
 
+  // Event-type filter options — a dropdown, because the horizontal tab strip
+  // overflowed on narrower screens.
   const typeTabs = [
-    { id: 'all', label: 'All Types', count: events.length },
+    { value: 'all', label: 'All Types', count: events.length },
     ...EVENT_TYPES.map((t) => ({
-      id: t,
+      value: t,
       label: t,
       count: events.filter((e) => e.eventType === t).length,
     })),
@@ -230,33 +244,47 @@ export default function EventsPage() {
             Create, plan, and administer events across all five auxiliaries.
           </p>
         </div>
-        <Button
-          onClick={() => setIsCreateOpen(true)}
-          leftIcon={<Plus className="w-4 h-4" />}
-          size="md"
-        >
-          Create Event
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => void loadEvents()}
+            disabled={loading}
+            leftIcon={
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            }
+          >
+            Refresh
+          </Button>
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            leftIcon={<Plus className="w-4 h-4" />}
+            size="md"
+          >
+            Create Event
+          </Button>
+        </div>
       </div>
-
-      <Tabs
-        tabs={typeTabs}
-        activeTab={selectedType}
-        onChange={(id) => setSelectedType(id)}
-      />
 
       {/* Search and Filters Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
         <div className="w-full sm:w-80">
           <Input
             placeholder="Search by event name, venue, or region..."
+            className="focus:border-slate-300 focus:ring-slate-200"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             leftIcon={<Search className="w-4 h-4 text-slate-400" />}
           />
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="w-44">
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+          <FilterDropdown
+            value={selectedType}
+            onChange={setSelectedType}
+            options={typeTabs}
+            className="w-full sm:w-52"
+          />
+          <div className="w-full sm:w-44">
             <Select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}

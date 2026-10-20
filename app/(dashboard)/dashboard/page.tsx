@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
 import { eventsApi, certificatesApi, auditApi, dashboardApi, participantsApi } from '../../../services/api';
@@ -15,6 +15,7 @@ import {
   ArrowRight,
   Clock,
   TrendingUp,
+  RefreshCw,
 } from 'lucide-react';
 import { formatDate, formatDateTime } from '../../../lib/utils';
 
@@ -89,41 +90,46 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
-      const [allEvents, allCerts, logs, dashboardSummary] = await Promise.all([
-        eventsApi.getAll(aux),
-        certificatesApi.getAll(aux),
-        auditApi.getLogs(aux),
-        dashboardApi.getSummary().catch(() => null),
-      ]);
-      // Count the real roster per event — event-record counters stay 0/0
-      // when the backend doesn't maintain them.
-      const withCounts = await Promise.all(
-        allEvents.map(async (event) => {
-          try {
-            const parts = await participantsApi.getByEvent(event.id);
-            if (parts.length === 0) return event;
-            return {
-              ...event,
-              participantsCount: parts.length,
-              verifiedCount: parts.filter((p) => p.verificationStatus === 'Verified').length,
-            };
-          } catch {
-            return event;
-          }
-        })
-      );
-      setEvents(withCounts);
-      setCertificates(allCerts);
-      setAuditLogs(logs);
-      setSummary(dashboardSummary);
-      setLoading(false);
-    }
-    loadData();
+  // `showSpinner` is false for the first load so the effect body never sets
+  // state synchronously; the Refresh button turns it on.
+  const loadData = useCallback(async (showSpinner = true) => {
+    if (showSpinner) setLoading(true);
+    const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
+    const [allEvents, allCerts, logs, dashboardSummary] = await Promise.all([
+      eventsApi.getAll(aux),
+      certificatesApi.getAll(aux),
+      auditApi.getLogs(aux),
+      dashboardApi.getSummary().catch(() => null),
+    ]);
+    // Count the real roster per event — event-record counters stay 0/0
+    // when the backend doesn't maintain them.
+    const withCounts = await Promise.all(
+      allEvents.map(async (event) => {
+        try {
+          const parts = await participantsApi.getByEvent(event.id);
+          if (parts.length === 0) return event;
+          return {
+            ...event,
+            participantsCount: parts.length,
+            verifiedCount: parts.filter((p) => p.verificationStatus === 'Verified').length,
+          };
+        } catch {
+          return event;
+        }
+      })
+    );
+    setEvents(withCounts);
+    setCertificates(allCerts);
+    setAuditLogs(logs);
+    setSummary(dashboardSummary);
+    setLoading(false);
   }, [activeAuxiliary]);
+
+  useEffect(() => {
+    (async () => {
+      await loadData(false);
+    })();
+  }, [loadData]);
 
   const summaryMatchesScope = Boolean(summary && (activeAuxiliary === 'All' || user?.role === 'GENERAL_ADMIN'));
   const totalEvents = summaryMatchesScope ? (summary?.totalEvents ?? events.length) : events.length;
@@ -192,6 +198,18 @@ export default function DashboardPage() {
                 Certificate Studio
               </Button>
             </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+              onClick={() => void loadData()}
+              disabled={loading}
+              leftIcon={
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              }
+            >
+              Refresh
+            </Button>
           </div>
         </div>
       </div>

@@ -18,6 +18,8 @@ interface ConfirmDialogProps {
   successTitle: string;
   successDescription?: string;
   doneLabel?: string;
+  busyTitle?: string;
+  busyDescription?: string;
 }
 
 const toneStyles: Record<ConfirmTone, { circle: string; icon: string; button: string; Icon: typeof Trash2 }> = {
@@ -50,13 +52,16 @@ export function ConfirmDialog({
   confirmLabel = 'Yes, Continue',
   cancelLabel = 'Cancel',
   tone = 'warning',
+  busyTitle = 'Working on it',
+  busyDescription = 'This will only take a moment.',
   successTitle,
   successDescription,
   doneLabel = 'Done',
 }: ConfirmDialogProps) {
-  const [isBusy, setIsBusy] = useState(false);
-  const [stage, setStage] = useState<'confirm' | 'success'>('confirm');
+  const [stage, setStage] = useState<'confirm' | 'busy' | 'error' | 'success'>('confirm');
+  const [errorMessage, setErrorMessage] = useState('');
   const [mounted, setMounted] = useState(false);
+  const isBusy = stage === 'busy';
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -65,6 +70,7 @@ export function ConfirmDialog({
     // fresh confirm stage, then pop in after first paint.
     (async () => {
       setStage('confirm');
+      setErrorMessage('');
       setMounted(false);
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
@@ -95,12 +101,16 @@ export function ConfirmDialog({
   const { circle, icon, button, Icon } = toneStyles[tone];
 
   const handleConfirm = async () => {
-    setIsBusy(true);
+    setErrorMessage('');
+    setStage('busy');
     try {
       await onConfirm();
       setStage('success');
-    } finally {
-      setIsBusy(false);
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      );
+      setStage('error');
     }
   };
 
@@ -123,15 +133,16 @@ export function ConfirmDialog({
           aria-modal="true"
           aria-label={title}
         >
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isBusy}
-            aria-label="Close dialog"
-            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 disabled:opacity-50 cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {!isBusy && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close dialog"
+              className="absolute right-4 top-4 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
 
           {stage === 'confirm' ? (
             <>
@@ -148,29 +159,85 @@ export function ConfirmDialog({
                 <button
                   type="button"
                   onClick={onClose}
-                  disabled={isBusy}
-                  className="flex-1 rounded-full border border-blue-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                  className="flex-1 cursor-pointer rounded-full border border-blue-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                 >
                   {cancelLabel}
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  disabled={isBusy}
                   className={cn(
-                    'flex-1 rounded-full px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-60 cursor-pointer',
+                    'flex-1 cursor-pointer rounded-full px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors active:brightness-95',
                     button
                   )}
                 >
-                  {isBusy ? 'Please wait…' : confirmLabel}
+                  {confirmLabel}
                 </button>
               </div>
             </>
+          ) : stage === 'busy' ? (
+            <>
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex min-w-56 flex-col items-center text-center"
+              >
+                <div className="login-logo-loader relative mb-4 grid h-[76px] w-[76px] place-items-center">
+                  <span
+                    aria-hidden="true"
+                    className="login-logo-loader__ring absolute inset-0 rounded-full border-[3px] border-emerald-100 border-t-emerald-600"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-[7px] rounded-full bg-emerald-500/10"
+                  />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/ahmadiyyah_logo.png"
+                    alt=""
+                    className="relative z-10 h-11 w-11 rounded-full object-contain"
+                  />
+                </div>
+                <p className="text-sm font-semibold text-slate-900">{busyTitle}</p>
+                <p className="mt-1 text-xs text-slate-500">{busyDescription}</p>
+              </div>
+            </>
+          ) : stage === 'error' ? (
+            <div key="error" className="dialog-stage-pop">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-50">
+                <AlertTriangle className="h-7 w-7 text-rose-500" />
+              </div>
+
+              <h3 className="mt-5 text-xl font-bold tracking-tight text-slate-900">
+                That didn&apos;t work
+              </h3>
+              <p className="mx-auto mt-2 max-w-xs break-words text-sm leading-relaxed text-slate-500">
+                {errorMessage}
+              </p>
+
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStage('confirm')}
+                  className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer"
+                >
+                  Try again
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-full bg-slate-900 px-8 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           ) : (
             <>
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-50">
-                <Check className="h-8 w-8 text-blue-600" />
-              </div>
+              <div key="success" className="dialog-stage-pop">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-[0_0_0_8px_rgba(37,99,235,.08)]">
+                  <Check className="h-8 w-8 text-blue-600" />
+                </div>
 
               <h3 className="mt-5 text-xl font-bold tracking-tight text-slate-900">{successTitle}</h3>
               {successDescription && (
@@ -185,6 +252,7 @@ export function ConfirmDialog({
                 >
                   {doneLabel}
                 </button>
+              </div>
               </div>
             </>
           )}

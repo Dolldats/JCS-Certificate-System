@@ -1,5 +1,9 @@
 import { NextRequest } from 'next/server';
 
+// Statuses that must be sent without a body — attaching one throws a
+// TypeError in the Response constructor.
+const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
+
 function getBackendBaseUrl(): string {
   let rawBaseUrl =
     process.env.NEXT_PUBLIC_JAMAAT_API_URL ||
@@ -53,14 +57,19 @@ async function handleProxy(
       signal: AbortSignal.timeout(20000),
     });
 
-    const responseBody = await upstream.arrayBuffer();
     const upstreamContentType =
       upstream.headers.get('content-type') || 'application/json';
+
+    // 101/204/205/304 are null-body statuses: the Response constructor throws
+    // "Invalid response status code 204" if a body is attached. The backend
+    // answers successful DELETEs with 204, so pass the body as null there.
+    const hasNullBodyStatus = NULL_BODY_STATUSES.has(upstream.status);
+    const responseBody = hasNullBodyStatus ? null : await upstream.arrayBuffer();
 
     return new Response(responseBody, {
       status: upstream.status,
       headers: {
-        'content-type': upstreamContentType,
+        ...(hasNullBodyStatus ? {} : { 'content-type': upstreamContentType }),
         ...(upstream.headers.get('content-disposition')
           ? { 'content-disposition': upstream.headers.get('content-disposition')! }
           : {}),

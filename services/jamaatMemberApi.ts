@@ -10,7 +10,7 @@ export interface MemberVerification {
 }
 
 export interface JamaatMemberApi {
-  verifyMember(memberId: string, auxiliary: Auxiliary): Promise<MemberVerification>;
+  verifyMember(memberId: string, auxiliary?: Auxiliary): Promise<MemberVerification>;
   lookupMember(memberId: string): Promise<JamaatMember | null>;
 }
 
@@ -21,7 +21,7 @@ const delay = (ms = 200) => new Promise((resolve) => setTimeout(resolve, ms));
 // ready yet, so verification runs against the local registry in mockData.ts.
 // ---------------------------------------------------------------------------
 const mockJamaatMemberApi: JamaatMemberApi = {
-  async verifyMember(memberId: string): Promise<MemberVerification> {
+  async verifyMember(memberId: string, auxiliary?: Auxiliary): Promise<MemberVerification> {
     await delay(250);
     const cleanId = memberId.trim().toUpperCase();
     if (!cleanId || cleanId.length < 3) {
@@ -79,7 +79,7 @@ async function liveFetch<T>(path: string): Promise<T> {
 }
 
 const liveJamaatMemberApi: JamaatMemberApi = {
-  async verifyMember(memberId: string, auxiliary: Auxiliary): Promise<MemberVerification> {
+  async verifyMember(memberId: string, auxiliary?: Auxiliary): Promise<MemberVerification> {
     const cleanId = memberId.trim().toUpperCase();
     if (!cleanId || cleanId.length < 3) {
       return { status: 'Invalid', details: 'Member ID format is invalid' };
@@ -89,7 +89,7 @@ const liveJamaatMemberApi: JamaatMemberApi = {
     // API owner, then adjust the mapping below. Expected shape:
     // { fullName, auxiliary, dila, ilaqa?, jamaat, phone?, email?, status: 'Active' | 'Inactive' }
     const member = await liveFetch<JamaatMember>(
-      `/members/${encodeURIComponent(cleanId)}?auxiliary=${encodeURIComponent(auxiliary)}`
+      `/members/${encodeURIComponent(cleanId)}${auxiliary ? `?auxiliary=${encodeURIComponent(auxiliary)}` : ''}`
     );
 
     if (!member) {

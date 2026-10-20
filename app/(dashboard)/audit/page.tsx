@@ -83,6 +83,8 @@ export default function AuditPage() {
     'Certificate Generated',
     'Certificate Revoked',
     'Template Modified',
+    'Template Deleted',
+    'Template Save Failed',
   ];
 
   const handleOpenLog = async (log: AuditLog) => {
@@ -109,7 +111,10 @@ export default function AuditPage() {
           variant="outline"
           size="sm"
           onClick={loadLogs}
-          leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+          disabled={loading}
+          leftIcon={
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          }
         >
           Refresh Feed
         </Button>
@@ -119,6 +124,7 @@ export default function AuditPage() {
         <div className="w-full sm:w-80">
           <Input
             placeholder="Search by keyword, actor, or target..."
+            className="focus:border-slate-300 focus:ring-slate-200"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             leftIcon={<Search className="w-4 h-4 text-slate-400" />}

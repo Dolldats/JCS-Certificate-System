@@ -1,3 +1,7 @@
+// Statuses that must be sent without a body — attaching one throws a
+// TypeError in the Response constructor.
+const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
+
 export async function POST(request: Request) {
   let rawBaseUrl =
     process.env.NEXT_PUBLIC_JAMAAT_API_URL ||
@@ -70,11 +74,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const text = await upstream.text();
   const contentType = upstream.headers.get('content-type') || 'application/json';
+
+  // 101/204/205/304 must be sent without a body — the Response constructor
+  // throws "Invalid response status code 204" if one is attached.
+  const hasNullBodyStatus = NULL_BODY_STATUSES.has(upstream.status);
+  const text = hasNullBodyStatus ? null : await upstream.text();
 
   return new Response(text, {
     status: upstream.status,
-    headers: { 'Content-Type': contentType },
+    headers: hasNullBodyStatus ? {} : { 'Content-Type': contentType },
   });
 }

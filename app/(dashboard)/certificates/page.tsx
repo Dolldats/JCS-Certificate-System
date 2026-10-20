@@ -25,7 +25,6 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
-import { Tabs } from '../../../components/ui/Tabs';
 import {
   Table,
   TableHeader,
@@ -37,6 +36,7 @@ import {
 import { CertificateModal } from '../../../components/certificates/CertificateModal';
 import { CertificatePreview } from '../../../components/certificates/CertificatePreview';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
+import { FilterDropdown } from '../../../components/ui/FilterDropdown';
 import { EditCertificateModal } from '../../../components/certificates/EditCertificateModal';
 import {
   Award,
@@ -49,6 +49,7 @@ import {
   Printer,
   Download,
   Trash2,
+  RefreshCw,
 } from 'lucide-react';
 import { formatDate } from '../../../lib/utils';
 
@@ -388,12 +389,10 @@ function CertificatesContent() {
   const confirmDeleteCertificate = async () => {
     if (!certificateToDelete) return;
 
-    try {
-      await certificatesApi.delete(certificateToDelete.id, user || undefined);
-      await loadData();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not delete this certificate.');
-    }
+    // Let the dialog surface the real reason instead of contradicting itself.
+    await certificatesApi.delete(certificateToDelete.id, user || undefined, certificateToDelete);
+    await loadData();
+    toast.success(`Certificate ${certificateToDelete.certificateNumber} was deleted.`);
   };
 
   const filteredCertificates = certificates.filter((c) => {
@@ -407,10 +406,12 @@ function CertificatesContent() {
     return matchesSearch && matchesEvent && matchesType;
   });
 
+  // Certificate-type filter options — a dropdown, because the horizontal tab
+  // strip overflowed and cut off the later types.
   const typeTabs = [
-    { id: 'all', label: 'All Certificates', count: certificates.length },
+    { value: 'all', label: 'All Certificates', count: certificates.length },
     ...CERTIFICATE_TYPES.map((t) => ({
-      id: t,
+      value: t,
       label: t.replace('Certificate of ', ''),
       count: certificates.filter((c) => c.type === t).length,
     })),
@@ -429,21 +430,32 @@ function CertificatesContent() {
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          size="md"
-          onClick={() => setIsGenerateWizardOpen(true)}
-          leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
-        >
-          Batch Certificate Generator
-        </Button>
-        {selectedEventId && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(selectedEventId) && (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => void handlePreviewEventPdfs()} leftIcon={<Eye className="h-4 w-4" />}>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => void loadData()}
+            disabled={loading}
+            leftIcon={
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            }
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => setIsGenerateWizardOpen(true)}
+            leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
+          >
+            Batch Certificate Generator
+          </Button>
+          {selectedEventId && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(selectedEventId) && (
+            <Button variant="outline" size="md" onClick={() => void handlePreviewEventPdfs()} leftIcon={<Eye className="w-4 h-4" />}>
               Preview Bulk Event PDFs
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <Card>
@@ -458,35 +470,38 @@ function CertificatesContent() {
         </CardContent>
       </Card>
 
-      <Tabs
-        tabs={typeTabs}
-        activeTab={typeFilter}
-        onChange={(id) => setTypeFilter(id)}
-      />
-
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
         <div className="w-full sm:w-80">
           <Input
             placeholder="Search by serial #, participant, or event..."
+            className="focus:border-slate-300 focus:ring-slate-200"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             leftIcon={<Search className="w-4 h-4 text-slate-400" />}
           />
         </div>
 
-        <div className="w-full sm:w-72">
-          <Select
-            value={selectedEventId}
-            onChange={(e) => setSelectedEventId(e.target.value)}
-            options={[
-              { value: '', label: 'All Events' },
-              ...events.map((evt) => ({
-                value: evt.id,
-                label: evt.name,
-              })),
-            ]}
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+          <FilterDropdown
+            value={typeFilter}
+            onChange={setTypeFilter}
+            options={typeTabs}
+            className="w-full sm:w-56"
           />
+          <div className="w-full sm:w-72">
+            <Select
+              value={selectedEventId}
+              onChange={(e) => setSelectedEventId(e.target.value)}
+              options={[
+                { value: '', label: 'All Events' },
+                ...events.map((evt) => ({
+                  value: evt.id,
+                  label: evt.name,
+                })),
+              ]}
+            />
+          </div>
         </div>
       </div>
 

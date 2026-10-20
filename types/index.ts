@@ -68,7 +68,9 @@ export interface JamaatMember {
   memberId: string;
   fullName: string;
   auxiliary: Auxiliary;
-  mulkOrDistrict: string;
+  // Mulk for Khuddam/Ansarullah/Atfal, District for Lajna/Nasra. Left
+  // undefined when the registry does not supply it — never invented.
+  mulkOrDistrict?: string;
   ilaqa?: string;
   dila: string;
   jamaat: string;
@@ -85,7 +87,9 @@ export interface Event {
   date: string;
   endDate?: string;
   venue: string;
-  auxiliary: Auxiliary;
+  // Undefined when the record carries no auxiliary. It must never default to
+  // a real auxiliary — that would show the record to the wrong group.
+  auxiliary?: Auxiliary;
   orgLevel: 'Mulk' | 'District' | 'Ilaqa' | 'Dila' | 'Jamaat';
   orgUnitName: string;
   status: EventStatus;
@@ -104,7 +108,7 @@ export interface Participant {
   fullName: string;
   email?: string;
   phone?: string;
-  auxiliary: Auxiliary;
+  auxiliary?: Auxiliary;
   dila: string;
   ilaqa?: string;
   jamaat: string;
@@ -137,7 +141,11 @@ export interface CertificateTemplate {
   organizationName: string; // e.g. "MAJLIS ATFAL-UL AHMADIYYA NIGERIA"
   organizationSubtitle: string; // e.g. "(Ahmadiyya Muslims Children Organization)"
   logoType: 'atfal-emblem' | 'khuddam-emblem' | 'lajna-emblem' | 'ansarullah-emblem' | 'nasra-emblem' | 'jamaat-crest' | 'custom';
+  // Only an explicitly uploaded logo. Left undefined so the certificate
+  // artwork falls back to the auxiliary's own emblem.
   logoUrl?: string;
+  // Full certificate background artwork (separate from the logo).
+  backgroundImagePath?: string;
 
   // Event & Certificate Content
   eventTitle: string; // e.g. "ISLAMIC VACATION COURSE/REGIONAL IJTEMA 2025"
@@ -171,7 +179,7 @@ export interface Certificate {
   participantId: string;
   participantName: string;
   memberId: string;
-  auxiliary: Auxiliary;
+  auxiliary?: Auxiliary;
   dila: string;
   ilaqa?: string;
   jamaat: string;
@@ -203,7 +211,9 @@ export interface AuditLog {
     | 'Certificate Updated'
     | 'Certificate Revoked'
     | 'Certificate Deleted'
-    | 'Template Modified';
+    | 'Template Modified'
+    | 'Template Deleted'
+    | 'Template Save Failed';
   adminName: string;
   adminRole: AdminRole | 'Admin' | 'MEMBER';
   auxiliary?: Auxiliary;
