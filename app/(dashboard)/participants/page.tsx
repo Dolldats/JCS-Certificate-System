@@ -13,6 +13,7 @@ import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
+import { Pagination } from '../../../components/ui/Pagination';
 import {
   Table,
   TableHeader,
@@ -48,6 +49,11 @@ function ParticipantsContent() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
   const [isSavingParticipant, setIsSavingParticipant] = useState(false);
+  // Server-side paging
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [verifiedTotal, setVerifiedTotal] = useState(0);
 
   // Single Add Modal
   const [isSingleAddOpen, setIsSingleAddOpen] = useState(false);
@@ -85,10 +91,16 @@ function ParticipantsContent() {
     setLoading(true);
 
     try {
-      const data = selectedEventId === 'all'
-        ? await participantsApi.getAll()
-        : await participantsApi.getByEvent(selectedEventId);
-      setParticipants(data);
+      // One page at a time from the server, filtered there.
+      const result = await participantsApi.getPage({
+        page,
+        pageSize,
+        search: searchQuery.trim() || undefined,
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        eventId: selectedEventId === 'all' ? undefined : selectedEventId,
+      });
+      setParticipants(result.items);
+      setTotalCount(result.totalCount);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not load participants.');
     } finally {
@@ -103,6 +115,32 @@ function ParticipantsContent() {
       }
     }
     run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEventId, page, pageSize, searchQuery, statusFilter]);
+
+  useEffect(() => {
+    // "Verified Clean" is a total, not a page count — ask the server for it.
+    let cancelled = false;
+    (async () => {
+      try {
+        const result =
+          selectedEventId && selectedEventId !== 'all'
+            ? await participantsApi.getPage({
+                page: 1,
+                pageSize: 1,
+                status: 'Verified',
+                eventId: selectedEventId,
+              })
+            : null;
+        if (cancelled) return;
+        setVerifiedTotal(result ? result.totalCount : 0);
+      } catch {
+        if (!cancelled) setVerifiedTotal(0);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedEventId]);
 
   const activeEvent = events.find((e) => e.id === selectedEventId);
@@ -231,17 +269,9 @@ function ParticipantsContent() {
     toast.success(`${participantToDelete.fullName} was removed from this roster.`);
   };
 
-  const filteredParticipants = participants.filter((p) => {
-    const matchesSearch =
-      p.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.memberId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.jamaat.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus =
-      statusFilter === 'all' || p.verificationStatus === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const verifiedCount = participants.filter((p) => p.verificationStatus === 'Verified').length;
+  // Search and status are applied server-side, so the loaded page is already
+  // the final result.
+  const filteredParticipants = participants;
 
   return (
     <div className="space-y-6">
@@ -306,7 +336,7 @@ function ParticipantsContent() {
                   Total Enrolled
                 </span>
                 <span className="font-bold text-slate-800 text-sm">
-                  {participants.length}
+                  {totalCount}
                 </span>
               </div>
               <div>
@@ -314,7 +344,7 @@ function ParticipantsContent() {
                   Verified Clean
                 </span>
                 <span className="font-bold text-emerald-700 text-sm">
-                  {verifiedCount}
+                  {verifiedTotal}
                 </span>
               </div>
             </div>
@@ -329,7 +359,10 @@ function ParticipantsContent() {
             placeholder="Search by Member ID, name, or Jama'at..."
             className="focus:border-slate-300 focus:ring-slate-200"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
             leftIcon={<Search className="w-4 h-4 text-slate-400" />}
           />
         </div>
@@ -338,7 +371,10 @@ function ParticipantsContent() {
           <div className="w-48">
             <Select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
               options={[
                 { value: 'all', label: 'All Verification States' },
                 { value: 'Pending', label: '⏳ Pending' },
@@ -456,6 +492,20 @@ function ParticipantsContent() {
           )}
         </CardContent>
       </Card>
+
+      {!loading && (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          isLoading={loading}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      )}
 
       <Modal isOpen={!!editingParticipant} onClose={() => setEditingParticipant(null)} title="Edit Participant" description="Update participant details stored for this event." maxWidth="md">
         {editingParticipant && <form onSubmit={handleSaveParticipant} className="space-y-4">

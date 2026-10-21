@@ -46,7 +46,7 @@ export async function POST(request: Request) {
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 JamaatCertify/1.0',
       },
       body: JSON.stringify({ username, password }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(30_000),
     });
   } catch (err: unknown) {
     const errorObj = err as Error & { cause?: unknown; code?: string };
@@ -61,14 +61,15 @@ export async function POST(request: Request) {
       name: errorObj.name,
       message: errorObj.message,
       cause: errorObj.cause,
+      causeMsg,
       code: errorObj.code,
     });
 
     return Response.json(
       {
         message: 'Cannot reach the auth server from the app server.',
-        detail: `${errorObj.name}: ${errorObj.message} (cause: ${causeMsg})`,
-        targetUrl,
+        // The target URL and the raw cause stay in the server log — they are
+        // internal details and must not be echoed to the browser.
       },
       { status: 502 }
     );

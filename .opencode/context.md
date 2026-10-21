@@ -6,7 +6,129 @@
 - **Refresh buttons on every admin page** ✅ DONE
 - **Certificate-type tabs → dropdown** ✅ DONE
 - **Template logo/watermark must match the auxiliary** ✅ DONE
+- **All 14 spec bugs + the 8 remaining ones fixed (Option A chosen)** ✅ DONE
+- **Items 20–26 frontend halves done** ✅ DONE
 - Landing page hero stats restyled to match reference site (Ruzworth) ✅ DONE
+
+## Live swagger facts (fetched from the deployed API)
+`https://jcs-certificate-system-production.up.railway.app/swagger/v1/swagger.json`
+— JCS.API, OpenAPI 3.0.1, v1.0, 55 endpoints, 21 schemas.
+
+- **Paging params exist on exactly 4 GETs**: `/api/Participants`,
+  `/api/Certificates`, `/api/Events`, `/api/AuditLogs` — each with
+  `Page`, `PageSize`, `SafePage`, `SafePageSize` (bare `integer` query params,
+  **no descriptions, defaults or min/max**).
+- **No endpoint documents its 200 response body** and there is no `PagedResult`
+  schema — the envelope shape is undocumented.
+- **~15 endpoints the frontend calls have NO paging at all**, including
+  `GET /api/CertificateTemplates` (the whole Studio list),
+  `GET /api/AdminAssignments`, `GET /api/Events/auxiliary/{auxiliary}`,
+  `GET /api/Participants/event/{id}`, `GET /api/Certificates/event/{id}`,
+  `GET /api/Participants/my`, `GET /api/Certificates/my`,
+  `GET /api/members/tajneed/{id}`, `GET /api/dashboard/summary`.
+  → the frontend **must** tolerate a bare array; it is not a bug.
+- **Global security is `{"Bearer":[]}` with no per-endpoint overrides** — so
+  *every* endpoint needs a token, including `Certificates/verify/{number}`.
+  There is **no public verify endpoint** today.
+- **No endpoint returns the current user's profile/role** — the role only comes
+  from the login response, so it cannot be "refreshed from the server" without
+  a new backend endpoint.
+- `OrganizationalLevel` enum = Mulk | Ilaqa | Dila | Jamaat | District.
+  `CreateParticipantDto` has **no** mulk/district field (jamaat, dila, ilaqa only)
+  — so the field must be added to the Participant entity/DTO by the backend.
+- The 4 paging params are undocumented; `SafePage`/`SafePageSize` are
+  presumably the clamped variants.
+
+## Items 20–26 — frontend halves (this session)
+- **#20 deleteGeneralAdmin audit** — already done (writes 'General Admin
+  Revoked'). Backend soft-delete still outstanding.
+- **#21 mulkOrDistrict** — `Participant.mulkOrDistrict?: string` added
+  (`types/index.ts`), read in the participant mapper and in
+  `lookupMemberProfile`. **Not** added to the POST payload — the backend DTO
+  rejects unknown fields, so it is read-only until the backend adds it.
+- **#22 session validation** — new `authApi.validateSession(memberId)` calls
+  the server and returns false only on **401** (a network failure never signs
+  a valid admin out). `AuthContext` calls it on mount and ends the sign-in if
+  the server rejects the session. The role itself can only come from the login
+  response until a `/api/auth/me` endpoint exists.
+- **#23 certificate verification** — `certificatesApi.verifyByNumber` now
+  always calls the server; the local-cache fallback is gone.
+- **#24 verification hash** — the mapper no longer invents one for a
+  server-issued certificate (`verificationHash: bStr(raw.verificationHash || raw.qrCodeUrl)`).
+  The deterministic FNV-1a `stableVerificationHash()` is now used **only** where
+  the frontend itself creates a certificate (the offline demo path). The QR code
+  encodes the certificate *number*, not the hash, so nothing broke.
+- **#25 pagination** — one shared helper `getAllBackendPages(path)` now reads
+  every list endpoint and understands both the envelope and a bare array. All
+  list reads route through it: Participants, Certificates, Events,
+  AuditLogs, AdminAssignments, Events/auxiliary, Participants/event,
+  Certificates/event, Participants/my, Certificates/my. A bare array from a
+  documented-paged endpoint logs a warning (the list may be incomplete)
+  instead of silently truncating. `auditApi.getLogs` was rewritten onto the
+  shared helper.
+- **#26 proxy timeout** — `app/api/backend/[...path]/route.ts` now uses
+  30s by default and **180s** for PDF/bulk routes
+  (`/generate`, `/generate-all`, `/download-all-pdf`, `/upload-csv`,
+  `/upload-excel`, `/preview`). The login proxy goes 15s → 30s.
+
+**Verification:** `npx eslint .` 0 errors · `npx tsc --noEmit` clean ·
+`npx next build` compiles.
+
+## Security & hardening pass (Option A — this session)
+User chose **Option A** for both open decisions.
+
+**Logout / session:**
+- `services/api.ts` — new exported `clearLocalRecords()` removes the cached
+  personal-record keys `jcs_v2_participants`, `jcs_v2_certificates`,
+  `jcs_v2_audit_logs`, `jcs_v2_users`, `jcs_v2_events`.
+  **`jcs_v2_template_overrides` is deliberately KEPT** (admin's designs, not
+  member data).
+- `context/AuthContext.tsx` — logout now calls `clearLocalRecords()`, calls
+  `setUser(null)`, resets `activeAuxiliary`, and does
+  `history.replaceState(null,'','/login')` so Back can't restore a signed-in view.
+- `context/AuthContext.tsx` — session restore now **reads `jcs_expires_at`** and
+  refuses to restore an expired session (and clears the dead session keys).
+- `components/layout/DashboardShell.tsx` — redirects to `/login` when `user` is null.
+- `next.config.ts` — `Cache-Control: no-store, must-revalidate` on HTML routes
+  only (source excludes `_next/static`, `_next/image` and anything with a file
+  extension, so fonts/images stay cacheable). Keeps the page out of bfcache.
+
+**Audit trail honesty:**
+- `services/api.ts` — `auditApi.getLogsWithStatus()` returns `{ logs, stale }`.
+  `getLogs()` is kept as a thin wrapper (no ripple). `stale` is true whenever the
+  result came from the local cache.
+- `app/(dashboard)/audit/page.tsx` — amber banner when stale: "Showing cached
+  entries — the server could not be reached…".
+
+**Error handling / proxy:**
+- `services/backendClient.ts` — `backendDownload` errors and non-JSON bodies
+  both route through `friendlyErrorMessage`; the raw server text and
+  "Download failed (401)" no longer reach the UI. The thrown error carries
+  `status`.
+- `app/api/backend/[...path]/route.ts` + `app/api/auth/login/route.ts` — the 502
+  body no longer includes `targetUrl` or the raw cause; both stay in the
+  server-side `console.error` (including `causeMsg`).
+
+**No more invented data:**
+- `services/api.ts` `loginReal` — email comes from the registry or is empty;
+  the fabricated `@jamaat.org` address is gone. `BackendLoginResponse.profile`
+  gained an optional `email`.
+- `types/index.ts` — `Event.eventType` is now optional; the mapper no longer
+  defaults it to `'Ijtema'`. The events form requires a type and shows
+  "Event type not set" on cards with no type.
+- `services/api.ts` — `stableVerificationHash()` (FNV-1a) replaces
+  `Math.random()` for `verificationHash`, so a certificate's verification link
+  (and its QR code) is stable across reads.
+- `app/(dashboard)/admins/page.tsx` — the display fallback `'National HQ'` is
+  replaced with "Not specified".
+
+**Login a11y (`app/login/page.tsx`):** `htmlFor`/`id` on both labels, `name`,
+`autoComplete="username"` / `"current-password"`, `autoCapitalize`+`spellCheck`
+on Member ID, `aria-pressed` on the show/hide button, and the error is now
+`role="alert" aria-live="assertive"`.
+
+**Verification:** `npx eslint .` 0 errors · `npx tsc --noEmit` clean ·
+`npx next build` compiles.
 
 ## Template logo / watermark bug (this session)
 Symptom: the Ansarullah template previewed correctly (circular "MAJLIS ANSARULLAH

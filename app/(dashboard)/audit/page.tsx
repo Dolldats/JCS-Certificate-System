@@ -10,6 +10,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
+import { Pagination } from '../../../components/ui/Pagination';
 import {
   Table,
   TableHeader,
@@ -22,6 +23,7 @@ import {
   ClipboardList,
   Search,
   RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 import { formatDateTime } from '../../../lib/utils';
 
@@ -32,13 +34,37 @@ export default function AuditPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('all');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [isStale, setIsStale] = useState(false);
+  // Server-side paging
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
 
   const loadLogs = async () => {
     setLoading(true);
     const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
-    const data = await auditApi.getLogs(aux);
-    setLogs(data);
-    setLoading(false);
+    try {
+      // One page at a time, filtered by the server.
+      const result = await auditApi.getLogsPage({
+        page,
+        pageSize,
+        search: searchQuery.trim() || undefined,
+        action: actionFilter === 'all' ? undefined : actionFilter,
+        auxiliary: aux,
+      });
+      setLogs(result.items);
+      setTotalCount(result.totalCount);
+      setIsStale(false);
+    } catch (error) {
+      // The server is unreachable — show the cached trail, clearly labelled.
+      console.warn('Could not load the activity log from the server:', error);
+      const { logs: cached, stale } = await auditApi.getLogsWithStatus(aux);
+      setLogs(cached);
+      setTotalCount(cached.length);
+      setIsStale(stale);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -48,26 +74,38 @@ export default function AuditPage() {
     (async () => {
       setLoading(true);
       const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
-      const data = await auditApi.getLogs(aux);
-      if (cancelled) return;
-      setLogs(data);
-      setLoading(false);
+      try {
+        const result = await auditApi.getLogsPage({
+          page,
+          pageSize,
+          search: searchQuery.trim() || undefined,
+          action: actionFilter === 'all' ? undefined : actionFilter,
+          auxiliary: aux,
+        });
+        if (cancelled) return;
+        setLogs(result.items);
+        setTotalCount(result.totalCount);
+        setIsStale(false);
+      } catch (error) {
+        // The server is unreachable — fall back to the cached trail and say so.
+        if (cancelled) return;
+        const { logs: cached, stale } = await auditApi.getLogsWithStatus(aux);
+        if (cancelled) return;
+        setLogs(cached);
+        setTotalCount(cached.length);
+        setIsStale(stale);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [activeAuxiliary]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAuxiliary, page, pageSize, searchQuery, actionFilter]);
 
-  const filteredLogs = logs.filter((log) => {
-    const q = searchQuery.toLowerCase();
-    const matchesSearch =
-      log.details.toLowerCase().includes(q) ||
-      log.adminName.toLowerCase().includes(q) ||
-      log.target.toLowerCase().includes(q) ||
-      log.action.toLowerCase().includes(q);
-    const matchesAction = actionFilter === 'all' || log.action === actionFilter;
-    return matchesSearch && matchesAction;
-  });
+  // Search and action are applied server-side, so the loaded page is final.
+  const filteredLogs = logs;
 
   const actionTypes = [
     'all',
@@ -120,13 +158,34 @@ export default function AuditPage() {
         </Button>
       </div>
 
+      {/* Cached entries must never look like live ones — say so plainly. */}
+      {isStale && !loading && (
+        <div
+          role="status"
+          className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950"
+        >
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+          <div className="text-xs">
+            <span className="font-bold block">Showing cached entries</span>
+            <p className="mt-0.5 leading-relaxed text-amber-900/80">
+              The server could not be reached, so these are the last locally
+              cached records — they may not reflect the latest activity.
+              Refresh once the connection is restored.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
         <div className="w-full sm:w-80">
           <Input
             placeholder="Search by keyword, actor, or target..."
             className="focus:border-slate-300 focus:ring-slate-200"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
             leftIcon={<Search className="w-4 h-4 text-slate-400" />}
           />
         </div>
@@ -134,7 +193,10 @@ export default function AuditPage() {
         <div className="w-full sm:w-72">
           <Select
             value={actionFilter}
-            onChange={(e) => setActionFilter(e.target.value)}
+            onChange={(e) => {
+              setActionFilter(e.target.value);
+              setPage(1);
+            }}
             options={actionTypes.map((action) => ({
               value: action,
               label: action === 'all' ? 'All Activity Types' : action,
@@ -215,6 +277,20 @@ export default function AuditPage() {
           )}
         </CardContent>
       </Card>
+
+      {!loading && (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          isLoading={loading}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      )}
 
       <Modal
         isOpen={Boolean(selectedLog)}

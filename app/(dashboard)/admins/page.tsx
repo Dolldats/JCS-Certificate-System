@@ -12,6 +12,7 @@ import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
+import { Pagination } from '../../../components/ui/Pagination';
 import {
   Table,
   TableHeader,
@@ -74,6 +75,10 @@ export default function AdminsPage() {
   const [admins, setAdmins] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  // Paging — the AdminAssignments endpoint returns the full list, so the
+  // pagination is applied here.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Assign Modal
   const [isAssignOpen, setIsAssignOpen] = useState(false);  const [assignMemberId, setAssignMemberId] = useState('');
@@ -181,6 +186,13 @@ export default function AdminsPage() {
     );
   });
 
+  // The slice for the current page.
+  const pagedAdmins = filteredAdmins.slice(
+    (page - 1) * pageSize,
+    page * pageSize
+  );
+  const totalAdmins = filteredAdmins.length;
+
   if (user?.role !== 'SUPER_ADMIN') {
     return (
       <Card>
@@ -247,7 +259,10 @@ export default function AdminsPage() {
             placeholder="Search admins by name, Member ID, or auxiliary..."
             className="focus:border-slate-300 focus:ring-slate-200"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
             leftIcon={<Search className="w-4 h-4 text-slate-400" />}
           />
         </div>
@@ -281,7 +296,7 @@ export default function AdminsPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : filteredAdmins.map((admin) => (
+              ) : pagedAdmins.map((admin) => (
                 <TableRow key={admin.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -321,7 +336,10 @@ export default function AdminsPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-xs text-slate-600">
-                    {admin.jamaat ? `${admin.jamaat}, ${admin.dila}` : 'National HQ'}
+                    {/* No invented location — say when it was not supplied. */}
+                    {admin.jamaat
+                      ? `${admin.jamaat}${admin.dila ? `, ${admin.dila}` : ''}`
+                      : 'Not specified'}
                   </TableCell>
                   <TableCell className="text-right">
                     {admin.role !== 'SUPER_ADMIN' && (
@@ -344,6 +362,20 @@ export default function AdminsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {!loading && (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalCount={totalAdmins}
+          isLoading={loading}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      )}
 
       {/* Assign Modal */}
       <Modal

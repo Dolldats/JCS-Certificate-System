@@ -14,6 +14,7 @@ import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { FilterDropdown } from '../../../components/ui/FilterDropdown';
+import { Pagination } from '../../../components/ui/Pagination';
 import {
   CalendarDays,
   Plus,
@@ -54,6 +55,10 @@ export default function EventsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  // Server-side paging
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Create Event Modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -63,7 +68,9 @@ export default function EventsPage() {
   const [newEvent, setNewEvent] = useState({
     name: '',
     description: '',
-    eventType: 'Ijtema' as EventType,
+    // '' means "not yet chosen" — an event with no type must not be silently
+    // filed under a real category.
+    eventType: 'Ijtema' as EventType | '',
     date: new Date().toISOString().split('T')[0],
     endDate: '',
     venue: '',
@@ -79,7 +86,16 @@ export default function EventsPage() {
   const loadEvents = async () => {
     setLoading(true);
     const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
-    const data = await eventsApi.getAll(aux);
+    // One page at a time from the server, filtered there.
+    const result = await eventsApi.getPage({
+      page,
+      pageSize,
+      search: searchTerm.trim() || undefined,
+      status: selectedStatus === 'all' ? undefined : selectedStatus,
+      auxiliary: aux,
+    });
+    setTotalCount(result.totalCount);
+    const data = result.items;
     // Reconcile both roster and certificate counts against the live API instead
     // of trusting the event record's counters, which stay 0/0 when the backend
     // doesn't maintain them. Issuing/revoking certificates now updates the card.
@@ -110,7 +126,8 @@ export default function EventsPage() {
       await loadEvents();
     }
     run();
-  }, [activeAuxiliary]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAuxiliary, page, pageSize, searchTerm, selectedStatus]);
 
   const handleAuxiliaryChange = (aux: Auxiliary) => {
     const isLajnaOrNasra = aux === 'Lajna' || aux === 'Nasra';
@@ -129,6 +146,10 @@ export default function EventsPage() {
     // to the wrong majlis (or to none at all).
     if (!newEvent.auxiliary) {
       toast.error('Choose the auxiliary that is hosting this event.');
+      return;
+    }
+    if (!newEvent.eventType) {
+      toast.error('Choose the type of event.');
       return;
     }
     setIsSubmitting(true);
@@ -185,7 +206,7 @@ export default function EventsPage() {
     setNewEvent({
       name: target.name,
       description: target.description,
-      eventType: target.eventType,
+      eventType: target.eventType ?? '',
       date: target.date,
       endDate: target.endDate || '',
       venue: target.venue,
@@ -212,13 +233,10 @@ export default function EventsPage() {
   };
 
   const filteredEvents = events.filter((e) => {
-    const matchesSearch =
-      e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.venue.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.orgUnitName.toLowerCase().includes(searchTerm.toLowerCase());
+    // Search and status are applied server-side. Event type has no backend
+    // filter yet, so it is refined here over the current page.
     const matchesType = selectedType === 'all' || e.eventType === selectedType;
-    const matchesStatus = selectedStatus === 'all' || e.status === selectedStatus;
-    return matchesSearch && matchesType && matchesStatus;
+    return matchesType;
   });
 
   // Event-type filter options — a dropdown, because the horizontal tab strip
@@ -273,21 +291,30 @@ export default function EventsPage() {
             placeholder="Search by event name, venue, or region..."
             className="focus:border-slate-300 focus:ring-slate-200"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
             leftIcon={<Search className="w-4 h-4 text-slate-400" />}
           />
         </div>
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
           <FilterDropdown
             value={selectedType}
-            onChange={setSelectedType}
+            onChange={(id) => {
+              setSelectedType(id);
+              setPage(1);
+            }}
             options={typeTabs}
             className="w-full sm:w-52"
           />
           <div className="w-full sm:w-44">
             <Select
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value);
+                setPage(1);
+              }}
               options={[
                 { value: 'all', label: 'All Statuses' },
                 { value: 'Upcoming', label: 'Upcoming' },
@@ -340,7 +367,7 @@ export default function EventsPage() {
 
                 <div>
                   <span className="text-3xs uppercase font-extrabold tracking-wider text-emerald-700">
-                    {event.eventType}
+                    {event.eventType ?? 'Event type not set'}
                   </span>
                   <h3 className="text-base font-bold text-slate-900 mt-0.5 line-clamp-1">
                     {event.name}
@@ -412,6 +439,20 @@ export default function EventsPage() {
         </div>
       )}
 
+      {!loading && (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          isLoading={loading}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      )}
+
       {/* Create Event Modal */}
       <Modal
         isOpen={isCreateOpen}
@@ -448,7 +489,7 @@ export default function EventsPage() {
 
             <Select
               label="Event Type *"
-              value={newEvent.eventType}
+                    value={newEvent.eventType ?? ''}
               onChange={(e) =>
                 setNewEvent({ ...newEvent, eventType: e.target.value as EventType })
               }

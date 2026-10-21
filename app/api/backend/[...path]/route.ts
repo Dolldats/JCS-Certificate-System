@@ -4,6 +4,11 @@ import { NextRequest } from 'next/server';
 // TypeError in the Response constructor.
 const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
 
+// Ordinary API calls get a short budget; PDF generation and bulk imports
+// need much longer, otherwise the proxy cancels work the backend is still doing.
+const DEFAULT_TIMEOUT_MS = 30_000;
+const LONG_RUNNING_TIMEOUT_MS = 180_000;
+
 function getBackendBaseUrl(): string {
   let rawBaseUrl =
     process.env.NEXT_PUBLIC_JAMAAT_API_URL ||
@@ -49,12 +54,20 @@ async function handleProxy(
     ? await request.arrayBuffer()
     : undefined;
 
+  // PDF generation and bulk imports are slow server-side, so they get a much
+  // longer budget than ordinary reads.
+  const isLongRunning =
+    /\/generate(-all)?$|\/download-all-pdf$|\/upload-(csv|excel)$|\/preview$/.test(
+      targetUrl
+    );
+  const timeoutMs = isLongRunning ? LONG_RUNNING_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
+
   try {
     const upstream = await fetch(targetUrl, {
       method: request.method,
       headers,
       body,
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
 
     const upstreamContentType =
@@ -87,14 +100,15 @@ async function handleProxy(
       name: errorObj.name,
       message: errorObj.message,
       cause: errorObj.cause,
+      causeMsg,
       code: errorObj.code,
     });
 
     return Response.json(
       {
         message: 'Cannot reach the backend server from the application proxy.',
-        detail: `${errorObj.name}: ${errorObj.message} (cause: ${causeMsg})`,
-        targetUrl,
+        // The target URL and the raw cause stay in the server log — they are
+        // internal details and must not be echoed to the browser.
       },
       { status: 502 }
     );

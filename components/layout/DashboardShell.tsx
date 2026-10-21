@@ -14,10 +14,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && user?.role === 'MEMBER') router.replace('/member');
-  }, [isLoading, router, user?.role]);
+    if (isLoading) return;
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+    if (user.role === 'MEMBER') router.replace('/member');
+  }, [isLoading, router, user]);
 
-  if (isLoading || user?.role === 'MEMBER') {
+  // No session — send them to the sign-in page instead of rendering an empty
+  // dashboard shell.
+  if (isLoading || !user || user.role === 'MEMBER') {
     return (
       <div className="app-background min-h-screen w-full flex flex-col items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mb-3" />

@@ -145,7 +145,15 @@ export async function backendFetch<T>(
   try {
     return JSON.parse(text) as T;
   } catch {
-    return text as unknown as T;
+    // Not JSON — an HTML error page or plain text. Do not hand it back as if
+    // it were data; surface it as a readable error instead.
+    throw new Error(
+      friendlyErrorMessage(
+        res.status,
+        text,
+        'The server returned an unexpected response for this request.'
+      )
+    );
   }
 }
 
@@ -160,11 +168,22 @@ export async function backendDownload(endpoint: string): Promise<Blob> {
     let detail = '';
     try {
       const body = (await response.json()) as Record<string, unknown>;
-      detail = typeof body.message === 'string' ? body.message : '';
+      detail =
+        typeof body.message === 'string'
+          ? body.message
+          : typeof body.detail === 'string'
+            ? body.detail
+            : '';
     } catch {
       // Keep a concise status-based error when the endpoint returns no JSON body.
     }
-    throw new Error(detail || `Download failed (${response.status}).`);
+    // Route through the shared formatter so a raw server payload (or a bare
+    // "Download failed (401)") never reaches the admin.
+    const error = new Error(
+      friendlyErrorMessage(response.status, detail, 'The file could not be downloaded.')
+    ) as Error & { status?: number };
+    error.status = response.status;
+    throw error;
   }
 
   return response.blob();

@@ -37,6 +37,7 @@ import { CertificateModal } from '../../../components/certificates/CertificateMo
 import { CertificatePreview } from '../../../components/certificates/CertificatePreview';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { FilterDropdown } from '../../../components/ui/FilterDropdown';
+import { Pagination } from '../../../components/ui/Pagination';
 import { EditCertificateModal } from '../../../components/certificates/EditCertificateModal';
 import {
   Award,
@@ -85,6 +86,10 @@ function CertificatesContent() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  // Server-side paging
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
 
   const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
   const [bulkQueue, setBulkQueue] = useState<Certificate[] | null>(null);
@@ -129,13 +134,26 @@ function CertificatesContent() {
 
     try {
       const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
+      // One page of certificates from the server, filtered there. Events and
+      // templates are still loaded in full — they are reference data for the
+      // dropdowns and for enriching each certificate.
       const [certs, allEvents, allTemplates] = await Promise.all([
-        certificatesApi.getAll(aux),
+        certificatesApi.getPage({
+          page,
+          pageSize,
+          search: searchQuery.trim() || undefined,
+          eventId:
+            selectedEventId && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(selectedEventId)
+              ? selectedEventId
+              : undefined,
+          auxiliary: aux,
+        }),
         eventsApi.getAll(aux),
         templatesApi.getActive(aux),
       ]);
 
-      setCertificates(enrichCertificates(certs, allEvents));
+      setCertificates(enrichCertificates(certs.items, allEvents));
+      setTotalCount(certs.totalCount);
       setEvents(allEvents);
       setTemplates(allTemplates);
 
@@ -157,19 +175,8 @@ function CertificatesContent() {
       await loadData();
     }
     run();
-  }, [activeAuxiliary]);
-
-  useEffect(() => {
-    if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(selectedEventId)) return;
-    let cancelled = false;
-    certificatesApi.getByEvent(selectedEventId).then((data) => {
-      if (!cancelled) setCertificates(enrichCertificates(data, events));
-    }).catch((error) => {
-      console.error('Could not load certificates for the selected event', error);
-      if (!cancelled) toast.error(error instanceof Error ? error.message : 'Could not load certificates for this event.');
-    });
-    return () => { cancelled = true; };
-  }, [selectedEventId, events, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAuxiliary, page, pageSize, searchQuery, selectedEventId]);
 
   // Keep the search box in sync when arriving via the navbar search (?q=...).
   const navbarQuery = searchParams.get('q') || '';
@@ -395,15 +402,11 @@ function CertificatesContent() {
     toast.success(`Certificate ${certificateToDelete.certificateNumber} was deleted.`);
   };
 
+  // Search and the event filter are applied server-side. Certificate type has
+  // no backend filter yet, so it is refined here over the current page.
   const filteredCertificates = certificates.filter((c) => {
-    const matchesSearch =
-      c.certificateNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.participantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.eventName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.jamaat.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesEvent = !selectedEventId || c.eventId === selectedEventId;
     const matchesType = typeFilter === 'all' || c.type === typeFilter;
-    return matchesSearch && matchesEvent && matchesType;
+    return matchesType;
   });
 
   // Certificate-type filter options — a dropdown, because the horizontal tab
@@ -477,7 +480,10 @@ function CertificatesContent() {
             placeholder="Search by serial #, participant, or event..."
             className="focus:border-slate-300 focus:ring-slate-200"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
             leftIcon={<Search className="w-4 h-4 text-slate-400" />}
           />
         </div>
@@ -485,14 +491,20 @@ function CertificatesContent() {
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
           <FilterDropdown
             value={typeFilter}
-            onChange={setTypeFilter}
+            onChange={(id) => {
+              setTypeFilter(id);
+              setPage(1);
+            }}
             options={typeTabs}
             className="w-full sm:w-56"
           />
           <div className="w-full sm:w-72">
             <Select
               value={selectedEventId}
-              onChange={(e) => setSelectedEventId(e.target.value)}
+              onChange={(e) => {
+                setSelectedEventId(e.target.value);
+                setPage(1);
+              }}
               options={[
                 { value: '', label: 'All Events' },
                 ...events.map((evt) => ({
@@ -612,6 +624,20 @@ function CertificatesContent() {
           )}
         </CardContent>
       </Card>
+
+      {!loading && (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          isLoading={loading}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      )}
 
       {/* Batch Certificate Generator Wizard Modal */}
       <Modal

@@ -64,8 +64,16 @@ export default function LoginPage() {
 
       <form onSubmit={handleLogin} className="mt-6 space-y-4">
         <div>
-          <label className="block text-3xs font-semibold text-slate-600 mb-1.5">Member ID</label>
+          <label htmlFor="member-id" className="block text-3xs font-semibold text-slate-600 mb-1.5">
+            Member ID
+          </label>
           <input
+            id="member-id"
+            name="memberId"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="characters"
+            spellCheck={false}
             value={memberId}
             onChange={(e) => setMemberId(e.target.value)}
             placeholder="e.g. ATF-60201"
@@ -76,11 +84,16 @@ export default function LoginPage() {
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-3xs font-semibold text-slate-600">Password</label>
+            <label htmlFor="password" className="text-3xs font-semibold text-slate-600">
+              Password
+            </label>
           </div>
           <div className="relative">
             <input
+              id="password"
+              name="password"
               type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -91,13 +104,22 @@ export default function LoginPage() {
               onClick={() => setShowPassword((v) => !v)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-pressed={showPassword}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
         </div>
 
-        {error && <p className="text-3xs text-rose-600 font-medium text-center">{error}</p>}
+        {error && (
+          <p
+            role="alert"
+            aria-live="assertive"
+            className="text-3xs text-rose-600 font-medium text-center"
+          >
+            {error}
+          </p>
+        )}
 
         <Button
           type="submit"

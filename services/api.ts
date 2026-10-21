@@ -47,6 +47,25 @@ const bRec = (value: unknown): BackendRecord | undefined =>
 export const cleanTheme = (value: unknown): string =>
   bStr(value).trim().replace(/^theme:\s*/i, '');
 
+const PAGE_SIZE = 100;
+
+/**
+ * Endpoints the backend documents as paged. A response from one of these
+ * should be the paged envelope — if a bare array turns up instead, the list
+ * may be silently truncated, so it is reported rather than swallowed.
+ */
+const PAGED_BACKEND_RESOURCES = new Set([
+  'Participants',
+  'Certificates',
+  'Events',
+  'AuditLogs',
+]);
+
+/**
+ * Reads a list response that may be either a bare array or a paged envelope
+ * (`{ items | data, totalCount }`). Every list read goes through here so a
+ * paged response can never be mistaken for a complete single page.
+ */
 function pageItems(value: unknown): BackendRecord[] {
   if (Array.isArray(value)) return value as BackendRecord[];
   const record = bRec(value);
@@ -55,16 +74,89 @@ function pageItems(value: unknown): BackendRecord[] {
   return [];
 }
 
+/**
+ * Fetches every page of a list endpoint. Works with the paged envelope and
+ * with a bare array, so an endpoint that is not paged yet still returns its
+ * full list — but a bare array from an endpoint that IS documented as paged
+ * is reported, because that means records can be missing.
+ */
+/**
+ * A page of records plus the paging metadata the backend returns.
+ */
+export interface PageResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+/**
+ * Reads a paged envelope. The backend's 200 body is not documented in the
+ * swagger, so several common field names are accepted rather than assuming
+ * one shape.
+ */
+function readPageEnvelope(value: unknown): { items: BackendRecord[]; totalCount: number } {
+  const record = bRec(value);
+  if (!record) {
+    return { items: Array.isArray(value) ? (value as BackendRecord[]) : [], totalCount: 0 };
+  }
+  const items = (['items', 'data', 'results', 'records', 'content'] as const)
+    .map((key) => record[key])
+    .find((candidate): candidate is BackendRecord[] => Array.isArray(candidate)) ?? [];
+  const totalCount = bNum(
+    record.totalCount ?? record.total ?? record.totalItems ?? record.count,
+    items.length
+  );
+  return { items, totalCount };
+}
+
+/**
+ * Fetches a single page from a paged list endpoint.
+ */
+async function fetchBackendPage<T>(
+  path: string,
+  params: Record<string, string | number | undefined>,
+  page: number,
+  pageSize: number,
+  map: (record: BackendRecord) => T
+): Promise<PageResult<T>> {
+  const search = new URLSearchParams();
+  search.set('page', String(page));
+  search.set('pageSize', String(pageSize));
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === '') continue;
+    search.set(key, String(value));
+  }
+  const response = await backendFetch<unknown>(`${path}?${search.toString()}`);
+  const { items, totalCount } = readPageEnvelope(response);
+  return {
+    items: items.map(map),
+    totalCount,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(totalCount / Math.max(1, pageSize))),
+  };
+}
+
 async function getAllBackendPages(path: string): Promise<BackendRecord[]> {
-  const pageSize = 100;
-  const first = await backendFetch<unknown>(`${path}?page=1&pageSize=${pageSize}`);
+  const separator = path.includes('?') ? '&' : '?';
+  const withPaging = (page: number) =>
+    `${path}${separator}page=${page}&pageSize=${PAGE_SIZE}`;
+  const first = await backendFetch<unknown>(withPaging(1));
   const firstItems = pageItems(first);
+  const resource = path.split('?')[0].split('/').filter(Boolean).pop() ?? '';
+  if (Array.isArray(first) && PAGED_BACKEND_RESOURCES.has(resource)) {
+    console.warn(
+      `Backend ${path} returned a bare array but is documented as paged — the list may be incomplete.`
+    );
+  }
   const totalCount = bNum(bRec(first)?.totalCount, firstItems.length);
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const allItems = [...firstItems];
 
   for (let page = 2; page <= totalPages; page += 1) {
-    const response = await backendFetch<unknown>(`${path}?page=${page}&pageSize=${pageSize}`);
+    const response = await backendFetch<unknown>(withPaging(page));
     allItems.push(...pageItems(response));
   }
 
@@ -113,6 +205,7 @@ async function lookupMemberProfile(memberId: string): Promise<Partial<JamaatMemb
         email: bStr(profile.email) || undefined,
         phone: bStr(profile.phone || profile.phoneNumber) || undefined,
         auxiliary: (profile.auxiliary || profile.body) as Auxiliary | undefined,
+        mulkOrDistrict: bStr(profile.mulkOrDistrict) || undefined,
         dila: bStr(profile.dila || profile.district) || undefined,
         ilaqa: bStr(profile.ilaqa) || undefined,
         jamaat: bStr(profile.jamaat) || undefined,
@@ -188,10 +281,22 @@ function removeLegacyDemoUsers(users: User[]): User[] {
   return users.filter((user) => !isLegacyDemoUser(user));
 }
 
+/**
+ * Namespace for everything this app caches in localStorage. Everything under
+ * it is a copy of server data — the server is always the source of truth.
+ */
+const STORAGE_PREFIX = 'jcs_v2_';
+
+/**
+ * The only cached entry kept on logout: the admin's own template designs.
+ * Not member data, and the server holds a copy of everything too.
+ */
+const KEPT_STORAGE_KEYS = new Set([`${STORAGE_PREFIX}template_overrides`]);
+
 function getStorage<T>(key: string, defaultValue: T): T {
   if (typeof window === 'undefined') return defaultValue;
   try {
-    const item = window.localStorage.getItem(`jcs_v2_${key}`);
+    const item = window.localStorage.getItem(`${STORAGE_PREFIX}${key}`);
     return item ? JSON.parse(item) : defaultValue;
   } catch {
     return defaultValue;
@@ -201,10 +306,54 @@ function getStorage<T>(key: string, defaultValue: T): T {
 function setStorage<T>(key: string, value: T): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(`jcs_v2_${key}`, JSON.stringify(value));
+    window.localStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(value));
   } catch (e) {
     console.error(`Failed to persist ${key}`, e);
   }
+}
+
+/**
+ * Called on logout. Removes every cached record so the next person to use this
+ * device cannot read member names, phone numbers, emails, certificates or the
+ * activity log in DevTools.
+ *
+ * This sweeps the whole `jcs_v2_` namespace rather than a fixed list, so
+ * stale entries left behind by older builds are cleared too.
+ */
+export function clearLocalRecords(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const keys: string[] = [];
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (key) keys.push(key);
+    }
+    for (const key of keys) {
+      if (!key.startsWith(STORAGE_PREFIX)) continue;
+      if (KEPT_STORAGE_KEYS.has(key)) continue;
+      try {
+        window.localStorage.removeItem(key);
+      } catch {
+        // Ignore — a blocked storage must not break sign-out.
+      }
+    }
+  } catch {
+    // Ignore — a blocked storage must not break sign-out.
+  }
+}
+
+/**
+ * Deterministic verification hash (FNV-1a). A random hash would change on
+ * every read, so the QR code on a certificate would point at a different
+ * verification link each time the certificate was opened.
+ */
+function stableVerificationHash(seed: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `v${hash.toString(36).padStart(7, '0')}`.slice(0, 14);
 }
 
 // AUDIT API
@@ -228,63 +377,68 @@ function readableAuditDetails(action: string, details: string): string {
   return details;
 }
 
+function mapBackendAuditLog(item: BackendRecord): AuditLog {
+  const rawAction = bStr(item.action, 'Login');
+  const rawDetails = bStr(item.details || item.description);
+  return {
+    id: bStr(item.id, `log-${Date.now()}`),
+    action: readableAuditAction(rawAction) as AuditLog['action'],
+    adminName: bStr(item.performedBy || item.adminName, 'Admin'),
+    adminRole: bStr(item.role || item.adminRole, 'Admin') as AuditLog['adminRole'],
+    auxiliary: item.auxiliary as Auxiliary | undefined,
+    target: bStr(item.target || item.entityId || item.entityName, 'System'),
+    details: readableAuditDetails(rawAction, rawDetails),
+    timestamp: bStr(item.performedAt || item.timestamp || item.createdAt, new Date().toISOString()),
+    ipAddress: bStr(item.ipAddress) || undefined,
+  };
+}
+
 export const auditApi = {
   async getLogs(auxiliaryFilter?: Auxiliary): Promise<AuditLog[]> {
+    const { logs } = await this.getLogsWithStatus(auxiliaryFilter);
+    return logs;
+  },
+
+  /** One page of the activity log, filtered server-side. */
+  async getLogsPage(params: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    action?: string;
+    auxiliary?: Auxiliary;
+  }): Promise<PageResult<AuditLog>> {
+    return fetchBackendPage(
+      'AuditLogs',
+      {
+        search: params.search,
+        action: params.action,
+        auxiliary: params.auxiliary,
+      },
+      params.page,
+      params.pageSize,
+      mapBackendAuditLog
+    );
+  },
+
+  /**
+   * Fetches the activity log and reports whether the result came from the
+   * server or from the local cache. A cached result must be shown as cached —
+   * silently serving yesterday's entries looks like "nothing happened today".
+   */
+  async getLogsWithStatus(auxiliaryFilter?: Auxiliary): Promise<{ logs: AuditLog[]; stale: boolean }> {
     const token = getAuthToken();
     if (token) {
       try {
-        // The backend paginates audit records, so fetch every page before caching the complete feed.
-        const pageSize = 100;
-        const firstResponse = await backendFetch<BackendRecord | BackendRecord[]>(
-          `AuditLogs?page=1&pageSize=${pageSize}`
-        );
-        const firstRecord = bRec(firstResponse);
-        const firstItems = Array.isArray(firstResponse)
-          ? firstResponse
-          : Array.isArray(firstRecord?.items)
-            ? firstRecord.items as BackendRecord[]
-            : Array.isArray(firstRecord?.data)
-              ? firstRecord.data as BackendRecord[]
-              : null;
-
-        if (firstItems) {
-          const totalCount = bNum(firstRecord?.totalCount, firstItems.length);
-          const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
-          const allItems = [...firstItems];
-
-          for (let page = 2; page <= pageCount; page += 1) {
-            const response = await backendFetch<BackendRecord | BackendRecord[]>(
-              `AuditLogs?page=${page}&pageSize=${pageSize}`
-            );
-            const record = bRec(response);
-            const items = Array.isArray(response)
-              ? response
-              : Array.isArray(record?.items)
-                ? record.items as BackendRecord[]
-                : Array.isArray(record?.data)
-                  ? record.data as BackendRecord[]
-                  : [];
-            allItems.push(...items);
-          }
-
-          const mapped = removeLegacyDemoAuditLogs(allItems.map((item) => {
-            const rawAction = bStr(item.action, 'Login');
-            const rawDetails = bStr(item.details || item.description);
-            return {
-            id: bStr(item.id, `log-${Date.now()}`),
-            action: readableAuditAction(rawAction) as AuditLog['action'],
-            adminName: bStr(item.performedBy || item.adminName, 'Admin'),
-            adminRole: bStr(item.role || item.adminRole, 'Admin') as AuditLog['adminRole'],
-            auxiliary: item.auxiliary as Auxiliary | undefined,
-            target: bStr(item.target || item.entityId || item.entityName, 'System'),
-            details: readableAuditDetails(rawAction, rawDetails),
-            timestamp: bStr(item.performedAt || item.timestamp || item.createdAt, new Date().toISOString()),
-            ipAddress: bStr(item.ipAddress) || undefined,
-          }; }));
+        // The backend paginates audit records — fetch every page before
+        // caching, so the trail is never silently truncated.
+        const allItems = await getAllBackendPages('AuditLogs');
+        const mapped = removeLegacyDemoAuditLogs(allItems.map(mapBackendAuditLog));
           setStorage('audit_logs', mapped);
-          if (!auxiliaryFilter) return mapped;
-          return mapped.filter((l) => !l.auxiliary || l.auxiliary === auxiliaryFilter);
-        }
+          if (!auxiliaryFilter) return { logs: mapped, stale: false };
+          return {
+            logs: mapped.filter((l) => !l.auxiliary || l.auxiliary === auxiliaryFilter),
+            stale: false,
+          };
       } catch (err) {
         console.warn('Backend AuditLogs fetch failed, using cached logs:', err);
       }
@@ -294,8 +448,12 @@ export const auditApi = {
     const cachedLogs = getStorage<AuditLog[]>('audit_logs', INITIAL_AUDIT_LOGS);
     const logs = removeLegacyDemoAuditLogs(cachedLogs);
     if (logs.length !== cachedLogs.length) setStorage('audit_logs', logs);
-    if (!auxiliaryFilter) return logs;
-    return logs.filter((l) => !l.auxiliary || l.auxiliary === auxiliaryFilter);
+    const filtered = auxiliaryFilter
+      ? logs.filter((l) => !l.auxiliary || l.auxiliary === auxiliaryFilter)
+      : logs;
+    // Signed out, or the server could not be reached — these entries are the
+    // local copy, not live data.
+    return { logs: filtered, stale: true };
   },
 
   async getById(id: string): Promise<AuditLog> {
@@ -367,29 +525,55 @@ export const authApi = {
     }
   },
 
+  /**
+   * Asks the server whether the stored session is still valid. The role in
+   * browser storage is only a convenience for rendering — the server is the
+   * authority, so a session it no longer accepts must end the sign-in.
+   *
+   * Returns true when the server accepted the session, false when it rejected
+   * it. A non-401 failure (the endpoint being unavailable, for instance) is
+   * not treated as a rejection — a valid admin must not be signed out by a
+   * flaky network.
+   */
+  async validateSession(memberId: string): Promise<boolean> {
+    if (!getAuthToken()) return false;
+    try {
+      // A small, authenticated read. Any 401 means the token is no longer valid.
+      await backendFetch<BackendRecord>(
+        `members/tajneed/${encodeURIComponent(memberId)}`
+      );
+      return true;
+    } catch (err) {
+      const status = (err as { status?: number } | null)?.status;
+      if (status === 401) return false;
+      console.warn('Session validation could not reach the server; keeping the session.', err);
+      return true;
+    }
+  },
+
   async getAllUsers(): Promise<User[]> {
     const token = getAuthToken();
     if (token) {
       try {
-        const assignments = await backendFetch<unknown>('AdminAssignments');
-        if (Array.isArray(assignments)) {
-          const activeAssignments = (assignments as BackendRecord[]).filter((assignment) =>
-            bStr(assignment.status).toLowerCase() === 'active'
-          );
-          const mapped = activeAssignments.map((assignment) => ({
-            id: bStr(assignment.id),
-            memberId: bStr(assignment.membershipId).toUpperCase(),
-            fullName: bStr(assignment.fullName, 'Name unavailable'),
-            email: bStr(assignment.email),
-            role: 'GENERAL_ADMIN' as const,
-            assignedAuxiliary: bStr(assignment.auxiliary) as Auxiliary,
-            dila: bStr(assignment.dila) || undefined,
-            jamaat: bStr(assignment.jamaat) || undefined,
-          }));
-          const usersWithNames = await resolveMemberNames(mapped);
-          setStorage('users', usersWithNames);
-          return usersWithNames;
-        }
+        // Read through the shared helper — if the backend later paginates
+        // this endpoint, the full list is still fetched.
+        const assignments = await getAllBackendPages('AdminAssignments');
+        const activeAssignments = assignments.filter((assignment) =>
+          bStr(assignment.status).toLowerCase() === 'active'
+        );
+        const mapped = activeAssignments.map((assignment) => ({
+          id: bStr(assignment.id),
+          memberId: bStr(assignment.membershipId).toUpperCase(),
+          fullName: bStr(assignment.fullName, 'Name unavailable'),
+          email: bStr(assignment.email),
+          role: 'GENERAL_ADMIN' as const,
+          assignedAuxiliary: bStr(assignment.auxiliary) as Auxiliary,
+          dila: bStr(assignment.dila) || undefined,
+          jamaat: bStr(assignment.jamaat) || undefined,
+        }));
+        const usersWithNames = await resolveMemberNames(mapped);
+        setStorage('users', usersWithNames);
+        return usersWithNames;
       } catch (err) {
         console.warn('Backend AdminAssignments fetch failed, using cached list:', err);
       }
@@ -455,7 +639,16 @@ export const authApi = {
         await backendFetch<BackendRecord>(`AdminAssignments/active/${encodeURIComponent(cleanId)}`);
         throw new Error('This member already has an active administrator assignment.');
       } catch (err) {
-        if (!(err instanceof Error) || !err.message.includes('(404)')) throw err;
+        // "No active assignment" is a 404 — that is the expected path, not a
+        // failure. Check the HTTP status, not the message text: the friendly
+        // error text no longer carries the "(404)" suffix, so matching on the
+        // message made every assignment fail.
+        const status = (err as { status?: number } | null)?.status;
+        const alreadyAssigned =
+          err instanceof Error &&
+          err.message === 'This member already has an active administrator assignment.';
+        if (alreadyAssigned) throw err;
+        if (status !== 404) throw err;
       }
       assignment = await backendFetch<BackendRecord>('AdminAssignments', {
         method: 'POST',
@@ -570,7 +763,7 @@ function mapBackendEventToEvent(raw: BackendRecord): Event {
     id: bStr(raw.id, `evt-${Date.now()}`),
     name: bStr(raw.name, 'Untitled Event'),
     description: bStr(raw.description),
-    eventType: (raw.eventType === 'WorkShop' ? 'Workshop' : bStr(raw.eventType, 'Ijtema')) as EventType,
+    eventType: (raw.eventType === 'WorkShop' ? 'Workshop' : bStr(raw.eventType) || undefined) as EventType | undefined,
     date: eventDate.includes('T') ? eventDate.split('T')[0] : eventDate,
     endDate: endDateRaw ? (endDateRaw.includes('T') ? endDateRaw.split('T')[0] : endDateRaw) : undefined,
     venue: bStr(raw.venue),
@@ -590,14 +783,37 @@ function mapBackendEventToEvent(raw: BackendRecord): Event {
 }
 
 export const eventsApi = {
+  /** One page of events, filtered server-side. */
+  async getPage(params: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    status?: string;
+    auxiliary?: Auxiliary;
+  }): Promise<PageResult<Event>> {
+    return fetchBackendPage(
+      'Events',
+      {
+        search: params.search,
+        status: params.status,
+        auxiliary: params.auxiliary,
+      },
+      params.page,
+      params.pageSize,
+      mapBackendEventToEvent
+    );
+  },
+
   async getAll(auxiliary?: Auxiliary): Promise<Event[]> {
     const token = getAuthToken();
     if (token) {
       try {
+        // Both reads go through the shared helper so a paged response is never
+        // mistaken for the complete list.
         const res = auxiliary
-          ? await backendFetch<unknown>(`Events/auxiliary/${auxiliary}`)
+          ? await getAllBackendPages(`Events/auxiliary/${auxiliary}`)
           : await getAllBackendPages('Events');
-        const mapped = removeLegacyDemoEvents(pageItems(res).map(mapBackendEventToEvent));
+        const mapped = removeLegacyDemoEvents(res.map(mapBackendEventToEvent));
         // Sync into local storage cache
         setStorage('events', mapped);
         return mapped;
@@ -642,7 +858,7 @@ export const eventsApi = {
         const backendPayload = {
           name: data.name.trim(),
           description: data.description || null,
-          eventType: data.eventType === 'Workshop' ? 'WorkShop' : data.eventType,
+          eventType: data.eventType === 'Workshop' ? 'WorkShop' : data.eventType ?? null,
           eventDate: new Date(data.date).toISOString(),
           endDate: data.endDate ? new Date(data.endDate).toISOString() : null,
           venue: data.venue.trim(),
@@ -714,7 +930,7 @@ export const eventsApi = {
         const backendPayload = {
           name: data.name,
           description: data.description || null,
-          eventType: data.eventType === 'Workshop' ? 'WorkShop' : data.eventType,
+          eventType: data.eventType === 'Workshop' ? 'WorkShop' : data.eventType ?? null,
           eventDate: data.date ? new Date(data.date).toISOString() : undefined,
           endDate: data.endDate ? new Date(data.endDate).toISOString() : null,
           venue: data.venue,
@@ -814,6 +1030,9 @@ function mapBackendParticipantToParticipant(raw: BackendRecord, fallbackEventId?
     // No invented auxiliary: an unassigned participant must not be filed
     // under a real majlis by default.
     auxiliary: (bStr(raw.auxiliary) || undefined) as Auxiliary | undefined,
+    // Mulk (Khuddam/Ansarullah/Atfal) or District (Lajna/Nasra) — only when
+    // the backend supplies it.
+    mulkOrDistrict: bStr(raw.mulkOrDistrict) || undefined,
     // Do not substitute demo locations for missing member-directory data.
     dila: bStr(raw.dila),
     ilaqa: bStr(raw.ilaqa) || undefined,
@@ -833,28 +1052,52 @@ export const participantsApi = {
     return records.map((participant) => mapBackendParticipantToParticipant(participant));
   },
 
+  /** One page of participants, filtered server-side. */
+  async getPage(params: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    status?: string;
+    auxiliary?: Auxiliary;
+    eventId?: string;
+  }): Promise<PageResult<Participant>> {
+    return fetchBackendPage(
+      'Participants',
+      {
+        search: params.search,
+        status: params.status,
+        auxiliary: params.auxiliary,
+        eventId: params.eventId,
+      },
+      params.page,
+      params.pageSize,
+      (record) => mapBackendParticipantToParticipant(record, params.eventId)
+    );
+  },
+
   async getById(id: string): Promise<Participant> {
     const record = await backendFetch<BackendRecord>(`Participants/${encodeURIComponent(id)}`);
     return mapBackendParticipantToParticipant(record);
   },
 
   async getMy(): Promise<Participant[]> {
-    const response = await backendFetch<unknown>('Participants/my');
-    return pageItems(response).map((participant) => mapBackendParticipantToParticipant(participant));
+    // Shared helper — a paged response is never mistaken for the full list.
+    const response = await getAllBackendPages('Participants/my');
+    return response.map((participant) => mapBackendParticipantToParticipant(participant));
   },
 
   async getByEvent(eventId: string): Promise<Participant[]> {
     const token = getAuthToken();
     if (token) {
       try {
-        const res = await backendFetch<BackendRecord[]>(`Participants/event/${eventId}`);
-        if (Array.isArray(res)) {
-          const mapped = res.map((p) => mapBackendParticipantToParticipant(p, eventId));
-          const allStored = getStorage<Participant[]>('participants', INITIAL_PARTICIPANTS);
-          const others = allStored.filter((p) => p.eventId !== eventId);
-          setStorage('participants', [...mapped, ...others]);
-          return mapped;
-        }
+        // Read through the shared helper so a paged response is never mistaken
+        // for the complete roster.
+        const res = await getAllBackendPages(`Participants/event/${eventId}`);
+        const mapped = res.map((p) => mapBackendParticipantToParticipant(p, eventId));
+        const allStored = getStorage<Participant[]>('participants', INITIAL_PARTICIPANTS);
+        const others = allStored.filter((p) => p.eventId !== eventId);
+        setStorage('participants', [...mapped, ...others]);
+        return mapped;
       } catch (err) {
         console.warn(`Backend Participants for event ${eventId} fetch failed:`, err);
         throw err;
@@ -1618,7 +1861,10 @@ function mapBackendCertificateToCertificate(raw: BackendRecord): Certificate {
     revocationReason: bStr(raw.revocationReason) || undefined,
     revokedAt: bStr(raw.revokedAt) || undefined,
     revokedBy: bStr(raw.revokedBy) || undefined,
-    verificationHash: bStr(raw.verificationHash || raw.qrCodeUrl) || Math.random().toString(36).substring(2, 14),
+    // The backend issues the verification hash. Never invent one for a
+    // server-issued certificate — a made-up hash would point at a link the
+    // server knows nothing about.
+    verificationHash: bStr(raw.verificationHash || raw.qrCodeUrl),
     theme: cleanTheme(evt?.theme || raw.theme) || undefined,
   };
 }
@@ -1907,6 +2153,29 @@ function removeLegacyDemoCertificates(certificates: Certificate[]): Certificate[
 }
 
 export const certificatesApi = {
+  /** One page of certificates, filtered server-side. */
+  async getPage(params: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    status?: string;
+    auxiliary?: Auxiliary;
+    eventId?: string;
+  }): Promise<PageResult<Certificate>> {
+    return fetchBackendPage(
+      'Certificates',
+      {
+        search: params.search,
+        status: params.status,
+        auxiliary: params.auxiliary,
+        eventId: params.eventId,
+      },
+      params.page,
+      params.pageSize,
+      mapBackendCertificateToCertificate
+    );
+  },
+
   async getAll(auxiliary?: Auxiliary): Promise<Certificate[]> {
     const token = getAuthToken();
     if (token) {
@@ -1936,13 +2205,14 @@ export const certificatesApi = {
   },
 
   async getByEvent(eventId: string): Promise<Certificate[]> {
-    const response = await backendFetch<unknown>(`Certificates/event/${encodeURIComponent(eventId)}`);
-    return pageItems(response).map(mapBackendCertificateToCertificate);
+    // Shared helper — a paged response is never mistaken for the full list.
+    const response = await getAllBackendPages(`Certificates/event/${encodeURIComponent(eventId)}`);
+    return response.map(mapBackendCertificateToCertificate);
   },
 
   async getMy(): Promise<BackendRecord[]> {
-    const response = await backendFetch<unknown>('Certificates/my');
-    return pageItems(response);
+    // Shared helper — a paged response is never mistaken for the full list.
+    return getAllBackendPages('Certificates/my');
   },
 
   async download(id: string): Promise<Blob> {
@@ -2122,7 +2392,7 @@ export const certificatesApi = {
         issuedAt: new Date().toISOString(),
         issuedBy: performedBy.fullName,
         status: 'Issued',
-        verificationHash: Math.random().toString(36).substring(2, 14),
+        verificationHash: stableVerificationHash(certNumber),
       };
 
       newlyGenerated.push(newCert);
@@ -2235,12 +2505,9 @@ export const certificatesApi = {
   },
 
   async verifyByNumber(certificateNumber: string): Promise<BackendRecord | Certificate | null> {
-    const token = getAuthToken();
-    if (token) {
-      return backendFetch<BackendRecord>(`Certificates/verify/${encodeURIComponent(certificateNumber)}`);
-    }
-    const certs = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
-    return certs.find((c) => c.certificateNumber.toUpperCase() === certificateNumber.trim().toUpperCase()) || null;
+    // Always ask the server. Reading the local cache here could "verify" a
+    // certificate that the server has never issued (or has revoked).
+    return backendFetch<BackendRecord>(`Certificates/verify/${encodeURIComponent(certificateNumber)}`);
   },
 };
 
@@ -2260,6 +2527,8 @@ export interface BackendLoginResponse {
     dila: string | null;
     ilaqa: string | null;
     status: string;
+    // Optional — the registry may omit it. Never invented.
+    email?: string | null;
   };
   events?: unknown;
 }
@@ -2335,7 +2604,8 @@ export async function loginReal(memberId: string, password: string) {
     id: `backend-${data.profile.membershipId}`,
     memberId: data.profile.membershipId,
     fullName: data.profile.fullName?.trim() || data.profile.membershipId,
-    email: `${data.profile.membershipId.toLowerCase()}@jamaat.org`,
+    // Never invent an address — use the one the registry returned, or none.
+    email: bStr(data.profile.email),
     role,
     assignedAuxiliary: (data.auxiliary ||
       data.profile.auxiliary ||

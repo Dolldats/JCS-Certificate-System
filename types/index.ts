@@ -83,7 +83,9 @@ export interface Event {
   id: string;
   name: string;
   description: string;
-  eventType: EventType;
+  // Undefined when the backend does not specify one — never defaulted to a
+  // real event type, so the record is not filed under the wrong category.
+  eventType?: EventType;
   date: string;
   endDate?: string;
   venue: string;
@@ -109,6 +111,9 @@ export interface Participant {
   email?: string;
   phone?: string;
   auxiliary?: Auxiliary;
+  // Mulk for Khuddam/Ansarullah/Atfal, District for Lajna/Nasra. Read from the
+  // backend when present; never invented.
+  mulkOrDistrict?: string;
   dila: string;
   ilaqa?: string;
   jamaat: string;
