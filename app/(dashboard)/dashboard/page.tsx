@@ -162,7 +162,7 @@ export default function DashboardPage() {
         </div>
         <div className="relative z-10 max-w-2xl space-y-2">
           <h1 className="text-xl sm:text-3xl font-bold tracking-tight">
-            Welcome, {user?.fullName}
+            Assalam alaykum, {user?.fullName}
           </h1>
           <p className="text-xs sm:text-sm text-emerald-100/80 leading-relaxed">
             Centralized certificate management system for Jama&apos;at events. Create events, verify participant Member IDs against central records, and customize print-ready certificates in the design studio.

@@ -58,8 +58,8 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
 
   // The sticky wrapper keeps the glass header visible while the dashboard main pane scrolls.
   return (
-    <div className="sticky top-3 z-40 shrink-0 px-4 pt-3 sm:px-6 sm:pt-4">
-      <header className="theme-header sticky top-3 z-40 flex flex-nowrap items-center gap-1.5 rounded-2xl px-2 py-2.5 sm:gap-3 sm:px-5 sm:py-3.5">
+    <div className="sticky top-2 z-40 shrink-0 px-2 pt-2 sm:top-3 sm:px-4 sm:pt-4 lg:px-6">
+      <header className="theme-header sticky top-2 z-40 flex flex-nowrap items-center gap-1 rounded-2xl px-1.5 py-2 sm:top-3 sm:gap-3 sm:px-5 sm:py-3.5">
         {/* Mobile menu */}
         <button
           onClick={onOpenMobileMenu}
@@ -71,13 +71,13 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
 
         {/* Search */}
         <form onSubmit={handleSearch} className="order-2 min-w-0 flex-1 sm:max-w-xl">
-          <div className="flex items-center gap-1.5 rounded-full bg-slate-100/80 px-2.5 py-1.5 transition-colors hover:bg-slate-100 focus-within:bg-slate-100 sm:gap-2 sm:px-4 sm:py-2">
+          <div className="navbar-search flex min-w-0 items-center gap-1 rounded-full px-2 py-1.5 sm:gap-2 sm:px-4 sm:py-2">
             <Search className="w-4 h-4 shrink-0 text-slate-400" />
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={isCompact ? 'Search for any…' : 'Search certificates by serial #, name or event...'}
-              className="w-full min-w-0 bg-transparent text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-0"
+              placeholder={isCompact ? 'Search…' : 'Search certificates by serial #, name or event...'}
+              className="navbar-search-input w-full min-w-0 bg-transparent text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-0"
             />
           </div>
         </form>
@@ -146,7 +146,7 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
             <span className="absolute right-2 top-1.5 h-2 w-2 rounded-full border border-white bg-rose-500 sm:right-2.5 sm:top-2" />
           </Link>
 
-          <ThemeToggle />
+          <ThemeToggle className="shrink-0" />
 
           {/* Profile + logout */}
           <div className="relative shrink-0">

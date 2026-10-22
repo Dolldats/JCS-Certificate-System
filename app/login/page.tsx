@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { AuthSplitShell } from '../../components/auth/AuthSplitShell';
 import { Button } from '../../components/ui/Button';
-import { ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, LockKeyhole, UserRound } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,7 +17,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
 
   const inputClass =
-    'w-full text-xs rounded-lg bg-slate-100 border border-transparent p-2.5 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-colors placeholder:text-slate-400';
+    'w-full rounded-full border border-slate-300 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +33,7 @@ export default function LoginPage() {
   };
 
   return (
-    <AuthSplitShell>
+    <AuthSplitShell showMobileBrand={false} wideForm>
       {/* Cover the form during authentication; success redirects to the role-specific portal. */}
       {loading && (
         <div
@@ -57,38 +57,38 @@ export default function LoginPage() {
           </div>
         </div>
       )}
-      <h2 className="text-center text-base font-bold text-slate-900 tracking-tight">Welcome back</h2>
-      <p className="mt-1 text-center text-3xs text-slate-400">
+      <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Sign in to Jama&apos;at Certify</h2>
+      <p className="mt-1 text-sm text-slate-500">
         Sign in to your account to continue
       </p>
 
-      <form onSubmit={handleLogin} className="mt-6 space-y-4">
+      <form onSubmit={handleLogin} className="mt-7 space-y-4">
         <div>
-          <label htmlFor="member-id" className="block text-3xs font-semibold text-slate-600 mb-1.5">
+          <label htmlFor="member-id" className="mb-2 block text-sm font-medium text-slate-700">
             Member ID
           </label>
-          <input
-            id="member-id"
-            name="memberId"
-            type="text"
-            autoComplete="username"
-            autoCapitalize="characters"
-            spellCheck={false}
-            value={memberId}
-            onChange={(e) => setMemberId(e.target.value)}
-            placeholder="e.g. ATF-60201"
-            required
-            className={inputClass}
-          />
+          <div className="relative">
+            <UserRound aria-hidden="true" className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              id="member-id"
+              name="memberId"
+              type="text"
+              autoComplete="username"
+              autoCapitalize="characters"
+              spellCheck={false}
+              value={memberId}
+              onChange={(e) => setMemberId(e.target.value)}
+              placeholder="Enter your Member ID"
+              required
+              className={inputClass}
+            />
+          </div>
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label htmlFor="password" className="text-3xs font-semibold text-slate-600">
-              Password
-            </label>
-          </div>
+          <label htmlFor="password" className="mb-2 block text-sm font-medium text-slate-700">Password</label>
           <div className="relative">
+            <LockKeyhole aria-hidden="true" className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               id="password"
               name="password"
@@ -97,12 +97,12 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className={`${inputClass} pr-10`}
+              className={`${inputClass} pr-12`}
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
               aria-pressed={showPassword}
             >
@@ -115,7 +115,7 @@ export default function LoginPage() {
           <p
             role="alert"
             aria-live="assertive"
-            className="text-3xs text-rose-600 font-medium text-center"
+            className="text-sm text-rose-600 font-medium"
           >
             {error}
           </p>
@@ -123,12 +123,11 @@ export default function LoginPage() {
 
         <Button
           type="submit"
-          className="w-full bg-gradient-to-r from-emerald-700 to-green-600 hover:from-emerald-800 hover:to-green-700"
-          size="md"
+          className="h-12 w-full rounded-full bg-gradient-to-r from-emerald-950 via-[#0b2e23] to-slate-950 text-base font-semibold hover:from-emerald-900 hover:via-[#103b2d] hover:to-slate-900"
+          size="lg"
           isLoading={loading}
-          rightIcon={<ArrowRight className="w-4 h-4" />}
         >
-          Sign In
+          Sign in
         </Button>
       </form>
     </AuthSplitShell>

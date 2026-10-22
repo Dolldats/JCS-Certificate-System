@@ -38,6 +38,7 @@ interface CertificatePreviewProps {
   template: CertificateTemplate;
   previewMode?: boolean;
   showActions?: boolean;
+  qrSize?: number;
 }
 
 export function CertificatePreview({
@@ -45,6 +46,7 @@ export function CertificatePreview({
   template,
   previewMode = false,
   showActions = false,
+  qrSize = 72,
 }: CertificatePreviewProps) {
   const handlePrint = () => {
     window.print();
@@ -87,7 +89,8 @@ export function CertificatePreview({
       <div className="certificate-qr absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center pointer-events-none">
         <QrCode
           value={`${window.location.origin}/verify/${certNumber}`}
-          size={72}
+          size={qrSize}
+          className="certificate-qr-code"
           logo={
             AUXILIARY_QR_LOGO[
               template?.auxiliary ??

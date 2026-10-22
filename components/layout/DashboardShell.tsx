@@ -61,7 +61,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <Header onOpenMobileMenu={() => setMobileMenuOpen(true)} />
         {/* Keep scrolling inside the content pane; the header and desktop sidebar remain in place. */}
-        <main className="theme-main min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8">
+        <main className="theme-main min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-6 lg:p-8">
           <div className="max-w-[1440px] mx-auto space-y-7">{children}</div>
         </main>
       </div>

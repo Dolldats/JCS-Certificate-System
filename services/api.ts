@@ -2216,7 +2216,14 @@ export const certificatesApi = {
   },
 
   async download(id: string): Promise<Blob> {
-    return backendDownload(`Certificates/${encodeURIComponent(id)}/download`);
+    try {
+      return await backendDownload(`Certificates/${encodeURIComponent(id)}/download`);
+    } catch (error) {
+      // Newly issued certificates can be marked Generated before a PDF file
+      // has been rendered and saved. Render it on the first download attempt.
+      if ((error as { status?: number } | null)?.status !== 404) throw error;
+      return this.generateFile(id);
+    }
   },
 
   async generateFile(id: string): Promise<Blob> {

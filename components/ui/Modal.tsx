@@ -58,16 +58,16 @@ export function Modal({
       <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
         <div
           className={cn(
-            'modal-panel relative overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all w-full my-8',
+            'modal-panel relative my-4 w-full overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:rounded-3xl',
             maxWidths[maxWidth]
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-bold tracking-tight text-slate-900">{title}</h3>
+          <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 pb-4 pt-5 sm:gap-4 sm:px-6 sm:pt-6">
+            <div className="min-w-0 flex-1">
+              <h3 className="break-words text-lg font-bold tracking-tight text-slate-900">{title}</h3>
               {description && (
-                <p className="mt-1 text-xs text-slate-500">{description}</p>
+                <p className="mt-1 break-words text-xs text-slate-500">{description}</p>
               )}
             </div>
             <button
@@ -80,10 +80,10 @@ export function Modal({
             </button>
           </div>
 
-          <div className="modal-scroll-content px-6 py-5 max-h-[80vh] overflow-y-auto">{children}</div>
+          <div className="modal-scroll-content max-h-[80vh] overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">{children}</div>
 
           {footer && (
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3 sm:gap-3 sm:px-6 sm:py-4">
               {footer}
             </div>
           )}

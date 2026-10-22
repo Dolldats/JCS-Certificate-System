@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Award, CalendarDays, Eye, LogOut, ShieldCheck } from 'lucide-react';
+import { Award, CalendarDays, Download, Eye, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ui/Toast';
 import { ThemeToggle } from '../../components/ui/ThemeToggle';
@@ -12,6 +12,7 @@ import { certificatesApi, cleanTheme, eventsApi, participantsApi, templatesApi }
 import { Certificate, CertificateTemplate } from '../../types';
 import { CertificatePreview } from '../../components/certificates/CertificatePreview';
 import { Modal } from '../../components/ui/Modal';
+import { downloadBlob, safeFilename } from '../../lib/download';
 
 interface MemberEvent {
   eventId: string;
@@ -60,6 +61,7 @@ export default function MemberPage() {
   const [previewCertificate, setPreviewCertificate] = useState<Certificate | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<CertificateTemplate | null>(null);
   const [openingCertificateId, setOpeningCertificateId] = useState<string | null>(null);
+  const [downloadingCertificateId, setDownloadingCertificateId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
@@ -162,6 +164,19 @@ export default function MemberPage() {
     }
   };
 
+  const downloadCertificate = async (certificateId: string, certificateNumber?: string) => {
+    setDownloadingCertificateId(certificateId);
+    try {
+      const pdf = await certificatesApi.download(certificateId);
+      downloadBlob(pdf, `${safeFilename(certificateNumber || 'certificate')}.pdf`);
+      toast.success('Certificate PDF downloaded.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not download this certificate.');
+    } finally {
+      setDownloadingCertificateId(null);
+    }
+  };
+
   if (isLoading || !user || user.role !== 'MEMBER') {
     return (
       <main className="app-background min-h-screen grid place-items-center px-6">
@@ -180,8 +195,8 @@ export default function MemberPage() {
   return (
     <main className="app-background min-h-screen px-4 py-6 sm:px-8 sm:py-10">
       <div className="mx-auto max-w-5xl space-y-8 print:hidden">
-        <header className="theme-header sticky top-3 z-40 flex items-center justify-between gap-4 rounded-2xl px-4 py-3 sm:px-6 sm:py-3.5">
-          <div className="flex items-center gap-3">
+        <header className="theme-header sticky top-2 z-40 flex flex-col gap-3 rounded-2xl px-3 py-3 sm:top-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-3.5">
+          <div className="flex min-w-0 items-center gap-3">
             <span className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-700 text-white">
               <Award className="h-5 w-5" />
             </span>
@@ -190,7 +205,7 @@ export default function MemberPage() {
               <h1 className="text-lg font-bold text-slate-900">Member Portal</h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2 sm:shrink-0">
             <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={logout} leftIcon={<LogOut className="h-4 w-4" />}>
               Sign out
@@ -199,8 +214,7 @@ export default function MemberPage() {
         </header>
 
         <section className="rounded-3xl bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-800 px-6 py-8 text-white shadow-lg sm:px-10 sm:py-11">
-          <p className="text-sm font-medium text-emerald-100">Welcome</p>
-          <h2 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">{user.fullName}</h2>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Assalam alaykum, {user.fullName}</h2>
           <p className="mt-3 text-sm text-emerald-100">Member ID: <span className="font-mono font-semibold text-white">{user.memberId}</span></p>
         </section>
 
@@ -287,6 +301,15 @@ export default function MemberPage() {
                             >
                               <Eye className="h-3.5 w-3.5" />
                               {openingCertificateId === event.certificateId ? 'Opening…' : 'Preview'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void downloadCertificate(event.certificateId!, event.certificateNumber)}
+                              disabled={downloadingCertificateId === event.certificateId}
+                              className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 disabled:cursor-wait disabled:opacity-60"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              {downloadingCertificateId === event.certificateId ? 'Downloading…' : 'Download PDF'}
                             </button>
                           </div>
                         )}

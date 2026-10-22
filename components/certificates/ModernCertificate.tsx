@@ -210,7 +210,7 @@ export function ModernCertificate({
       )}
 
       {/* 4. Main Certificate Content Layout — tight rhythm like the official design */}
-      <div className="relative z-10 h-full flex flex-col justify-between px-6 pt-4 pb-4 print:p-[12mm] text-center">
+      <div className="relative z-10 h-full flex flex-col justify-between px-6 pt-2 pb-2 print:p-[12mm] text-center">
         {/* Top Header: Logo + Organization Title */}
         <div className="flex items-center gap-2.5 text-left shrink-0">
           {/* Official Emblem — real auxiliary logo from /public */}
@@ -242,7 +242,7 @@ export function ModernCertificate({
         </div>
 
         {/* Central Headlines & Body — compact so the whole page fits the landscape ratio */}
-        <div className="flex-1 min-h-0 flex flex-col items-center justify-center py-1 space-y-2 w-full px-8 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center py-1 space-y-5 w-full px-8 overflow-hidden">
           {/* Big Main Event Title */}
           <h1
             className="text-[30px] font-black uppercase tracking-tight font-sans leading-[1.2]"

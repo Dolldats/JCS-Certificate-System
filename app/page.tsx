@@ -104,9 +104,9 @@ export default function LandingPage() {
     <div className="landing-page min-h-screen text-slate-900">
       {/* Sticky white navigation bar, styled to match the dashboard header. */}
       <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-xl">
-        <div className="mx-auto flex min-h-[68px] max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white p-1 shadow">
+        <div className="mx-auto flex min-h-[68px] max-w-[1440px] items-center justify-between gap-2 px-3 sm:gap-3 sm:px-6">
+          <Link href="/" className="flex min-w-0 shrink items-center gap-2 sm:gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1 shadow">
               <Image
                 src="/ahmadiyyah_logo.png"
                 alt="Ahmadiyyah logo"
@@ -116,8 +116,8 @@ export default function LandingPage() {
                 priority
               />
             </span>
-            <span className="text-xs font-bold tracking-[0.18em] text-slate-900">
-              JAMA&apos;AT CERTIFY
+            <span className="whitespace-nowrap text-[10px] font-bold leading-tight tracking-[0.12em] text-slate-900 sm:text-xs sm:tracking-[0.18em]">
+              JAMA&apos;AT<span className="sm:hidden"><br /></span><span className="hidden sm:inline"> </span>CERTIFY
             </span>
           </Link>
 
@@ -133,14 +133,14 @@ export default function LandingPage() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <ThemeToggle className="shrink-0" />
             <Link
               href="/login"
-              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-800"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-700 px-3 py-2 text-xs font-semibold whitespace-nowrap text-white shadow-sm transition-colors hover:bg-emerald-800 sm:gap-1.5 sm:px-4 sm:text-sm"
             >
               Sign in
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </Link>
           </div>
         </div>
@@ -190,7 +190,7 @@ export default function LandingPage() {
               />
               <div className="grid grid-cols-3 divide-x divide-white/10">
                 {HERO_STATS.map((stat) => (
-                  <div key={stat.label} className="px-4 py-5 text-center">
+                  <div key={stat.label} className="px-2 py-4 text-center sm:px-4 sm:py-5">
                     <div className="text-3xl font-bold leading-none text-amber-400 sm:text-4xl">
                       {stat.prefix ? (
                         <CountUp
@@ -202,10 +202,10 @@ export default function LandingPage() {
                         <CountUp to={stat.value} suffix={stat.suffix} />
                       )}
                     </div>
-                    <div className="mt-2.5 text-xs font-bold uppercase tracking-wider text-white">
+                    <div className="mt-2.5 text-[10px] font-bold uppercase tracking-normal text-white sm:text-xs sm:tracking-wider">
                       {stat.label}
                     </div>
-                    <div className="mt-1 text-[11px] leading-snug text-emerald-100/55">
+                    <div className="mt-1 text-[10px] leading-snug text-emerald-100/65 sm:text-[11px] sm:text-emerald-100/55">
                       {stat.description}
                     </div>
                   </div>

@@ -6,6 +6,8 @@ import { ThemeToggle } from '../ui/ThemeToggle';
 
 interface AuthSplitShellProps {
   children: React.ReactNode;
+  showMobileBrand?: boolean;
+  wideForm?: boolean;
 }
 
 const BULLETS = [
@@ -14,9 +16,9 @@ const BULLETS = [
   { icon: History, text: 'Audit every action' },
 ];
 
-export function AuthSplitShell({ children }: AuthSplitShellProps) {
+export function AuthSplitShell({ children, showMobileBrand = true, wideForm = false }: AuthSplitShellProps) {
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
+    <div className="grid min-h-dvh grid-cols-1 border-t-[3px] border-emerald-900 bg-white lg:grid-cols-2">
       {/* Left — dark brand panel */}
       <div className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-emerald-950 via-[#0b2e23] to-slate-950 text-white px-12 py-8">
         <div
@@ -66,19 +68,23 @@ export function AuthSplitShell({ children }: AuthSplitShellProps) {
       </div>
 
       {/* Theme-aware form side */}
-      <div className="auth-form-area relative flex items-center justify-center px-5 py-10">
+      <div className="auth-form-area relative flex items-center justify-center px-4 py-16 sm:px-8 sm:py-10">
         <ThemeToggle className="absolute right-5 top-5 sm:right-8 sm:top-8" />
-        <div className="w-full max-w-sm">
+        <div className={`w-full ${wideForm ? 'max-w-md' : 'max-w-sm'}`}>
           {/* Mobile brand row */}
-          <div className="lg:hidden flex items-center justify-center gap-2.5 mb-6">
-            <div className="theme-logo-tile w-9 h-9 rounded-xl shadow-sm border p-1 overflow-hidden flex items-center justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/ahmadiyyah_logo.png" alt="Ahmadiyyah logo" className="w-full h-full object-contain" />
+          {showMobileBrand && (
+            <div className="mb-6 flex items-center justify-center gap-2.5 lg:hidden">
+              <div className="theme-logo-tile w-9 h-9 rounded-xl shadow-sm border p-1 overflow-hidden flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/ahmadiyyah_logo.png" alt="Ahmadiyyah logo" className="w-full h-full object-contain" />
+              </div>
+              <span className="whitespace-nowrap text-[10px] font-bold leading-tight tracking-[0.12em] theme-text sm:text-xs sm:tracking-[0.18em]">
+                JAMA&apos;AT<span className="sm:hidden"><br /></span><span className="hidden sm:inline"> </span>CERTIFY
+              </span>
             </div>
-            <span className="text-xs font-bold tracking-[0.18em] theme-text">JAMA&apos;AT CERTIFY</span>
-          </div>
+          )}
 
-          <div className="auth-card rounded-2xl px-6 sm:px-8 py-8">
+          <div className={wideForm ? '' : 'px-5 py-6 sm:px-8 sm:py-8'}>
             {children}
           </div>
         </div>

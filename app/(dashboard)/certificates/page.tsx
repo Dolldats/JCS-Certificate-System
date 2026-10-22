@@ -53,6 +53,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { formatDate } from '../../../lib/utils';
+import { downloadBlob, safeFilename } from '../../../lib/download';
 
 const CERTIFICATE_TYPES: CertificateType[] = [
   'Certificate of Participation',
@@ -84,6 +85,8 @@ function CertificatesContent() {
 
   const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
   const [bulkQueue, setBulkQueue] = useState<Certificate[] | null>(null);
+  const [downloadingCertificateId, setDownloadingCertificateId] = useState<string | null>(null);
+  const [isDownloadingEventPdf, setIsDownloadingEventPdf] = useState(false);
   const [editingCertificate, setEditingCertificate] = useState<Certificate | null>(null);
   const [certificateToDelete, setCertificateToDelete] = useState<Certificate | null>(null);
 
@@ -363,6 +366,34 @@ function CertificatesContent() {
     document.body.classList.add('printing-bulk');
   };
 
+  const handleDownloadCertificate = async (certificate: Certificate) => {
+    setDownloadingCertificateId(certificate.id);
+    try {
+      const pdf = await certificatesApi.download(certificate.id);
+      downloadBlob(pdf, `${safeFilename(certificate.certificateNumber || 'certificate')}.pdf`);
+      toast.success(`Certificate ${certificate.certificateNumber} downloaded.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not download this certificate.');
+    } finally {
+      setDownloadingCertificateId(null);
+    }
+  };
+
+  const handleDownloadEventPdfs = async () => {
+    if (!selectedEventId) return;
+    setIsDownloadingEventPdf(true);
+    try {
+      const pdf = await certificatesApi.downloadAllForEvent(selectedEventId);
+      const eventName = events.find((event) => event.id === selectedEventId)?.name || 'event-certificates';
+      downloadBlob(pdf, `${safeFilename(eventName)}-certificates.pdf`);
+      toast.success('Event certificate PDF downloaded.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not download the event PDF.');
+    } finally {
+      setIsDownloadingEventPdf(false);
+    }
+  };
+
   const closeBulkQueue = () => {
     document.body.classList.remove('printing-bulk');
     setBulkQueue(null);
@@ -433,9 +464,14 @@ function CertificatesContent() {
             Batch Certificate Generator
           </Button>
           {selectedEventId && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(selectedEventId) && (
-            <Button variant="outline" size="md" onClick={() => void handlePreviewEventPdfs()} leftIcon={<Eye className="w-4 h-4" />}>
-              Preview Bulk Event PDFs
-            </Button>
+            <>
+              <Button variant="outline" size="md" onClick={() => void handlePreviewEventPdfs()} leftIcon={<Eye className="w-4 h-4" />}>
+                Preview Bulk Event PDFs
+              </Button>
+              <Button variant="outline" size="md" onClick={() => void handleDownloadEventPdfs()} isLoading={isDownloadingEventPdf} leftIcon={<Download className="w-4 h-4" />}>
+                Download Event PDF
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -578,6 +614,15 @@ function CertificatesContent() {
                           leftIcon={<Eye className="w-3.5 h-3.5" />}
                         >
                           Preview
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handleDownloadCertificate(cert)}
+                          isLoading={downloadingCertificateId === cert.id}
+                          leftIcon={<Download className="w-3.5 h-3.5" />}
+                        >
+                          Download PDF
                         </Button>
                         {cert.status === 'Revoked' && (
                           <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => void handleDeleteCertificate(cert)} leftIcon={<Trash2 className="h-3.5 w-3.5" />}>

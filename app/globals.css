@@ -157,6 +157,19 @@ html[data-theme='dark'] .app-background {
   -webkit-backdrop-filter: blur(22px) saturate(145%);
   backdrop-filter: blur(22px) saturate(145%);
 }
+.navbar-search {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.navbar-search:focus-within {
+  border-color: var(--line);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--line) 45%, transparent);
+}
+.navbar-search-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 /* Dropdown menus sit on a solid ash surface. A translucent panel let the page
    behind bleed through, so the menu came out half ash and half white. */
 .dropdown-surface {
@@ -164,12 +177,7 @@ html[data-theme='dark'] .app-background {
   color: var(--text-primary);
   border: 1px solid var(--line);
 }
-.auth-form-area { background: var(--background); color: var(--text-primary); }
-.auth-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  box-shadow: 0 18px 55px rgb(var(--shadow-color) / .11);
-}
+.auth-form-area { background: var(--surface); color: var(--text-primary); }
 .theme-logo-tile { background: var(--surface); border-color: var(--line); }.theme-text { color: var(--text-primary); }
 .theme-toggle {
   display: inline-flex;
@@ -388,6 +396,22 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
+  }
+
+  /* Keep the screen preview compact and enlarge the QR only on paper/PDF. */
+  .certificate-qr .certificate-qr-code {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  .certificate-qr .certificate-qr-code > svg {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  .certificate-qr .certificate-qr-code > div > div {
+    width: 24px !important;
+    height: 24px !important;
   }
 
   /* Inner content keeps the same tight rhythm as the screen preview */
