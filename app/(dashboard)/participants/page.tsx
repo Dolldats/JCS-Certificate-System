@@ -405,8 +405,9 @@ function ParticipantsContent() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-12 text-center text-xs text-slate-500">
-              Checking records with Jama&apos;at API...
+            <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading participant records">
+              <span className="dual-ring-spinner" aria-hidden="true" />
+              <span className="sr-only">Loading participant records</span>
             </div>
           ) : filteredParticipants.length === 0 ? (
             <div className="p-12 text-center space-y-3">

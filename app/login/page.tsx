@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { AuthSplitShell } from '../../components/auth/AuthSplitShell';
@@ -9,12 +9,16 @@ import { Eye, EyeOff, LockKeyhole, UserRound } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, authTransition, completeAuthTransition } = useAuth();
   const [memberId, setMemberId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (authTransition === 'signing-out') completeAuthTransition();
+  }, [authTransition, completeAuthTransition]);
 
   const inputClass =
     'w-full rounded-full border border-slate-300 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15';

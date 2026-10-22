@@ -536,8 +536,9 @@ function CertificatesContent() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-12 text-center text-xs text-slate-500">
-              Loading issued certificates...
+            <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading issued certificates">
+              <span className="dual-ring-spinner" aria-hidden="true" />
+              <span className="sr-only">Loading issued certificates</span>
             </div>
           ) : filteredCertificates.length === 0 ? (
             <div className="p-12 text-center space-y-3">
@@ -927,7 +928,7 @@ function CertificatesContent() {
 
 export default function CertificatesPage() {
   return (
-    <Suspense fallback={<div className="p-12 text-center text-xs text-slate-500">Loading certificates...</div>}>
+    <Suspense fallback={<div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading certificates"><span className="dual-ring-spinner" aria-hidden="true" /><span className="sr-only">Loading certificates</span></div>}>
       <CertificatesContent />
     </Suspense>
   );

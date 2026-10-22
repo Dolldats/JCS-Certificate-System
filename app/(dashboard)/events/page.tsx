@@ -329,7 +329,10 @@ export default function EventsPage() {
 
       {/* Events Grid */}
       {loading ? (
-        <div className="p-12 text-center text-xs text-slate-500">Loading events...</div>
+        <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading events">
+          <span className="dual-ring-spinner" aria-hidden="true" />
+          <span className="sr-only">Loading events</span>
+        </div>
       ) : filteredEvents.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center space-y-3">

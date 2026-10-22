@@ -90,7 +90,7 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [currentTemplate, setCurrentTemplate] = useState<CertificateTemplate | null>(null);
-  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CertificateTemplate | null>(null);
@@ -154,8 +154,12 @@ export default function TemplatesPage() {
 
   useEffect(() => {
     async function loadTemplates() {
-      const data = await templatesApi.getAll(undefined);
-      applyTemplates(data);
+      try {
+        const data = await templatesApi.getAll(undefined);
+        applyTemplates(data);
+      } finally {
+        setIsLoadingTemplates(false);
+      }
     }
     loadTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -321,7 +325,12 @@ export default function TemplatesPage() {
       </Modal>
 
       {/* Template Selector Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2">
+      {isLoadingTemplates && templates.length === 0 ? (
+        <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading certificate templates">
+          <span className="dual-ring-spinner" aria-hidden="true" />
+          <span className="sr-only">Loading certificate templates</span>
+        </div>
+      ) : <div className="flex items-center gap-2 overflow-x-auto pb-2">
         {templates.map((tmpl) => {
           const isSelected = tmpl.id === selectedTemplateId;
           return (
@@ -343,7 +352,7 @@ export default function TemplatesPage() {
             </button>
           );
         })}
-      </div>
+      </div>}
 
       {/* Preview-only (default): just the certificate. Hover reveals Edit Template. */}
       {currentTemplate && !isEditing && (

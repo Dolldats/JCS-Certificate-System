@@ -5,30 +5,52 @@ import { useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useAuth } from '../../context/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { AuthTransitionLoading } from '../auth/AuthTransitionLoading';
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { isLoading, user } = useAuth();
+  const { isLoading, user, authTransition, completeAuthTransition } = useAuth();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
+    if (!isLoading && user && authTransition === 'signing-in') {
+      completeAuthTransition();
+    }
     if (isLoading) return;
     if (!user) {
       router.replace('/login');
       return;
     }
     if (user.role === 'MEMBER') router.replace('/member');
-  }, [isLoading, router, user]);
+  }, [authTransition, completeAuthTransition, isLoading, router, user]);
 
   // No session — send them to the sign-in page instead of rendering an empty
   // dashboard shell.
   if (isLoading || !user || user.role === 'MEMBER') {
+    if (authTransition) {
+      return <AuthTransitionLoading title={authTransition === 'signing-in' ? 'Signing you in' : 'Signing you out'} />;
+    }
+    if (isLoading) {
+      return (
+        <div className="app-background grid min-h-screen w-full place-items-center" role="status" aria-label="Loading dashboard">
+          <span className="dual-ring-spinner" aria-hidden="true" />
+          <span className="sr-only">Loading dashboard</span>
+        </div>
+      );
+    }
+    const loadingTitle = user ? 'Opening your account' : 'Returning to sign in';
     return (
-      <div className="app-background min-h-screen w-full flex flex-col items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mb-3" />
-        <p className="text-sm font-medium text-slate-600">Loading Jama&apos;at Certify...</p>
+      <div className="app-background flex min-h-screen w-full items-center justify-center" role="status" aria-label={loadingTitle}>
+        <div className="flex min-w-56 flex-col items-center rounded-2xl border border-white/70 bg-white/95 px-8 py-7 text-center shadow-2xl dark:border-white/10 dark:bg-slate-900/95">
+          <div className="login-logo-loader relative mb-4 grid h-[76px] w-[76px] place-items-center">
+            <span aria-hidden="true" className="login-logo-loader__ring absolute inset-0 rounded-full border-[3px] border-emerald-100 border-t-emerald-600" />
+            <span aria-hidden="true" className="absolute inset-[7px] rounded-full bg-emerald-500/10" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/ahmadiyyah_logo.png" alt="" className="relative z-10 h-11 w-11 rounded-full object-contain" />
+          </div>
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">{loadingTitle}</p>
+        </div>
       </div>
     );
   }

@@ -2,7 +2,6 @@
 
 import React, { createContext, useCallback, useContext, useState } from 'react';
 import { AlertCircle, CheckCircle2, ShieldCheck, X } from 'lucide-react';
-import { cn } from '../../lib/utils';
 
 export type ToastTone = 'success' | 'error' | 'info';
 
@@ -30,16 +29,10 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 let toastSeq = 0;
 
-const defaultTitles: Record<ToastTone, string> = {
-  success: 'Success',
-  error: 'Something went wrong',
-  info: 'Note',
-};
-
-const toneStyles: Record<ToastTone, { circle: string; icon: string; Icon: typeof CheckCircle2 }> = {
-  success: { circle: 'bg-emerald-50', icon: 'text-emerald-600', Icon: CheckCircle2 },
-  error: { circle: 'bg-rose-50', icon: 'text-rose-600', Icon: AlertCircle },
-  info: { circle: 'bg-blue-50', icon: 'text-blue-600', Icon: ShieldCheck },
+const toneStyles: Record<ToastTone, { Icon: typeof CheckCircle2 }> = {
+  success: { Icon: CheckCircle2 },
+  error: { Icon: AlertCircle },
+  info: { Icon: ShieldCheck },
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -55,7 +48,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       const id = toastSeq;
       setToasts((current) => [
         ...current.slice(-3),
-        { id, tone, title: opts?.title || defaultTitles[tone], message },
+        { id, tone, title: opts?.title || '', message },
       ]);
       window.setTimeout(() => dismiss(id), opts?.duration ?? 5000);
     },
@@ -74,29 +67,28 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="pointer-events-none fixed right-4 top-4 z-[70] flex w-[min(92vw,360px)] flex-col gap-2">
+      <div className="toast-stack pointer-events-none fixed right-4 top-4 z-[70] flex w-[min(92vw,420px)] flex-col gap-2">
         {toasts.map((t) => {
           const style = toneStyles[t.tone];
           return (
             <div
               key={t.id}
               role={t.tone === 'error' ? 'alert' : 'status'}
-              className="pointer-events-auto flex items-start gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-xl"
+              aria-atomic="true"
+              className={`toast-notification toast-notification--${t.tone} pointer-events-auto`}
             >
-              <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full', style.circle)}>
-                <style.Icon className={cn('h-5 w-5', style.icon)} />
-              </span>
+              <style.Icon className="toast-notification__icon" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-slate-900">{t.title}</p>
-                <p className="mt-0.5 break-words text-xs leading-relaxed text-slate-500">{t.message}</p>
+                {t.title && <p className="toast-notification__title">{t.title}</p>}
+                <p className={`toast-notification__message ${t.title ? 'mt-0.5' : ''}`}>{t.message}</p>
               </div>
               <button
                 type="button"
                 onClick={() => dismiss(t.id)}
                 aria-label="Dismiss notification"
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 cursor-pointer"
+                className="toast-notification__close"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           );

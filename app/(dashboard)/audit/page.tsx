@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../components/ui/Toast';
 import { auditApi } from '../../../services/api';
 import { AuditLog, Auxiliary } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
@@ -23,18 +24,17 @@ import {
   ClipboardList,
   Search,
   RefreshCw,
-  AlertTriangle,
 } from 'lucide-react';
 import { formatDateTime } from '../../../lib/utils';
 
 export default function AuditPage() {
   const { activeAuxiliary } = useAuth();
+  const { toast } = useToast();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('all');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
-  const [isStale, setIsStale] = useState(false);
   // Server-side paging
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -54,14 +54,18 @@ export default function AuditPage() {
       });
       setLogs(result.items);
       setTotalCount(result.totalCount);
-      setIsStale(false);
     } catch (error) {
-      // The server is unreachable — show the cached trail, clearly labelled.
+      // The server is unreachable — show the cached trail and notify the user.
       console.warn('Could not load the activity log from the server:', error);
       const { logs: cached, stale } = await auditApi.getLogsWithStatus(aux);
       setLogs(cached);
       setTotalCount(cached.length);
-      setIsStale(stale);
+      if (stale) {
+        toast.info(
+          'The server could not be reached, so these are the last locally cached records. They may not reflect the latest activity. Refresh once the connection is restored.',
+          { title: 'Showing cached entries', duration: 8000 }
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -85,15 +89,19 @@ export default function AuditPage() {
         if (cancelled) return;
         setLogs(result.items);
         setTotalCount(result.totalCount);
-        setIsStale(false);
       } catch (error) {
-        // The server is unreachable — fall back to the cached trail and say so.
+        // The server is unreachable — fall back to the cached trail and notify.
         if (cancelled) return;
         const { logs: cached, stale } = await auditApi.getLogsWithStatus(aux);
         if (cancelled) return;
         setLogs(cached);
         setTotalCount(cached.length);
-        setIsStale(stale);
+        if (stale) {
+          toast.info(
+            'The server could not be reached, so these are the last locally cached records. They may not reflect the latest activity. Refresh once the connection is restored.',
+            { title: 'Showing cached entries', duration: 8000 }
+          );
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -158,24 +166,6 @@ export default function AuditPage() {
         </Button>
       </div>
 
-      {/* Cached entries must never look like live ones — say so plainly. */}
-      {isStale && !loading && (
-        <div
-          role="status"
-          className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950"
-        >
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-          <div className="text-xs">
-            <span className="font-bold block">Showing cached entries</span>
-            <p className="mt-0.5 leading-relaxed text-amber-900/80">
-              The server could not be reached, so these are the last locally
-              cached records — they may not reflect the latest activity.
-              Refresh once the connection is restored.
-            </p>
-          </div>
-        </div>
-      )}
-
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
         <div className="w-full sm:w-80">
           <Input
@@ -208,8 +198,9 @@ export default function AuditPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-12 text-center text-xs text-slate-500">
-              Loading audit logs...
+            <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading audit logs">
+              <span className="dual-ring-spinner" aria-hidden="true" />
+              <span className="sr-only">Loading audit logs</span>
             </div>
           ) : filteredLogs.length === 0 ? (
             <div className="p-12 text-center space-y-3">

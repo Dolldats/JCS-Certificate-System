@@ -3,6 +3,7 @@ import localFont from 'next/font/local';
 import './globals.css';
 import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
+import { ToastProvider } from '../components/ui/Toast';
 
 // Bundle the brand fonts locally so production builds do not depend on Google Fonts access.
 const geistSans = localFont({
@@ -38,7 +39,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <ToastProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>
