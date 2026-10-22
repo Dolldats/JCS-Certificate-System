@@ -94,8 +94,8 @@ export function SageArchCertificate({
 
   return (
     <div
-      id="certificate-print-area"
-      className="relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
+      id={`certificate-print-area-${certificate?.id ?? 'preview'}`}
+      className="certificate-print-area relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
       style={{ backgroundColor: bgColor }}
     >
       {/* Soft arch backdrop */}
@@ -159,30 +159,30 @@ export function SageArchCertificate({
             />
           </div>
           <div>
-            <h2 className="text-[11px] font-bold tracking-[0.16em] uppercase text-slate-800 font-sans leading-tight">
+            <h2 className="text-[12.5px] font-bold tracking-[0.16em] uppercase text-slate-800 font-sans leading-tight">
               {template.organizationName}
             </h2>
-            <p className="text-[10px] text-slate-500">{template.organizationSubtitle}</p>
+            <p className="text-[11.5px] text-slate-500">{template.organizationSubtitle}</p>
           </div>
         </div>
 
         {/* Middle */}
         <div className="flex-1 min-h-0 flex flex-col items-center justify-center space-y-2 overflow-hidden text-center">
           <span
-            className="inline-block px-8 py-[5px] rounded-full text-[11.5px] font-bold tracking-[0.2em] uppercase whitespace-nowrap bg-white/70"
+            className="inline-block px-8 py-[5px] rounded-full text-[13px] font-bold tracking-[0.2em] uppercase whitespace-nowrap bg-white/70"
             style={{ border: `1.5px solid ${primaryColor}`, color: primaryColor }}
           >
             {template.typeBadgeText}
           </span>
 
           <h1
-            className="text-[26px] font-black tracking-tight font-sans leading-[1.2] max-w-2xl"
+            className="text-[30px] font-black tracking-tight font-sans leading-[1.2] max-w-2xl"
             style={{ color: primaryColor }}
           >
             {eventName}
           </h1>
 
-          <div className="w-full text-center text-[12px] leading-[1.95] text-slate-600 font-sans">
+          <div className="w-full text-center text-[14px] leading-[1.95] text-slate-600 font-sans">
             <p>
               This is to congratulate and certify that {salutation}{' '}
               <Blank value={participantName} width={130} />, Dilla{' '}
@@ -200,13 +200,13 @@ export function SageArchCertificate({
           </div>
 
           <div className="space-y-0.5">
-            <p className="text-[12px] text-slate-500 font-sans">
+            <p className="text-[14px] text-slate-500 font-sans">
               {template.programDurationText}, with the
             </p>
-            <p className="text-[16px] font-bold text-slate-900 font-sans">{theme}</p>
+            <p className="text-[18.5px] font-bold text-slate-900 font-sans">{theme}</p>
           </div>
 
-          <p className="w-full text-center text-[10.5px] text-slate-500 leading-relaxed font-sans max-w-xl mx-auto line-clamp-2">
+          <p className="w-full text-center text-[12px] text-slate-500 leading-relaxed font-sans max-w-xl mx-auto line-clamp-2">
             {template.bodyFocusText}
           </p>
         </div>
@@ -224,7 +224,7 @@ export function SageArchCertificate({
           <div className="flex items-end justify-between">
             <div className="w-24 shrink-0" />
             <div className="flex-1 text-center px-4">
-              <div className="font-mono text-[9px] text-slate-400 tracking-wider">{certNumber}</div>
+              <div className="font-mono text-[10.5px] text-slate-400 tracking-wider">{certNumber}</div>
             </div>
             <div className="w-52 text-center">
               <div className="h-8 flex items-end justify-center mb-0.5">
@@ -255,10 +255,10 @@ export function SageArchCertificate({
                 )}
               </div>
               <div className="w-full h-px bg-slate-400 mx-auto mb-1" />
-              <div className="text-[11.5px] font-bold text-slate-900 leading-tight font-sans">
+              <div className="text-[13px] font-bold text-slate-900 leading-tight font-sans">
                 {template.signature1Name}
               </div>
-              <div className="text-[9px] text-slate-500 leading-tight">
+              <div className="text-[10.5px] text-slate-500 leading-tight">
                 {template.signature1Title}
               </div>
             </div>

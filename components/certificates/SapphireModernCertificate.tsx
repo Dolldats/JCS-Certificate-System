@@ -83,8 +83,8 @@ export function SapphireModernCertificate({
 
   return (
     <div
-      id="certificate-print-area"
-      className="relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
+      id={`certificate-print-area-${certificate?.id ?? 'preview'}`}
+      className="certificate-print-area relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
       style={{ backgroundColor: bgColor }}
     >
       {/* Diagonal corner blocks with gold edges */}
@@ -181,12 +181,12 @@ export function SapphireModernCertificate({
           <div className="h-9 w-px bg-slate-400" />
           <div>
             <h2
-              className="text-[13px] font-extrabold tracking-wide uppercase font-sans"
+              className="text-[15px] font-extrabold tracking-wide uppercase font-sans"
               style={{ color: neutralColor }}
             >
               {template.organizationName}
             </h2>
-            <p className="text-[11px] text-slate-600 font-medium">
+            <p className="text-[12.5px] text-slate-600 font-medium">
               {template.organizationSubtitle}
             </p>
           </div>
@@ -195,7 +195,7 @@ export function SapphireModernCertificate({
         {/* Middle — centered */}
         <div className="flex-1 min-h-0 flex flex-col items-center justify-center py-1 space-y-2 w-full px-8 overflow-hidden">
           <h1
-            className="text-[25px] font-black uppercase tracking-tight font-sans leading-[1.2]"
+            className="text-[29px] font-black uppercase tracking-tight font-sans leading-[1.2]"
             style={{ color: primaryColor }}
           >
             {eventName}
@@ -205,7 +205,7 @@ export function SapphireModernCertificate({
           <div className="w-full max-w-xl">
             <div className="h-[2px] w-full" style={{ backgroundColor: accentColor }} />
             <div
-              className="py-1.5 px-4 text-[12.5px] font-bold tracking-[0.14em] text-white uppercase whitespace-nowrap overflow-hidden text-ellipsis"
+              className="py-1.5 px-4 text-[14.5px] font-bold tracking-[0.14em] text-white uppercase whitespace-nowrap overflow-hidden text-ellipsis"
               style={{ backgroundColor: primaryColor }}
             >
               {template.typeBadgeText}
@@ -213,7 +213,7 @@ export function SapphireModernCertificate({
             <div className="h-[2px] w-full" style={{ backgroundColor: accentColor }} />
           </div>
 
-          <div className="w-full text-center text-[12.5px] leading-[1.7] text-black font-bold font-sans">
+          <div className="w-full text-center text-[14.5px] leading-[1.7] text-black font-bold font-sans">
             <p>
               This is to congratulate and certify that {salutation}{' '}
               <span className="font-black text-black px-1">{participantName}</span>, Dilla{' '}
@@ -225,7 +225,7 @@ export function SapphireModernCertificate({
             </p>
           </div>
 
-          <div className="w-full text-center text-[12.5px] font-bold text-black font-sans leading-[1.7]">
+          <div className="w-full text-center text-[14.5px] font-bold text-black font-sans leading-[1.7]">
             <p>Participated in a week Islamic Vacation Course which took place</p>
             <p>
               at <span className="font-black text-black px-1">{venue}</span> from{' '}
@@ -235,13 +235,13 @@ export function SapphireModernCertificate({
           </div>
 
           <div className="space-y-0.5">
-            <p className="text-[12.5px] font-bold text-black font-sans">
+            <p className="text-[14.5px] font-bold text-black font-sans">
               {template.programDurationText}, with the
             </p>
-            <p className="text-[16px] font-black tracking-tight font-sans text-black">{theme}</p>
+            <p className="text-[18.5px] font-black tracking-tight font-sans text-black">{theme}</p>
           </div>
 
-          <p className="w-full text-center text-[11px] text-black font-bold leading-snug font-sans max-w-2xl mx-auto line-clamp-2">
+          <p className="w-full text-center text-[12.5px] text-black font-bold leading-snug font-sans max-w-2xl mx-auto line-clamp-2">
             {template.bodyFocusText}
           </p>
         </div>
@@ -250,7 +250,7 @@ export function SapphireModernCertificate({
         <div className="flex items-end justify-between pt-1 shrink-0">
           <div className="w-24 shrink-0" />
           <div className="flex-1 text-center px-4">
-            <div className="text-3xs text-slate-400 font-mono tracking-wider">Serial No:</div>
+            <div className="text-[10.5px] text-slate-400 font-mono tracking-wider">Serial No:</div>
             <div className="font-mono text-xs font-bold text-slate-800 whitespace-nowrap">
               {certNumber}
             </div>
@@ -291,10 +291,10 @@ export function SapphireModernCertificate({
               )}
             </div>
             <div className="w-full h-0.5 bg-slate-800 mx-auto mb-1.5" />
-            <div className="text-[12px] font-bold text-slate-900 leading-tight font-sans">
+            <div className="text-[14px] font-bold text-slate-900 leading-tight font-sans">
               {template.signature1Name}
             </div>
-            <div className="text-[10px] font-medium text-slate-600 leading-tight">
+            <div className="text-[11.5px] font-medium text-slate-600 leading-tight">
               {template.signature1Title}
             </div>
           </div>

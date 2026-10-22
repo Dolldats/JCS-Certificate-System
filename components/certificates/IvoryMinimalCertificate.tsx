@@ -74,8 +74,8 @@ export function IvoryMinimalCertificate({
 
   return (
     <div
-      id="certificate-print-area"
-      className="relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
+      id={`certificate-print-area-${certificate?.id ?? 'preview'}`}
+      className="certificate-print-area relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
       style={{ backgroundColor: bgColor }}
     >
       {/* Slim accent edge bar */}
@@ -132,10 +132,10 @@ export function IvoryMinimalCertificate({
             />
           </div>
           <div>
-            <h2 className="text-[11px] font-bold tracking-[0.18em] uppercase text-slate-800 font-sans leading-tight">
+            <h2 className="text-[12.5px] font-bold tracking-[0.18em] uppercase text-slate-800 font-sans leading-tight">
               {template.organizationName}
             </h2>
-            <p className="text-[10px] text-slate-500 font-normal">
+            <p className="text-[11.5px] text-slate-500 font-normal">
               {template.organizationSubtitle}
             </p>
           </div>
@@ -144,12 +144,12 @@ export function IvoryMinimalCertificate({
         {/* Middle */}
         <div className="flex-1 min-h-0 flex flex-col items-center justify-center space-y-2.5 overflow-hidden text-center">
           <p
-            className="text-[10px] font-bold tracking-[0.3em] uppercase font-sans"
+            className="text-[11.5px] font-bold tracking-[0.3em] uppercase font-sans"
             style={{ color: primaryColor }}
           >
             {template.typeBadgeText}
           </p>
-          <h1 className="text-[27px] font-black tracking-tight text-slate-900 font-sans leading-[1.2] max-w-2xl">
+          <h1 className="text-[31px] font-black tracking-tight text-slate-900 font-sans leading-[1.2] max-w-2xl">
             {eventName}
           </h1>
           <div className="flex items-center gap-3 w-full max-w-md">
@@ -161,7 +161,7 @@ export function IvoryMinimalCertificate({
             <span className="h-px flex-1 bg-slate-300" />
           </div>
 
-          <div className="w-full text-center text-[12px] leading-[2] text-slate-600 font-sans font-normal">
+          <div className="w-full text-center text-[14px] leading-[2] text-slate-600 font-sans font-normal">
             <p>
               This is to congratulate and certify that {salutation}{' '}
               <Blank value={participantName} width={120} />, from{' '}
@@ -175,13 +175,13 @@ export function IvoryMinimalCertificate({
           </div>
 
           <div className="space-y-0.5">
-            <p className="text-[12px] text-slate-500 font-sans">
+            <p className="text-[14px] text-slate-500 font-sans">
               from {template.programDurationText}, with the
             </p>
-            <p className="text-[16px] font-bold text-slate-900 font-sans">{theme}</p>
+            <p className="text-[18.5px] font-bold text-slate-900 font-sans">{theme}</p>
           </div>
 
-          <p className="w-full text-center text-[10.5px] text-slate-500 leading-relaxed font-sans max-w-xl mx-auto line-clamp-2">
+          <p className="w-full text-center text-[12px] text-slate-500 leading-relaxed font-sans max-w-xl mx-auto line-clamp-2">
             {template.bodyFocusText}
           </p>
         </div>
@@ -190,7 +190,7 @@ export function IvoryMinimalCertificate({
         <div className="flex items-end justify-between shrink-0">
           <div className="w-24 shrink-0" />
           <div className="flex-1 text-center px-4">
-            <div className="font-mono text-[9px] text-slate-400 tracking-wider">{certNumber}</div>
+            <div className="font-mono text-[10.5px] text-slate-400 tracking-wider">{certNumber}</div>
           </div>
           <div className="w-52 text-center">
             <div className="h-8 flex items-end justify-center mb-0.5">
@@ -221,10 +221,10 @@ export function IvoryMinimalCertificate({
               )}
             </div>
             <div className="w-full h-px bg-slate-400 mx-auto mb-1" />
-            <div className="text-[11.5px] font-bold text-slate-900 leading-tight font-sans">
+            <div className="text-[13px] font-bold text-slate-900 leading-tight font-sans">
               {template.signature1Name}
             </div>
-            <div className="text-[9px] text-slate-500 leading-tight">
+            <div className="text-[10.5px] text-slate-500 leading-tight">
               {template.signature1Title}
             </div>
           </div>

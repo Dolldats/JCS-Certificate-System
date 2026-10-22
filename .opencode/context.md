@@ -1,3 +1,106 @@
+## Bulk print correctness (this session)
+The backend reported this as a **frontend** issue and it was right. Three real
+defects, all fixed:
+
+1. **Duplicate DOM ids.** All 11 artwork components rendered
+   `id="certificate-print-area"`, so a bulk run of 150+ certificates produced
+   150+ elements sharing one id (invalid HTML; any `getElementById` would only
+   ever find the first). Now each instance gets a **unique** id
+   (`certificate-print-area-${certificate?.id ?? 'preview'}`) plus a shared
+   **`certificate-print-area` class**. All 114 CSS references in `globals.css`
+   were switched from the id selector to the class, and the portal in
+   `CertificatePreview` now queries `.certificate-print-area` (still scoped to
+   its own scaler).
+2. **Collapsed layout in bulk.** `body.printing-bulk` set the print area to
+   `height: auto` — but the artwork is a fixed-proportion design (900×636), so
+   `h-full` collapsed and the absolute decorations landed in the wrong place.
+   Fixed with `aspect-ratio: 297 / 210` so the height is derived from the A4
+   landscape ratio.
+3. **Page-break rules.** Added `page-break-inside/after`, `orphans: 3`,
+   `widows: 3` and `background: #ffffff` per the backend's spec. The page break
+   stays on the **wrapper** (outermost flow element) so it is not doubled up
+   with the print area's own break-after.
+
+`print-color-adjust: exact` was **already** implemented (5 places in
+`globals.css`) — the backend's suggestion #2 was a no-op.
+
+## QR code on the certificate (this session)
+The QR vanished when saving as PDF. **Three** separate causes, all now fixed:
+
+1. **It was outside the print area.** The print stylesheet does
+   `body * { visibility: hidden }` then restores only
+   `#certificate-print-area, #certificate-print-area *`, so a QR rendered
+   beside the artwork stayed hidden. A `certificate-qr` marker class plus an
+   explicit print rule (`app/globals.css`) keeps it visible.
+2. **The render was async and silently failed.** The `qrcode` package's
+   `toDataURL()` is a promise needing a real `<canvas>`; if it rejected, the
+   component rendered nothing and nothing was logged. Rewrote
+   `components/ui/QrCode.tsx` to use the **synchronous** `create()` API and
+   draw the modules as an **inline SVG path** — no canvas, no promise, no race,
+   crisp at any size, identical on screen and paper. Error-correction level
+   `H` so the centre emblem stays scannable. Verified in Node: 37×37 modules,
+   all three finder patterns correct (33 dark cells each).
+3. **It was anchored to the wrong box in print.** The print stylesheet
+   collapses `.certificate-screen-scaler` to `position: static` + auto height
+   (its only child, the artwork, is `position: fixed`), so the wrappers are
+   **zero-height**. A QR absolutely positioned outside the artwork therefore
+   anchored to a zero-height box and printed ~108px from the *top* of the
+   sheet, over the title.
+
+   Fix: the QR is now **portalled into the artwork's own print area**
+   (`createPortal`), found with a **scoped**
+   `scalerRef.current.querySelector('#certificate-print-area')` so a bulk
+   queue of certificates each target their own artwork (not the first
+   duplicate id on the page). It is anchored to the certificate in both
+   screen and print, so the two now match. A fallback renders it in the
+   design canvas until the portal target resolves.
+
+**Do not re-introduce the canvas/`toDataURL` renderer** — it fails silently.
+
+## Certificate artwork font size (this session)
+Boss said the certificate fonts were too small (separate from the website fonts).
+
+Root cause: the on-screen size of a certificate font is
+`(design size / DESIGN_WIDTH)`. My earlier global-scale change had grown
+`DESIGN_WIDTH` from 900 → 1012.5 to compensate the rem-based elements, which
+made the artwork's **absolute px** fonts ~11% *smaller* relative to the page.
+The certificate artwork uses almost entirely absolute `px` sizes (only 4 files
+use a rem text class), so it was hit hardest.
+
+Fixes:
+- `components/certificates/CertificatePreview.tsx` — `DESIGN_WIDTH` back to
+  **900** (the authored canvas). Widening it is what shrank the text.
+- All 12 `components/certificates/*Certificate.tsx` — every `text-[Npx]` bumped
+  ~15% (9→10.5, 10→11.5, 11→12.5, 12→14, 13→15, 14→16, 15→17, 16→18.5,
+  18→20.5, 23→26, 24→27.5, 25→29, 26→30, 27→31). Only `text-[Npx]` was
+  touched — width/height/padding values were left alone.
+- The 4 dead `text-3xs` classes inside the artwork (Tailwind 4.3.3 has no
+  `text-2xs`/`text-3xs`, so they inherited the body size) → `text-[10.5px]`.
+- The body line has fixed-width `<Blank>` underlines, so a larger font still
+  fits the 900px canvas; `text-balance` handles any soft wrap.
+
+Print is unaffected: the print area is fixed at 297×210mm and the content
+fills it, so the larger px values simply print larger — and the print area
+has ~25% slack, so nothing overflows.
+
+## Global scale bump (this session)
+Boss said the project reads too small. The whole UI is sized in rem, so one
+change scales fonts, icons, spacing and controls together.
+
+- `app/globals.css` — `html { font-size: 17.5px; }` (from the 16px default, a
+  ~9% bump). Unlayered, so it beats Tailwind's layered preflight. Verified
+  present in the built CSS with no competing root font-size.
+- `app/globals.css` `@media print` — `html { font-size: 16px !important }` so
+  the **printed A4 certificate is pixel-identical** to before.
+- `components/certificates/CertificatePreview.tsx` — `DESIGN_WIDTH` 900 → 984
+  (= 900 × 1.09375) so the certificate's rem-based artwork keeps the same
+  proportions on screen. Only CertificatePreview references the 900px design.
+
+**Note:** Tailwind 4.3.3 has **no `text-2xs` / `text-3xs`** — every such class
+in the app is dead and falls through to the inherited size. Left as-is
+(deliberately): defining them would make ~50 labels *smaller*, which is the
+opposite of what was asked.
+
 ## Objective (current)
 - Frontend-side spec bugs fixed ✅ DONE
 - Delete flows now agree with the notification (dialog no longer contradicts the toast) ✅ DONE

@@ -76,8 +76,8 @@ export function OnyxExecutiveCertificate({
 
   return (
     <div
-      id="certificate-print-area"
-      className="relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
+      id={`certificate-print-area-${certificate?.id ?? 'preview'}`}
+      className="certificate-print-area relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
       style={{ backgroundColor: bgColor }}
     >
       {/* Hairline double frame */}
@@ -150,26 +150,26 @@ export function OnyxExecutiveCertificate({
               className="w-full h-full object-contain rounded-full"
             />
           </div>
-          <h2 className="mt-1.5 text-[12px] font-bold tracking-[0.22em] uppercase text-slate-900 font-sans leading-tight">
+          <h2 className="mt-1.5 text-[14px] font-bold tracking-[0.22em] uppercase text-slate-900 font-sans leading-tight">
             {template.organizationName}
           </h2>
-          <p className="text-[10px] text-slate-500">{template.organizationSubtitle}</p>
+          <p className="text-[11.5px] text-slate-500">{template.organizationSubtitle}</p>
         </div>
 
         {/* Middle */}
         <div className="flex-1 min-h-0 flex flex-col items-center justify-center space-y-2 overflow-hidden">
           <span
-            className="inline-block px-8 py-[5px] text-[11px] font-bold tracking-[0.24em] uppercase whitespace-nowrap"
+            className="inline-block px-8 py-[5px] text-[12.5px] font-bold tracking-[0.24em] uppercase whitespace-nowrap"
             style={{ backgroundColor: primaryColor, color: '#ffffff', border: `1px solid ${goldColor}` }}
           >
             {template.typeBadgeText}
           </span>
 
-          <h1 className="text-[24px] font-black uppercase tracking-tight text-slate-900 font-sans leading-[1.2] max-w-2xl">
+          <h1 className="text-[27.5px] font-black uppercase tracking-tight text-slate-900 font-sans leading-[1.2] max-w-2xl">
             {eventName}
           </h1>
 
-          <div className="w-full text-center text-[12px] leading-[1.95] text-slate-600 font-sans">
+          <div className="w-full text-center text-[14px] leading-[1.95] text-slate-600 font-sans">
             <p>
               This is to congratulate and certify that {salutation}{' '}
               <Blank value={participantName} width={120} />, from{' '}
@@ -183,13 +183,13 @@ export function OnyxExecutiveCertificate({
           </div>
 
           <div className="space-y-0.5">
-            <p className="text-[12px] text-slate-500 font-sans">
+            <p className="text-[14px] text-slate-500 font-sans">
               from {template.programDurationText}, with the
             </p>
-            <p className="text-[15.5px] font-black text-slate-900 font-sans">{theme}</p>
+            <p className="text-[18px] font-black text-slate-900 font-sans">{theme}</p>
           </div>
 
-          <p className="w-full text-center text-[10.5px] text-slate-500 leading-snug font-sans max-w-xl mx-auto line-clamp-2">
+          <p className="w-full text-center text-[12px] text-slate-500 leading-snug font-sans max-w-xl mx-auto line-clamp-2">
             {template.bodyFocusText}
           </p>
         </div>
@@ -198,7 +198,7 @@ export function OnyxExecutiveCertificate({
         <div className="flex items-end justify-between shrink-0">
           <div className="w-24 shrink-0" />
           <div className="flex-1 text-center px-4">
-            <div className="font-mono text-[9px] text-slate-400 tracking-wider">{certNumber}</div>
+            <div className="font-mono text-[10.5px] text-slate-400 tracking-wider">{certNumber}</div>
           </div>
           <div className="w-56 text-center">
             <div className="h-8 flex items-end justify-center mb-0.5">
@@ -236,10 +236,10 @@ export function OnyxExecutiveCertificate({
               )}
             </div>
             <div className="w-full mx-auto mb-1" style={{ height: 2, backgroundColor: goldColor }} />
-            <div className="text-[12px] font-bold text-slate-900 leading-tight font-sans">
+            <div className="text-[14px] font-bold text-slate-900 leading-tight font-sans">
               {template.signature1Name}
             </div>
-            <div className="text-[9.5px] font-medium text-slate-500 leading-tight">
+            <div className="text-[11px] font-medium text-slate-500 leading-tight">
               {template.signature1Title}
             </div>
           </div>

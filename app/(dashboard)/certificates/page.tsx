@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
@@ -46,7 +47,6 @@ import {
   Pencil,
   Sparkles,
   FileCheck,
-  FileOutput,
   Printer,
   Download,
   Trash2,
@@ -62,15 +62,6 @@ const CERTIFICATE_TYPES: CertificateType[] = [
   'Certificate of Recognition',
   'Certificate of Attendance',
 ];
-
-function downloadBlob(blob: Blob, fileName: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 function CertificatesContent() {
   const searchParams = useSearchParams();
@@ -338,18 +329,6 @@ function CertificatesContent() {
     setSelectedCertificate(await withEventDetails(certificate));
   };
 
-  const handleGenerateFile = async (certificate: Certificate) => {
-
-    try {
-      const blob = await certificatesApi.generateFile(certificate.id);
-      downloadBlob(blob, `${certificate.certificateNumber}.pdf`);
-      await loadData();
-      toast.success('Certificate PDF is ready and downloading.');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not generate this certificate PDF.');
-    }
-  };
-
   const handlePreviewEventPdfs = async () => {
     if (!selectedEventId) return;
     const queue = certificates.filter(
@@ -600,16 +579,6 @@ function CertificatesContent() {
                         >
                           Preview
                         </Button>
-                        {cert.status === 'Issued' && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(cert.id) && !cert.filePath && (
-                          <>
-                            <Button variant="outline" size="sm" onClick={() => void handleGenerateFile(cert)} leftIcon={<FileOutput className="h-3.5 w-3.5" />}>
-                              Generate PDF
-                            </Button>
-                          </>
-                        )}
-                        {cert.status === 'Issued' && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(cert.id) && !!cert.filePath && (
-                          <span className="text-3xs font-semibold text-slate-400">PDF ready — open Preview to print</span>
-                        )}
                         {cert.status === 'Revoked' && (
                           <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => void handleDeleteCertificate(cert)} leftIcon={<Trash2 className="h-3.5 w-3.5" />}>
                             Delete
@@ -813,8 +782,8 @@ function CertificatesContent() {
           {(bulkQueue || []).map((cert) => {
             const template = templates.find((t) => t.id === cert.templateId) || templates[0];
             return (
-              <div key={cert.id} className="overflow-hidden rounded-2xl border border-slate-200 print:overflow-visible print:rounded-none print:border-0 print:break-after-page print:last:break-after-auto">
-                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-4 py-2.5 print:hidden">
+              <div key={cert.id} className="overflow-hidden rounded-2xl border border-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-4 py-2.5">
                   <div className="text-xs">
                     <span className="font-mono font-bold text-emerald-800">{cert.certificateNumber}</span>
                     <span className="ml-2 font-semibold text-slate-700">{cert.participantName}</span>
@@ -839,7 +808,7 @@ function CertificatesContent() {
             );
           })}
         </div>
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-2 print:hidden">
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
           <Button variant="outline" size="sm" onClick={closeBulkQueue}>
             Close
           </Button>
@@ -856,6 +825,29 @@ function CertificatesContent() {
           </Button>
         </div>
       </Modal>
+
+      {/* Dedicated print container portalled directly to document.body for bulk printing.
+          When printing (body.printing-bulk), the normal app shell is hidden and ONLY
+          this container is printed, giving each certificate a clean, isolated 297mm x 210mm A4 page. */}
+      {bulkQueue && bulkQueue.length > 0 && typeof document !== 'undefined' && createPortal(
+        <div id="bulk-print-container" aria-hidden="true">
+          {bulkQueue.map((cert) => {
+            const template = templates.find((t) => t.id === cert.templateId) || templates[0];
+            if (!template) return null;
+            return (
+              <div key={`bulk-print-sheet-${cert.id}`} className="bulk-certificate-page">
+                <CertificatePreview
+                  certificate={cert}
+                  template={template}
+                  previewMode={true}
+                  showActions={false}
+                />
+              </div>
+            );
+          })}
+        </div>,
+        document.body
+      )}
 
       <EditCertificateModal
         isOpen={Boolean(editingCertificate)}

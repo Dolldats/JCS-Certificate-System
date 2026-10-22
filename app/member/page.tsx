@@ -179,7 +179,7 @@ export default function MemberPage() {
 
   return (
     <main className="app-background min-h-screen px-4 py-6 sm:px-8 sm:py-10">
-      <div className="mx-auto max-w-5xl space-y-8">
+      <div className="mx-auto max-w-5xl space-y-8 print:hidden">
         <header className="theme-header sticky top-3 z-40 flex items-center justify-between gap-4 rounded-2xl px-4 py-3 sm:px-6 sm:py-3.5">
           <div className="flex items-center gap-3">
             <span className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-700 text-white">

@@ -105,8 +105,8 @@ export function HeritageGoldCertificate({
 
   return (
     <div
-      id="certificate-print-area"
-      className="relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
+      id={`certificate-print-area-${certificate?.id ?? 'preview'}`}
+      className="certificate-print-area relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
       style={{ backgroundColor: bgColor }}
     >
       {/* Double gold border */}
@@ -174,10 +174,10 @@ export function HeritageGoldCertificate({
               className="w-full h-full object-contain rounded-full"
             />
           </div>
-          <h2 className="mt-1.5 text-[13.5px] font-black tracking-[0.08em] uppercase text-black font-sans leading-tight">
+          <h2 className="mt-1.5 text-[15.5px] font-black tracking-[0.08em] uppercase text-black font-sans leading-tight">
             {template.organizationName}
           </h2>
-          <p className="text-[10px] text-slate-600 font-medium">
+          <p className="text-[11.5px] text-slate-600 font-medium">
             {template.organizationSubtitle}
           </p>
           {/* Gold divider */}
@@ -194,7 +194,7 @@ export function HeritageGoldCertificate({
         {/* Middle */}
         <div className="flex-1 min-h-0 flex flex-col items-center justify-center space-y-1.5 overflow-hidden">
           <h1
-            className="text-[24px] font-black uppercase tracking-tight font-sans leading-[1.2]"
+            className="text-[27.5px] font-black uppercase tracking-tight font-sans leading-[1.2]"
             style={{ color: primaryColor }}
           >
             {eventName}
@@ -207,7 +207,7 @@ export function HeritageGoldCertificate({
               <polygon points="40,4 8,4 0,13 8,22 40,22" fill="none" stroke={goldColor} strokeWidth="1" />
             </svg>
             <span
-              className="inline-block px-7 py-[5px] text-[12px] font-bold tracking-[0.12em] text-white uppercase whitespace-nowrap shadow-sm z-10"
+              className="inline-block px-7 py-[5px] text-[14px] font-bold tracking-[0.12em] text-white uppercase whitespace-nowrap shadow-sm z-10"
               style={{
                 backgroundColor: primaryColor,
                 borderTop: `1.5px solid ${goldColor}`,
@@ -223,7 +223,7 @@ export function HeritageGoldCertificate({
           </div>
 
           {/* Body lines with underline blanks */}
-          <div className="w-full text-center text-[11.5px] leading-[1.95] text-slate-900 font-sans">
+          <div className="w-full text-center text-[13px] leading-[1.95] text-slate-900 font-sans">
             <p>
               This is to congratulate and certify that {salutation}{' '}
               <Blank value={participantName} width={130} />, Dilla{' '}
@@ -241,13 +241,13 @@ export function HeritageGoldCertificate({
           </div>
 
           <div className="space-y-0.5">
-            <p className="text-[12.5px] font-bold text-black font-sans">
+            <p className="text-[14.5px] font-bold text-black font-sans">
               {template.programDurationText}, with the
             </p>
-            <p className="text-[15px] font-black text-black font-sans">{theme}</p>
+            <p className="text-[17px] font-black text-black font-sans">{theme}</p>
           </div>
 
-          <p className="w-full text-center text-[10.5px] text-slate-700 leading-snug font-sans max-w-2xl mx-auto line-clamp-2">
+          <p className="w-full text-center text-[12px] text-slate-700 leading-snug font-sans max-w-2xl mx-auto line-clamp-2">
             {template.bodyFocusText}
           </p>
         </div>
@@ -256,7 +256,7 @@ export function HeritageGoldCertificate({
         <div className="flex items-end justify-between shrink-0">
           <div className="w-24 shrink-0" />
           <div className="flex-1 text-center px-4">
-            <div className="font-mono text-[9px] text-slate-400 tracking-wider">{certNumber}</div>
+            <div className="font-mono text-[10.5px] text-slate-400 tracking-wider">{certNumber}</div>
           </div>
           <div className="w-56 text-center">
             <div className="h-8 flex items-end justify-center mb-0.5">
@@ -294,10 +294,10 @@ export function HeritageGoldCertificate({
               )}
             </div>
             <div className="w-full h-px bg-slate-900 mx-auto mb-1" />
-            <div className="text-[12px] font-bold text-slate-900 leading-tight font-sans">
+            <div className="text-[14px] font-bold text-slate-900 leading-tight font-sans">
               {template.signature1Name}
             </div>
-            <div className="text-[9.5px] font-medium text-slate-600 leading-tight">
+            <div className="text-[11px] font-medium text-slate-600 leading-tight">
                 {template.signature1Title}
               </div>
           </div>

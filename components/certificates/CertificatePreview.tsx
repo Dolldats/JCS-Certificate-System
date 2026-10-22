@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Certificate, CertificateTemplate } from '../../types';
 import { ModernCertificate } from './ModernCertificate';
 import { EmeraldPrestigeCertificate } from './EmeraldPrestigeCertificate';
@@ -25,6 +26,10 @@ const AUXILIARY_QR_LOGO: Record<string, string> = {
 // Fixed design size (A4 landscape ratio). The certificate is rendered at
 // this size internally, then scaled down to fit the container width —
 // guaranteeing the whole certificate is always visible (no cropping).
+//
+// Stays at the authored 900px: the on-screen size of every font is
+// (design size / DESIGN_WIDTH), so widening this box would shrink the
+// artwork's text relative to the page.
 const DESIGN_WIDTH = 900;
 const DESIGN_HEIGHT = DESIGN_WIDTH / 1.414;
 
@@ -74,6 +79,25 @@ export function CertificatePreview({
   })();
   const resolvedTemplate =
     durationText === template.programDurationText ? template : { ...template, programDurationText: durationText };
+
+  // Verification QR code. Rendered inside the certificate artwork so it is
+  // positioned against the certificate on screen *and* on the printed sheet.
+  const qrBlock =
+    certNumber && certNumber !== 'JCS-PENDING' ? (
+      <div className="certificate-qr absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center pointer-events-none">
+        <QrCode
+          value={`${window.location.origin}/verify/${certNumber}`}
+          size={72}
+          logo={
+            AUXILIARY_QR_LOGO[
+              template?.auxiliary ??
+                (certificate?.auxiliary as string | undefined) ??
+                'All'
+            ]
+          }
+        />
+      </div>
+    ) : null;
 
   function renderCertificate() {
     switch (template.design || 'modern-rings') {
@@ -132,7 +156,22 @@ export function CertificatePreview({
   // Scale-to-fit: measure the available width and shrink the fixed-size
   // certificate to fit, so the full page is always visible.
   const containerRef = useRef<HTMLDivElement>(null);
+  const scalerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  // The artwork's own print area. The QR code is rendered *inside* it so it
+  // is positioned against the certificate — the print stylesheet collapses
+  // the scale-to-fit wrappers to zero height, so anything anchored outside
+  // the artwork would land at the top of the page.
+  const [printArea, setPrintArea] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    // Scoped to this instance's scaler, so a bulk queue of certificates each
+    // target their own artwork rather than the first one on the page.
+    const el =
+      (scalerRef.current?.querySelector('.certificate-print-area') as HTMLElement | null) ??
+      null;
+    setPrintArea((current) => (current === el ? current : el));
+  });
 
   useEffect(() => {
     const el = containerRef.current;
@@ -205,6 +244,7 @@ export function CertificatePreview({
           }}
         >
           <div
+            ref={scalerRef}
             className="certificate-screen-scaler absolute left-0 top-0 origin-top-left"
             style={{
               width: DESIGN_WIDTH,
@@ -213,25 +253,19 @@ export function CertificatePreview({
             }}
           >
             {renderCertificate()}
-            {/* QR code rendered directly on the certificate artwork — scales/prints with it */}
-            {certNumber && certNumber !== 'JCS-PENDING' && (
-              <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center pointer-events-none">
-                <QrCode
-                  value={`${window.location.origin}/verify/${certNumber}`}
-                  size={72}
-                  logo={
-                    AUXILIARY_QR_LOGO[
-                      template?.auxiliary ??
-                        (certificate?.auxiliary as string | undefined) ??
-                        'All'
-                    ]
-                  }
-                />
-              </div>
-            )}
+
+            {/* Fallback placement (before the artwork's print area is
+                located): anchored to the design canvas, correct on screen. */}
+            {qrBlock && !printArea && qrBlock}
           </div>
         </div>
       </div>
+
+      {/* The QR code is rendered *inside* the certificate artwork. The print
+          stylesheet collapses the scale-to-fit wrappers to zero height and
+          pins the artwork to the page, so a QR anchored outside it would print
+          at the top of the sheet instead of on the certificate. */}
+      {printArea && qrBlock && createPortal(qrBlock, printArea)}
 
       {showActions && (
         <p className="print:hidden mt-3 text-3xs text-slate-500 text-center leading-relaxed max-w-4xl">

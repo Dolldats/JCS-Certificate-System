@@ -75,8 +75,8 @@ export function EmeraldPrestigeCertificate({
 
   return (
     <div
-      id="certificate-print-area"
-      className="relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
+      id={`certificate-print-area-${certificate?.id ?? 'preview'}`}
+      className="certificate-print-area relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
       style={{ backgroundColor: bgColor }}
     >
       {/* Header band */}
@@ -158,10 +158,10 @@ export function EmeraldPrestigeCertificate({
           </div>
           <div className="h-10 w-px bg-white/40" />
           <div className="min-w-0">
-            <h2 className="text-[15px] font-black tracking-wide uppercase text-white font-sans leading-tight truncate">
+            <h2 className="text-[17px] font-black tracking-wide uppercase text-white font-sans leading-tight truncate">
               {template.organizationName}
             </h2>
-            <p className="text-[11px] text-white/80 font-medium truncate">
+            <p className="text-[12.5px] text-white/80 font-medium truncate">
               {template.organizationSubtitle}
             </p>
           </div>
@@ -169,18 +169,18 @@ export function EmeraldPrestigeCertificate({
 
         {/* Body */}
         <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-10 py-2 space-y-2 overflow-hidden text-center">
-          <h1 className="text-[25px] font-black uppercase tracking-tight text-slate-900 font-sans leading-[1.2]">
+          <h1 className="text-[29px] font-black uppercase tracking-tight text-slate-900 font-sans leading-[1.2]">
             {eventName}
           </h1>
 
           <span
-            className="inline-block px-8 py-[5px] rounded-full text-[12px] font-bold tracking-[0.14em] text-white uppercase whitespace-nowrap shadow-sm"
+            className="inline-block px-8 py-[5px] rounded-full text-[14px] font-bold tracking-[0.14em] text-white uppercase whitespace-nowrap shadow-sm"
             style={{ backgroundColor: primaryColor, border: `1.5px solid ${accentColor}` }}
           >
             {template.typeBadgeText}
           </span>
 
-          <div className="w-full text-center text-[12.5px] leading-[1.8] text-slate-800 font-sans text-balance">
+          <div className="w-full text-center text-[14.5px] leading-[1.8] text-slate-800 font-sans text-balance">
             <p>
               This is to congratulate and certify that <strong>{salutation}</strong>{' '}
               <Blank value={participantName} width={110} />, from{' '}
@@ -194,13 +194,13 @@ export function EmeraldPrestigeCertificate({
           </div>
 
           <div className="space-y-0.5">
-            <p className="text-[12.5px] font-semibold text-slate-700 font-sans">
+            <p className="text-[14.5px] font-semibold text-slate-700 font-sans">
               from {template.programDurationText}, with the
             </p>
-            <p className="text-[16px] font-black text-slate-900 font-sans">{theme}</p>
+            <p className="text-[18.5px] font-black text-slate-900 font-sans">{theme}</p>
           </div>
 
-          <p className="w-full text-center text-[11px] text-slate-600 leading-snug font-sans max-w-2xl mx-auto line-clamp-2">
+          <p className="w-full text-center text-[12.5px] text-slate-600 leading-snug font-sans max-w-2xl mx-auto line-clamp-2">
             {template.bodyFocusText}
           </p>
         </div>
@@ -211,7 +211,7 @@ export function EmeraldPrestigeCertificate({
           <div className="flex items-end justify-between">
             <div className="w-24 shrink-0" />
             <div className="flex-1 text-center px-4">
-              <div className="text-3xs text-slate-400 font-mono tracking-wider">Serial No:</div>
+              <div className="text-[10.5px] text-slate-400 font-mono tracking-wider">Serial No:</div>
               <div className="font-mono text-xs font-bold text-slate-800 whitespace-nowrap">
                 {certNumber}
               </div>
@@ -252,10 +252,10 @@ export function EmeraldPrestigeCertificate({
                 )}
               </div>
               <div className="w-full h-px bg-slate-900 mx-auto mb-1" />
-              <div className="text-[12px] font-bold text-slate-900 leading-tight font-sans">
+              <div className="text-[14px] font-bold text-slate-900 leading-tight font-sans">
                 {template.signature1Name}
               </div>
-              <div className="text-[9.5px] font-medium text-slate-600 leading-tight">
+              <div className="text-[11px] font-medium text-slate-600 leading-tight">
                 {template.signature1Title}
               </div>
             </div>

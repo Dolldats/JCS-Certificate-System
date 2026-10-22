@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* ============================================================
+   GLOBAL SCALE
+   The whole UI is sized in rem, so one change here scales every
+   font, icon, spacing and control together. 18px (from the 16px
+   default) is a ~12.5% bump — comfortably readable on a large
+   monitor without breaking the responsive layouts.
+   The printed A4 certificate is pinned back to 16px in @media print
+   so the artwork on paper stays exactly as designed.
+   ============================================================ */
+html {
+  font-size: 18px;
+}
+
 :root {
   color-scheme: light;
   --background: #f3f7f4;
@@ -144,14 +157,20 @@ html[data-theme='dark'] .app-background {
   -webkit-backdrop-filter: blur(22px) saturate(145%);
   backdrop-filter: blur(22px) saturate(145%);
 }
+/* Dropdown menus sit on a solid ash surface. A translucent panel let the page
+   behind bleed through, so the menu came out half ash and half white. */
+.dropdown-surface {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+  border: 1px solid var(--line);
+}
 .auth-form-area { background: var(--background); color: var(--text-primary); }
 .auth-card {
   background: var(--surface);
   border: 1px solid var(--line);
   box-shadow: 0 18px 55px rgb(var(--shadow-color) / .11);
 }
-.theme-logo-tile { background: var(--surface); border-color: var(--line); }
-.theme-text { color: var(--text-primary); }
+.theme-logo-tile { background: var(--surface); border-color: var(--line); }.theme-text { color: var(--text-primary); }
 .theme-toggle {
   display: inline-flex;
   min-height: 40px;
@@ -188,66 +207,66 @@ html[data-theme='dark'] .app-background {
 
 /* Map the app's existing Tailwind palette to semantic dark surfaces. The
    certificate artwork is excluded so its printed colors stay true. */
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-white'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-white/'] {
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-white'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-white/'] {
   background-color: var(--surface) !important;
 }
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-slate-50'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-slate-50/'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-slate-100'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-gray-50'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-gray-50/'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-gray-100'] {
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-slate-50'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-slate-50/'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-slate-100'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-gray-50'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-gray-50/'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-gray-100'] {
   background-color: var(--surface-muted) !important;
 }
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-emerald-50'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-emerald-50/'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-green-50'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-green-50/'] {
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-emerald-50'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-emerald-50/'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-green-50'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-green-50/'] {
   background-color: var(--accent-soft) !important;
 }
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-emerald-100'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-green-100'] {
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-emerald-100'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-green-100'] {
   background-color: #244334 !important;
 }
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-rose-50'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-rose-50/'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-red-50'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-red-50/'] { background-color: #3b2428 !important; }
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-rose-900'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-rose-800'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-rose-700'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-red-900'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-red-800'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-red-700'] { color: #fda4af !important; }
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-rose-200'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-red-200'] { border-color: #63373e !important; }
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-slate-900'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-slate-800'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-gray-900'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-gray-800'] { color: var(--text-primary) !important; }
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-slate-700'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-slate-600'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-gray-700'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-gray-600'] { color: var(--text-secondary) !important; }
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-slate-500'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-slate-400'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-gray-500'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-gray-400'] { color: var(--text-muted) !important; }
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-emerald-900'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-emerald-800'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-emerald-700'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='text-emerald-600'] { color: #83d9b1 !important; }
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-slate-100'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-slate-200'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-slate-300'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-gray-100'],
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-gray-200'] { border-color: var(--line) !important; }
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='border-white/'] { border-color: var(--line) !important; }
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-slate-50']:hover,
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-slate-50/']:hover,
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class~='bg-gray-50']:hover,
-html[data-theme='dark'] body :not(#certificate-print-area):not(#certificate-print-area *)[class*='bg-gray-50/']:hover { background-color: var(--surface-raised) !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-rose-50'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-rose-50/'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-red-50'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-red-50/'] { background-color: #3b2428 !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-rose-900'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-rose-800'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-rose-700'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-red-900'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-red-800'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-red-700'] { color: #fda4af !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-rose-200'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-red-200'] { border-color: #63373e !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-slate-900'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-slate-800'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-gray-900'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-gray-800'] { color: var(--text-primary) !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-slate-700'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-slate-600'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-gray-700'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-gray-600'] { color: var(--text-secondary) !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-slate-500'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-slate-400'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-gray-500'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-gray-400'] { color: var(--text-muted) !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-emerald-900'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-emerald-800'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-emerald-700'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-emerald-600'] { color: #83d9b1 !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-slate-100'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-slate-200'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-slate-300'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-gray-100'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-gray-200'] { border-color: var(--line) !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-white/'] { border-color: var(--line) !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-slate-50']:hover,
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-slate-50/']:hover,
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-gray-50']:hover,
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-gray-50/']:hover { background-color: var(--surface-raised) !important; }
 html[data-theme='dark'] body input::placeholder,
 html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
 
@@ -265,6 +284,12 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
 }
 
 @media print {
+  /* The printed certificate must stay exactly as designed — the screen
+     scale bump does not apply to paper. */
+  html {
+    font-size: 16px !important;
+  }
+
   /* Hide everything except the certificate */
   html,
   body {
@@ -276,6 +301,14 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
+  }
+
+  /* Single certificate print: constrain body to exactly 1 A4 page height (210mm)
+     so a long background page cannot cause Chrome to repeat the fixed certificate */
+  body:not(.printing-bulk) {
+    height: 210mm !important;
+    max-height: 210mm !important;
+    overflow: hidden !important;
   }
 
   body * {
@@ -311,15 +344,15 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
   }
 
   /* Make the certificate fill the full printed page */
-  #certificate-print-area,
-  #certificate-print-area * {
+  .certificate-print-area,
+  .certificate-print-area * {
     visibility: visible;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
   }
 
-  #certificate-print-area {
+  .certificate-print-area {
     position: fixed !important;
     inset: 0 !important;
     left: 0 !important;
@@ -346,51 +379,133 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     color-adjust: exact !important;
   }
 
+  /* The verification QR code lives beside the artwork, not inside it, so the
+     "hide everything except the certificate" rule above would erase it.
+     Restore it — it is part of the certificate. */
+  .certificate-qr,
+  .certificate-qr * {
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
   /* Inner content keeps the same tight rhythm as the screen preview */
-  #certificate-print-area > div[class*='z-10'] {
+  .certificate-print-area > div[class*='z-10'] {
     padding: 5mm 8mm !important;
   }
 
   /* Force bold weights to survive PDF embedding */
-  #certificate-print-area h1 {
+  .certificate-print-area h1 {
     font-weight: 900 !important;
     font-size: 28pt !important;
     line-height: 1.15 !important;
   }
 
-  #certificate-print-area h2 {
+  .certificate-print-area h2 {
     font-weight: 800 !important;
   }
 
   /* Force SVG and decorative elements to keep their colors */
-  #certificate-print-area svg,
-  #certificate-print-area svg * {
+  .certificate-print-area svg,
+  .certificate-print-area svg * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   /* Prevent page breaks inside the certificate */
-  #certificate-print-area {
+  .certificate-print-area {
     page-break-inside: avoid;
     break-inside: avoid;
+    orphans: 3;
+    widows: 3;
   }
 
-  /* Bulk mode (stacked previews): every certificate flows in normal layout,
-     one per page, instead of all stacking fixed on a single page. The
-     <body> gets .printing-bulk while the bulk modal is open. */
-  body.printing-bulk #certificate-print-area {
+  /* Bulk mode: all certificates in the queue are rendered directly into
+     #bulk-print-container portalled to <body>. When printing in bulk mode,
+     we hide the normal application and render ONLY the bulk print container. */
+  body.printing-bulk > :not(#bulk-print-container) {
+    display: none !important;
+  }
+
+  body.printing-bulk #bulk-print-container {
+    display: block !important;
     position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 297mm !important;
+    background: #ffffff !important;
+  }
+
+  body.printing-bulk #bulk-print-container,
+  body.printing-bulk #bulk-print-container * {
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  body.printing-bulk .bulk-certificate-page {
+    display: block !important;
+    position: relative !important;
+    width: 297mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    max-height: 210mm !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid-page !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+  }
+
+  body.printing-bulk .bulk-certificate-page:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  body.printing-bulk #bulk-print-container .certificate-screen-wrap,
+  body.printing-bulk #bulk-print-container .certificate-screen-sizer,
+  body.printing-bulk #bulk-print-container .certificate-screen-scaler {
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    position: static !important;
+    transform: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    display: block !important;
+  }
+
+  body.printing-bulk #bulk-print-container .certificate-print-area {
+    position: relative !important;
     inset: auto !important;
     left: auto !important;
     top: auto !important;
-    width: 100% !important;
-    height: auto !important;
-    max-width: none !important;
-    max-height: none !important;
-    break-inside: avoid-page;
-    break-after: page;
+    width: 297mm !important;
+    height: 210mm !important;
+    min-width: 297mm !important;
+    min-height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    display: block !important;
   }
-  body.printing-bulk .modal-panel > :not(.modal-scroll-content) {
-    display: none !important;
-  }
+}
+
+#bulk-print-container {
+  display: none;
 }

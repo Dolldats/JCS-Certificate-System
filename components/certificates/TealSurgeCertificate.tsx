@@ -75,8 +75,8 @@ export function TealSurgeCertificate({
 
   return (
     <div
-      id="certificate-print-area"
-      className="relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
+      id={`certificate-print-area-${certificate?.id ?? 'preview'}`}
+      className="certificate-print-area relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
       style={{ backgroundColor: bgColor }}
     >
       {/* Bottom layered waves */}
@@ -181,10 +181,10 @@ export function TealSurgeCertificate({
           </div>
           <div className="h-9 w-px bg-slate-300" />
           <div>
-            <h2 className="text-[13px] font-extrabold tracking-wide uppercase font-sans text-slate-900">
+            <h2 className="text-[15px] font-extrabold tracking-wide uppercase font-sans text-slate-900">
               {template.organizationName}
             </h2>
-            <p className="text-[11px] text-slate-500 font-medium">
+            <p className="text-[12.5px] text-slate-500 font-medium">
               {template.organizationSubtitle}
             </p>
           </div>
@@ -193,20 +193,20 @@ export function TealSurgeCertificate({
         {/* Middle */}
         <div className="flex-1 min-h-0 flex flex-col items-center justify-center py-1 space-y-2 w-full px-8 overflow-hidden">
           <h1
-            className="text-[25px] font-black uppercase tracking-tight font-sans leading-[1.2]"
+            className="text-[29px] font-black uppercase tracking-tight font-sans leading-[1.2]"
             style={{ color: primaryColor }}
           >
             {eventName}
           </h1>
 
           <span
-            className="inline-block px-8 py-[6px] rounded-full text-[12px] font-bold tracking-[0.14em] text-white uppercase whitespace-nowrap shadow"
+            className="inline-block px-8 py-[6px] rounded-full text-[14px] font-bold tracking-[0.14em] text-white uppercase whitespace-nowrap shadow"
             style={{ backgroundColor: primaryColor }}
           >
             {template.typeBadgeText}
           </span>
 
-          <div className="w-full text-center text-[12.5px] leading-[1.8] text-slate-700 font-sans text-balance">
+          <div className="w-full text-center text-[14.5px] leading-[1.8] text-slate-700 font-sans text-balance">
             <p>
               This is to congratulate and certify that <strong>{salutation}</strong>{' '}
               <Blank value={participantName} width={110} />, from{' '}
@@ -220,13 +220,13 @@ export function TealSurgeCertificate({
           </div>
 
           <div className="space-y-0.5">
-            <p className="text-[12.5px] font-medium text-slate-500 font-sans">
+            <p className="text-[14.5px] font-medium text-slate-500 font-sans">
               from {template.programDurationText}, with the
             </p>
-            <p className="text-[16px] font-black text-slate-900 font-sans">{theme}</p>
+            <p className="text-[18.5px] font-black text-slate-900 font-sans">{theme}</p>
           </div>
 
-          <p className="w-full text-center text-[11px] text-slate-500 leading-snug font-sans max-w-2xl mx-auto line-clamp-2">
+          <p className="w-full text-center text-[12.5px] text-slate-500 leading-snug font-sans max-w-2xl mx-auto line-clamp-2">
             {template.bodyFocusText}
           </p>
         </div>
@@ -235,7 +235,7 @@ export function TealSurgeCertificate({
         <div className="flex items-end justify-between pt-1 shrink-0">
           <div className="w-24 shrink-0" />
           <div className="flex-1 text-center px-4">
-            <div className="text-3xs text-slate-400 font-mono tracking-wider">Serial No:</div>
+            <div className="text-[10.5px] text-slate-400 font-mono tracking-wider">Serial No:</div>
             <div className="font-mono text-xs font-bold text-slate-800 whitespace-nowrap">
               {certNumber}
             </div>
@@ -276,10 +276,10 @@ export function TealSurgeCertificate({
               )}
             </div>
             <div className="w-full h-0.5 rounded" style={{ backgroundColor: primaryColor }} />
-            <div className="text-[12px] font-bold text-slate-900 leading-tight font-sans mt-1">
+            <div className="text-[14px] font-bold text-slate-900 leading-tight font-sans mt-1">
               {template.signature1Name}
             </div>
-            <div className="text-[10px] font-medium text-slate-500 leading-tight">
+            <div className="text-[11.5px] font-medium text-slate-500 leading-tight">
               {template.signature1Title}
             </div>
           </div>

@@ -72,8 +72,8 @@ export function ModernCertificate({
 
   return (
     <div
-      id="certificate-print-area"
-      className="relative w-full h-full bg-white shadow-2xl rounded-sm overflow-hidden select-none"
+      id={`certificate-print-area-${certificate?.id ?? 'preview'}`}
+      className="certificate-print-area relative w-full h-full bg-white shadow-2xl rounded-sm overflow-hidden select-none"
       style={{
         backgroundColor: bgColor,
         /* Screen size is driven by the parent scale-to-fit wrapper
@@ -230,12 +230,12 @@ export function ModernCertificate({
 
           <div>
             <h2
-              className="text-[14px] font-extrabold tracking-wide uppercase font-sans"
+              className="text-[16px] font-extrabold tracking-wide uppercase font-sans"
               style={{ color: neutralColor }}
             >
               {template.organizationName}
             </h2>
-            <p className="text-[11px] text-slate-600 font-medium">
+            <p className="text-[12.5px] text-slate-600 font-medium">
               {template.organizationSubtitle}
             </p>
           </div>
@@ -245,7 +245,7 @@ export function ModernCertificate({
         <div className="flex-1 min-h-0 flex flex-col items-center justify-center py-1 space-y-2 w-full px-8 overflow-hidden">
           {/* Big Main Event Title */}
           <h1
-            className="text-[26px] font-black uppercase tracking-tight font-sans leading-[1.2]"
+            className="text-[30px] font-black uppercase tracking-tight font-sans leading-[1.2]"
             style={{ color: neutralColor }}
           >
             {eventName}
@@ -254,7 +254,7 @@ export function ModernCertificate({
           {/* Certificate Type Badge Pill */}
           <div className="inline-block pb-0.5">
             <span
-              className="inline-block px-8 py-1.5 rounded-md text-[13px] font-extrabold tracking-wider text-white shadow-sm uppercase"
+              className="inline-block px-8 py-1.5 rounded-md text-[15px] font-extrabold tracking-wider text-white shadow-sm uppercase"
               style={{ backgroundColor: primaryColor }}
             >
               {template.typeBadgeText}
@@ -262,7 +262,7 @@ export function ModernCertificate({
           </div>
 
           {/* Body — centered, underline blanks, balanced wrapping (no stranded fragments) */}
-          <div className="w-full text-center text-[13px] leading-[1.8] text-black font-bold font-sans text-balance">
+          <div className="w-full text-center text-[15px] leading-[1.8] text-black font-bold font-sans text-balance">
             <p>
               This is to congratulate and certify that {salutation}{' '}
               <Blank value={participantName} width={110} />, from{' '}
@@ -277,16 +277,16 @@ export function ModernCertificate({
 
           {/* Date & Theme Highlight */}
           <div className="space-y-0.5">
-            <p className="text-[13px] font-bold text-black font-sans">
+            <p className="text-[15px] font-bold text-black font-sans">
               from {template.programDurationText}, with the
             </p>
-            <p className="text-[18px] font-black tracking-tight font-sans text-black">
+            <p className="text-[20.5px] font-black tracking-tight font-sans text-black">
               {theme}
             </p>
           </div>
 
           {/* Focus & Mission Description */}
-          <p className="w-full text-center text-[12px] text-black font-bold leading-snug font-sans max-w-2xl mx-auto line-clamp-3">
+          <p className="w-full text-center text-[14px] text-black font-bold leading-snug font-sans max-w-2xl mx-auto line-clamp-3">
             {template.bodyFocusText}
           </p>
         </div>
@@ -297,7 +297,7 @@ export function ModernCertificate({
           <div className="w-24 shrink-0" />
           {/* Serial Number & Security Code — centered where it reads cleanly */}
           <div className="flex-1 text-center px-4">
-            <div className="text-3xs text-slate-400 font-mono tracking-wider">Serial No:</div>
+            <div className="text-[10.5px] text-slate-400 font-mono tracking-wider">Serial No:</div>
             <div className="font-mono text-xs font-bold text-slate-800 whitespace-nowrap">
               {certNumber}
             </div>
@@ -345,10 +345,10 @@ export function ModernCertificate({
             <div className="w-full h-0.5 bg-slate-800 mx-auto mb-1.5" />
 
             {/* Name & Title */}
-            <div className="text-[12px] font-bold text-slate-900 leading-tight font-sans">
+            <div className="text-[14px] font-bold text-slate-900 leading-tight font-sans">
               {template.signature1Name}
             </div>
-            <div className="text-[10px] font-medium text-slate-600 leading-tight">
+            <div className="text-[11.5px] font-medium text-slate-600 leading-tight">
               {template.signature1Title}
             </div>
           </div>
