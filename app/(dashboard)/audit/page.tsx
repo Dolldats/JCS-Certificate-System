@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { auditApi } from '../../../services/api';
@@ -28,7 +29,8 @@ import {
 import { formatDateTime } from '../../../lib/utils';
 
 export default function AuditPage() {
-  const { activeAuxiliary } = useAuth();
+  const { activeAuxiliary, user, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,7 @@ export default function AuditPage() {
   const [totalCount, setTotalCount] = useState(0);
 
   const loadLogs = async () => {
+    if (user?.role !== 'SUPER_ADMIN') return;
     setLoading(true);
     const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
     try {
@@ -72,6 +75,12 @@ export default function AuditPage() {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (user?.role !== 'SUPER_ADMIN') {
+      router.replace('/dashboard');
+      return;
+    }
+
     // Fetch in an async task (not synchronously in the effect body) so the
     // initial server/client render stays consistent and lint-safe.
     let cancelled = false;
@@ -110,7 +119,11 @@ export default function AuditPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeAuxiliary, page, pageSize, searchQuery, actionFilter]);
+  }, [activeAuxiliary, actionFilter, authLoading, page, pageSize, router, searchQuery, user?.role]);
+
+  if (authLoading || user?.role !== 'SUPER_ADMIN') {
+    return <div className="min-h-40" role="status" aria-label="Checking access" />;
+  }
 
   // Search and action are applied server-side, so the loaded page is final.
   const filteredLogs = logs;
@@ -200,7 +213,7 @@ export default function AuditPage() {
           {loading ? (
             <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading audit logs">
               <span className="dual-ring-spinner" aria-hidden="true" />
-              <span className="sr-only">Loading audit logs</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
             </div>
           ) : filteredLogs.length === 0 ? (
             <div className="p-12 text-center space-y-3">

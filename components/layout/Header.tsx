@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { Auxiliary } from '../../types';
+import { getAuxiliaryLabel } from '../../lib/auxiliaryLabels';
 import {
   Menu,
   Search,
@@ -126,7 +127,7 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
                         : 'text-slate-700'
                     }`}
                   >
-                    <span>{aux === 'All' ? 'All 5 Auxiliaries' : aux}</span>
+                    <span>{getAuxiliaryLabel(aux)}</span>
                     {activeAuxiliary === aux && (
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                     )}

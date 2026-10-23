@@ -5,6 +5,7 @@ import { Certificate, CertificateTemplate } from '../../types';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { CertificatePreview } from './CertificatePreview';
+import { formatMemberName } from '../../lib/honorific';
 import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CertificateModalProps {
@@ -62,7 +63,7 @@ export function CertificateModal({
       description={
         isRevoking
           ? `Revoking certificate ${certificate.certificateNumber} will record an audit trail.`
-          : `Issued to ${certificate.participantName} (${certificate.memberId})`
+          : `Issued to ${formatMemberName(certificate.participantName, certificate.gender, certificate.auxiliary)} (${certificate.memberId})`
       }
       maxWidth="5xl"
       footer={

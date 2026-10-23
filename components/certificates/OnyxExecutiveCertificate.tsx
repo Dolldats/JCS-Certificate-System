@@ -171,7 +171,7 @@ export function OnyxExecutiveCertificate({
 
           <div className="w-full text-center text-[14px] leading-[1.95] text-slate-600 font-sans">
             <p>
-              This is to congratulate and certify that {salutation}{' '}
+              This is to certify that {salutation}{' '}
               <Blank value={participantName} width={120} />, from{' '}
               <Blank value={dilla} width={90} /> Dilla,{' '}
               <Blank value={jamaat} width={120} /> Jama&apos;at.

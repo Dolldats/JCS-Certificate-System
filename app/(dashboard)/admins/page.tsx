@@ -13,6 +13,7 @@ import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { Pagination } from '../../../components/ui/Pagination';
+import { getAuxiliaryLabel } from '../../../lib/auxiliaryLabels';
 import {
   Table,
   TableHeader,
@@ -268,6 +269,12 @@ export default function AdminsPage() {
         </div>
       </div>
 
+      {loading ? (
+        <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading administrators">
+          <span className="dual-ring-spinner" aria-hidden="true" />
+          <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
+        </div>
+      ) : (
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -362,6 +369,7 @@ export default function AdminsPage() {
           </Table>
         </CardContent>
       </Card>
+      )}
 
       {!loading && (
         <Pagination
@@ -409,7 +417,7 @@ export default function AdminsPage() {
             onChange={(e) => setAssignAuxiliary(e.target.value as Auxiliary)}
             options={AUXILIARY_OPTIONS.map((a) => ({
               value: a,
-              label: `${a} Majlis`,
+              label: getAuxiliaryLabel(a),
             }))}
           />
 

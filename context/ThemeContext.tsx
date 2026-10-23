@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useSyncExternalStore } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -11,7 +11,6 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 const STORAGE_KEY = 'jcs_theme';
-const THEME_CHANGE_EVENT = 'jcs-theme-change';
 
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
@@ -32,19 +31,6 @@ function getServerThemeSnapshot(): Theme {
   return 'light';
 }
 
-function subscribeToTheme(onStoreChange: () => void) {
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  window.addEventListener(THEME_CHANGE_EVENT, onStoreChange);
-  window.addEventListener('storage', onStoreChange);
-  mediaQuery.addEventListener('change', onStoreChange);
-
-  return () => {
-    window.removeEventListener(THEME_CHANGE_EVENT, onStoreChange);
-    window.removeEventListener('storage', onStoreChange);
-    mediaQuery.removeEventListener('change', onStoreChange);
-  };
-}
-
 function saveTheme(theme: Theme) {
   try {
     window.localStorage.setItem(STORAGE_KEY, theme);
@@ -52,22 +38,45 @@ function saveTheme(theme: Theme) {
     // The current session still uses the selected theme if storage is unavailable.
   }
   applyTheme(theme);
-  window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const theme = useSyncExternalStore(
-    subscribeToTheme,
-    getThemeSnapshot,
-    getServerThemeSnapshot
-  );
+  const [theme, setTheme] = useState<Theme>(getServerThemeSnapshot);
 
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+    const initialTheme = getThemeSnapshot();
+    setTheme(initialTheme);
+    applyTheme(initialTheme);
+
+    const syncStoredTheme = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY) return;
+      const nextTheme = getThemeSnapshot();
+      setTheme(nextTheme);
+      applyTheme(nextTheme);
+    };
+    const syncSystemTheme = (event: MediaQueryListEvent) => {
+      try {
+        if (window.localStorage.getItem(STORAGE_KEY)) return;
+      } catch {
+        // Follow the system preference when storage is unavailable.
+      }
+      const nextTheme = event.matches ? 'dark' : 'light';
+      setTheme(nextTheme);
+      applyTheme(nextTheme);
+    };
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    window.addEventListener('storage', syncStoredTheme);
+    mediaQuery.addEventListener('change', syncSystemTheme);
+    return () => {
+      window.removeEventListener('storage', syncStoredTheme);
+      mediaQuery.removeEventListener('change', syncSystemTheme);
+    };
+  }, []);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
     saveTheme(nextTheme);
   };
 

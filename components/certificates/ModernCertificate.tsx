@@ -264,7 +264,7 @@ export function ModernCertificate({
           {/* Body — centered, underline blanks, balanced wrapping (no stranded fragments) */}
           <div className="w-full text-center text-[15px] leading-[1.8] text-black font-bold font-sans text-balance">
             <p>
-              This is to congratulate and certify that {salutation}{' '}
+              This is to certify that {salutation}{' '}
               <Blank value={participantName} width={110} />, from{' '}
               <Blank value={dilla} width={90} /> Dilla,{' '}
               <Blank value={jamaat} width={110} /> Jama&apos;at.

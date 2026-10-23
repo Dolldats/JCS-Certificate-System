@@ -63,7 +63,8 @@ export function friendlyErrorMessage(status: number, detail = '', fallback401?: 
 
 export async function backendFetch<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  responseType: 'json' | 'text' = 'json'
 ): Promise<T> {
   const token = getAuthToken();
   const cleanPath = endpoint.replace(/^\/+/, '').replace(/^api\//i, '');
@@ -73,7 +74,7 @@ export async function backendFetch<T>(
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
-  headers.set('Accept', 'application/json');
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json');
 
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
@@ -141,6 +142,8 @@ export async function backendFetch<T>(
   if (!text) {
     return {} as T;
   }
+
+  if (responseType === 'text') return text as T;
 
   try {
     return JSON.parse(text) as T;

@@ -33,9 +33,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     }
     if (isLoading) {
       return (
-        <div className="app-background grid min-h-screen w-full place-items-center" role="status" aria-label="Loading dashboard">
+        <div className="app-background grid min-h-screen w-full place-content-center justify-items-center gap-3" role="status" aria-label="Loading dashboard">
           <span className="dual-ring-spinner" aria-hidden="true" />
-          <span className="sr-only">Loading dashboard</span>
+          <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
         </div>
       );
     }

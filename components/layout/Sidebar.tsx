@@ -64,11 +64,15 @@ export function Sidebar({ onCloseMobile, collapsed = false, onToggleCollapse }: 
           },
         ]
       : []),
-    {
-      label: 'Audit Trail',
-      href: '/audit',
-      icon: ClipboardList,
-    },
+    ...(isSuperAdmin
+      ? [
+          {
+            label: 'Audit Trail',
+            href: '/audit',
+            icon: ClipboardList,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -90,22 +94,22 @@ export function Sidebar({ onCloseMobile, collapsed = false, onToggleCollapse }: 
             onClick={onToggleCollapse}
             title="Open sidebar"
             aria-label="Open sidebar"
-            className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-md shadow-emerald-900/30 overflow-hidden p-1 hover:ring-2 hover:ring-emerald-500 transition-all cursor-pointer"
+            className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-md shadow-emerald-900/30 overflow-hidden hover:ring-2 hover:ring-emerald-500 transition-all cursor-pointer"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/ahmadiyyah_logo.png"
               alt="Open sidebar"
-              className="w-full h-full object-contain"
+              className="w-full h-full rounded-full object-contain"
             />
           </button>
         ) : (
-          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-md shadow-emerald-900/30 shrink-0 overflow-hidden p-1">
+          <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-md shadow-emerald-900/30 shrink-0 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/ahmadiyyah_logo.png"
               alt="Ahmadiyyah logo"
-              className="w-full h-full object-contain"
+              className="w-full h-full rounded-full object-contain"
             />
           </div>
         )}

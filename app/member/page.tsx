@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Award, CalendarDays, Download, Eye, LogOut, ShieldCheck } from 'lucide-react';
+import { CalendarDays, Eye, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ui/Toast';
 import { ThemeToggle } from '../../components/ui/ThemeToggle';
@@ -12,7 +12,6 @@ import { certificatesApi, cleanTheme, eventsApi, participantsApi, templatesApi }
 import { Certificate, CertificateTemplate } from '../../types';
 import { CertificatePreview } from '../../components/certificates/CertificatePreview';
 import { Modal } from '../../components/ui/Modal';
-import { downloadBlob, safeFilename } from '../../lib/download';
 
 interface MemberEvent {
   eventId: string;
@@ -61,7 +60,6 @@ export default function MemberPage() {
   const [previewCertificate, setPreviewCertificate] = useState<Certificate | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<CertificateTemplate | null>(null);
   const [openingCertificateId, setOpeningCertificateId] = useState<string | null>(null);
-  const [downloadingCertificateId, setDownloadingCertificateId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
@@ -164,23 +162,16 @@ export default function MemberPage() {
     }
   };
 
-  const downloadCertificate = async (certificateId: string, certificateNumber?: string) => {
-    setDownloadingCertificateId(certificateId);
-    try {
-      const pdf = await certificatesApi.download(certificateId);
-      downloadBlob(pdf, `${safeFilename(certificateNumber || 'certificate')}.pdf`);
-      toast.success('Certificate PDF downloaded.');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not download this certificate.');
-    } finally {
-      setDownloadingCertificateId(null);
-    }
-  };
-
   if (isLoading || !user || user.role !== 'MEMBER') {
     return (
-      <main className="app-background min-h-screen grid place-items-center px-6">
-        <p className="text-sm text-slate-500">Loading your member portal…</p>
+      <main
+        className="page-loading-screen content-center justify-items-center gap-3 px-6"
+        role="status"
+        aria-label="Loading member portal"
+        aria-busy="true"
+      >
+        <span className="dual-ring-spinner" aria-hidden="true" />
+        <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
       </main>
     );
   }
@@ -193,52 +184,50 @@ export default function MemberPage() {
   const awaitingPercentage = events.length > 0 ? 100 - certificatePercentage : 0;
 
   return (
-    <main className="app-background min-h-screen px-4 py-6 sm:px-8 sm:py-10">
-      <div className="mx-auto max-w-5xl space-y-8 print:hidden">
-        <header className="theme-header sticky top-2 z-40 flex flex-col gap-3 rounded-2xl px-3 py-3 sm:top-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-3.5">
+    <main className="app-background min-h-screen min-w-0 px-4 py-5 sm:px-8 sm:py-10">
+      <div className="mx-auto max-w-5xl space-y-6 sm:space-y-8 print:hidden">
+        <header className="theme-header sticky top-2 z-40 flex flex-col gap-3 rounded-2xl px-4 py-3 sm:top-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-3.5">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-700 text-white">
-              <Award className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-800">Jama&apos;at Certify</p>
-              <h1 className="text-lg font-bold text-slate-900">Member Portal</h1>
+            <img src="/ahmadiyyah_logo.png" alt="Ahmadiyyah logo" className="h-10 w-10 shrink-0 rounded-full bg-white object-contain shadow-sm sm:h-11 sm:w-11" />
+            <div className="min-w-0">
+              <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-800 sm:text-xs sm:tracking-[0.14em]">Jama&apos;at Certify</p>
+              <h1 className="truncate text-base font-bold text-slate-900 sm:text-lg">Member Portal</h1>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-2 sm:shrink-0">
+          <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:shrink-0">
             <ThemeToggle />
-            <Button variant="ghost" size="sm" onClick={logout} leftIcon={<LogOut className="h-4 w-4" />}>
+            <Button variant="ghost" size="sm" className="min-h-10" onClick={logout} leftIcon={<LogOut className="h-4 w-4" />}>
               Sign out
             </Button>
           </div>
         </header>
 
-        <section className="rounded-3xl bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-800 px-6 py-8 text-white shadow-lg sm:px-10 sm:py-11">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Assalam alaykum, {user.fullName}</h2>
-          <p className="mt-3 text-sm text-emerald-100">Member ID: <span className="font-mono font-semibold text-white">{user.memberId}</span></p>
+        <section className="rounded-3xl bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-800 px-5 py-6 text-white shadow-lg sm:px-10 sm:py-11">
+          <h2 className="break-words text-2xl font-bold leading-tight tracking-tight sm:text-4xl">Assalam alaykum, {user.fullName}</h2>
+          <p className="mt-3 break-words text-sm text-emerald-100">Member ID: <span className="break-all font-mono font-semibold text-white">{user.memberId}</span></p>
         </section>
 
-        <section className="surface-card rounded-2xl p-5 sm:p-7">
-          <div className="grid gap-7 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <section className="surface-card rounded-2xl p-4 sm:p-7">
+          <div className="grid min-w-0 gap-6 sm:gap-7 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <div>
               <h2 className="text-lg font-bold text-slate-900">Event &amp; certificate progress</h2>
               <p className="mt-1 text-sm text-slate-500">
                 Certificate coverage across your {events.length} {events.length === 1 ? 'event' : 'events'}.
               </p>
               <div className="mt-6 space-y-4" aria-label="Chart values">
-                <div className="flex items-center justify-between gap-5">
+                <div className="flex items-center justify-between gap-2 sm:gap-5">
                   <span className="flex items-center gap-2 text-sm text-slate-700">
                     <span className="h-3 w-3 rounded-full bg-emerald-700" aria-hidden="true" />
                     Certificates issued
                   </span>
-                  <span className="text-sm font-semibold text-slate-900">{certificateCount} <span className="text-slate-500">({certificatePercentage}%)</span></span>
+                  <span className="shrink-0 text-right text-sm font-semibold text-slate-900">{certificateCount} <span className="text-slate-500">({certificatePercentage}%)</span></span>
                 </div>
-                <div className="flex items-center justify-between gap-5">
+                <div className="flex items-center justify-between gap-2 sm:gap-5">
                   <span className="flex items-center gap-2 text-sm text-slate-700">
                     <span className="h-3 w-3 rounded-full bg-amber-600" aria-hidden="true" />
                     Awaiting certificate
                   </span>
-                  <span className="text-sm font-semibold text-slate-900">{awaitingCertificateCount} <span className="text-slate-500">({awaitingPercentage}%)</span></span>
+                  <span className="shrink-0 text-right text-sm font-semibold text-slate-900">{awaitingCertificateCount} <span className="text-slate-500">({awaitingPercentage}%)</span></span>
                 </div>
               </div>
               {events.length === 0 && (
@@ -263,7 +252,7 @@ export default function MemberPage() {
 
         <section className="space-y-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">My events and certificates</h2>
+            <h2 className="text-lg font-bold text-slate-900 sm:text-xl">My events and certificates</h2>
             <p className="mt-1 text-sm text-slate-500">Your event participation and certificate status from Jama&apos;at Certify.</p>
           </div>
 
@@ -276,20 +265,20 @@ export default function MemberPage() {
           ) : (
             <div className="space-y-3">
               {events.map((event, index) => (
-                <article key={`${event.eventName}-${index}`} className="surface-card flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-                  <div className="flex items-start gap-4">
+                <article key={`${event.eventName}-${index}`} className="surface-card flex min-w-0 flex-col gap-4 rounded-2xl p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                  <div className="flex min-w-0 items-start gap-3 sm:gap-4">
                     <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><CalendarDays className="h-5 w-5" /></span>
-                    <div>
-                      <h3 className="font-semibold text-slate-900">{event.eventName}</h3>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="break-words font-semibold text-slate-900">{event.eventName}</h3>
                       <p className="mt-1 text-sm text-slate-500">{formatEventDate(event.eventDate)}</p>
                       <p className="mt-2 text-xs text-slate-600">Participation: <span className="font-semibold">{event.status}</span></p>
                     </div>
                   </div>
-                  <div className="rounded-xl bg-slate-50 px-4 py-3 sm:min-w-56">
+                  <div className="w-full min-w-0 rounded-xl bg-slate-50 px-4 py-3 sm:w-auto sm:min-w-56">
                     {event.certificateIssued ? (
                       <>
                         <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800"><ShieldCheck className="h-4 w-4" /> Certificate issued</p>
-                        {event.certificateNumber && <p className="mt-1 font-mono text-xs text-slate-600">{event.certificateNumber}</p>}
+                        {event.certificateNumber && <p className="mt-1 break-all font-mono text-xs text-slate-600">{event.certificateNumber}</p>}
                         {event.certificateStatus && <p className="mt-1 text-xs text-slate-500">Status: {event.certificateStatus}</p>}
                         {event.certificateId && (
                           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -301,15 +290,6 @@ export default function MemberPage() {
                             >
                               <Eye className="h-3.5 w-3.5" />
                               {openingCertificateId === event.certificateId ? 'Opening…' : 'Preview'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void downloadCertificate(event.certificateId!, event.certificateNumber)}
-                              disabled={downloadingCertificateId === event.certificateId}
-                              className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 disabled:cursor-wait disabled:opacity-60"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                              {downloadingCertificateId === event.certificateId ? 'Downloading…' : 'Download PDF'}
                             </button>
                           </div>
                         )}

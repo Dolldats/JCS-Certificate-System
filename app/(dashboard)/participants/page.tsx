@@ -14,6 +14,7 @@ import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { Pagination } from '../../../components/ui/Pagination';
+import { formatMemberName } from '../../../lib/honorific';
 import {
   Table,
   TableHeader,
@@ -379,10 +380,10 @@ function ParticipantsContent() {
                 { value: 'all', label: 'All Verification States' },
                 { value: 'Pending', label: '⏳ Pending' },
                 { value: 'Verified', label: '✅ Verified' },
-                { value: 'Not Found', label: '❌ Not Found' },
+                { value: 'NotFound', label: '❌ Not Found' },
                 { value: 'Invalid', label: '⚠️ Invalid Format' },
                 { value: 'Duplicate', label: '⚠️ Duplicate' },
-                { value: 'Verification Failed', label: '🚫 Failed / Inactive' },
+                { value: 'VerificationFailed', label: '🚫 Failed / Inactive' },
               ]}
             />
           </div>
@@ -407,7 +408,7 @@ function ParticipantsContent() {
           {loading ? (
             <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading participant records">
               <span className="dual-ring-spinner" aria-hidden="true" />
-              <span className="sr-only">Loading participant records</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
             </div>
           ) : filteredParticipants.length === 0 ? (
             <div className="p-12 text-center space-y-3">
@@ -446,7 +447,9 @@ function ParticipantsContent() {
                       {p.memberId}
                     </TableCell>
                     <TableCell className="font-semibold text-slate-900">
-                      {p.fullName}
+                      {p.verificationStatus === 'Verified'
+                        ? formatMemberName(p.fullName, p.gender, p.auxiliary)
+                        : p.fullName}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5">
@@ -547,7 +550,11 @@ function ParticipantsContent() {
             <div className="p-3.5 rounded-xl border bg-slate-50 text-xs space-y-1">
               <div className="flex items-center gap-2 font-bold">
                 <Badge status={singleVerificationResult.verificationStatus} />
-                <span>{singleVerificationResult.fullName}</span>
+                <span>
+                  {singleVerificationResult.verificationStatus === 'Verified'
+                    ? formatMemberName(singleVerificationResult.fullName, singleVerificationResult.gender, singleVerificationResult.auxiliary)
+                    : singleVerificationResult.fullName}
+                </span>
               </div>
               <p className="text-slate-500 text-2xs">
                 {singleVerificationResult.verificationDetails}

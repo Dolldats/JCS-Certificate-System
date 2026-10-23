@@ -54,7 +54,7 @@ export function CertificatePreview({
 
   const handleDownload = () => {
     const prevTitle = document.title;
-    document.title = `${template.typeBadgeText || 'Certificate'}-${certNumber}`;
+    document.title = `${(certificate?.type || template.certificateType || 'Certificate').toUpperCase()}-${certNumber}`;
     window.print();
     setTimeout(() => {
       document.title = prevTitle;
@@ -63,6 +63,15 @@ export function CertificatePreview({
 
   const certNumber =
     certificate?.certificateNumber || (previewMode ? 'JCS-ATF-2025-0001' : 'JCS-PENDING');
+  const formattedCertificate = certificate
+    ? {
+        ...certificate,
+          participantName: (certificate.participantName || '').replace(
+            /^(?:brother|sister|bro\.|sis\.)\s+/i,
+            ''
+          ),
+      }
+    : undefined;
 
   // Duration line always derives from the certificate's event dates — never
   // retyped per template. Falls back to the template text when undeterminable.
@@ -79,8 +88,11 @@ export function CertificatePreview({
     }
     return parsed.every((label) => label === parsed[0]) ? parsed[0] : parsed.join(' to ');
   })();
-  const resolvedTemplate =
-    durationText === template.programDurationText ? template : { ...template, programDurationText: durationText };
+  const resolvedTemplate = {
+    ...template,
+    programDurationText: durationText,
+    typeBadgeText: (certificate?.type || template.certificateType).toUpperCase(),
+  };
 
   // Verification QR code. Rendered inside the certificate artwork so it is
   // positioned against the certificate on screen *and* on the printed sheet.
@@ -107,7 +119,7 @@ export function CertificatePreview({
       case 'emerald-prestige':
         return (
           <EmeraldPrestigeCertificate
-            certificate={certificate}
+            certificate={formattedCertificate}
             template={resolvedTemplate}
             previewMode={previewMode}
           />
@@ -115,7 +127,7 @@ export function CertificatePreview({
       case 'ivory-minimal':
         return (
           <IvoryMinimalCertificate
-            certificate={certificate}
+            certificate={formattedCertificate}
             template={resolvedTemplate}
             previewMode={previewMode}
           />
@@ -123,7 +135,7 @@ export function CertificatePreview({
       case 'royal-maroon':
         return (
           <RoyalMaroonCertificate
-            certificate={certificate}
+            certificate={formattedCertificate}
             template={resolvedTemplate}
             previewMode={previewMode}
           />
@@ -131,7 +143,7 @@ export function CertificatePreview({
       case 'teal-surge':
         return (
           <TealSurgeCertificate
-            certificate={certificate}
+            certificate={formattedCertificate}
             template={resolvedTemplate}
             previewMode={previewMode}
           />
@@ -139,7 +151,7 @@ export function CertificatePreview({
       case 'onyx-executive':
         return (
           <OnyxExecutiveCertificate
-            certificate={certificate}
+            certificate={formattedCertificate}
             template={resolvedTemplate}
             previewMode={previewMode}
           />
@@ -148,7 +160,7 @@ export function CertificatePreview({
       default:
         return (
           <ModernCertificate
-            certificate={certificate}
+            certificate={formattedCertificate}
             template={resolvedTemplate}
             previewMode={previewMode}
           />

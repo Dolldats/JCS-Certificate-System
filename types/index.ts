@@ -67,6 +67,7 @@ export interface User {
 export interface JamaatMember {
   memberId: string;
   fullName: string;
+  gender?: string;
   auxiliary: Auxiliary;
   // Mulk for Khuddam/Ansarullah/Atfal, District for Lajna/Nasra. Left
   // undefined when the registry does not supply it — never invented.
@@ -108,6 +109,7 @@ export interface Participant {
   eventId: string;
   memberId: string;
   fullName: string;
+  gender?: string;
   email?: string;
   phone?: string;
   auxiliary?: Auxiliary;
@@ -183,6 +185,7 @@ export interface Certificate {
   theme?: string;
   participantId: string;
   participantName: string;
+  gender?: string;
   memberId: string;
   auxiliary?: Auxiliary;
   dila: string;

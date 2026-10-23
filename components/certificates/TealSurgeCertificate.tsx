@@ -208,7 +208,7 @@ export function TealSurgeCertificate({
 
           <div className="w-full text-center text-[14.5px] leading-[1.8] text-slate-700 font-sans text-balance">
             <p>
-              This is to congratulate and certify that <strong>{salutation}</strong>{' '}
+              This is to certify that <strong>{salutation}</strong>{' '}
               <Blank value={participantName} width={110} />, from{' '}
               <Blank value={dilla} width={90} /> Dilla,{' '}
               <Blank value={jamaat} width={110} /> Jama&apos;at.

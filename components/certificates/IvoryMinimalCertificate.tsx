@@ -163,7 +163,7 @@ export function IvoryMinimalCertificate({
 
           <div className="w-full text-center text-[14px] leading-[2] text-slate-600 font-sans font-normal">
             <p>
-              This is to congratulate and certify that {salutation}{' '}
+              This is to certify that {salutation}{' '}
               <Blank value={participantName} width={120} />, from{' '}
               <Blank value={dilla} width={90} /> Dilla,{' '}
               <Blank value={jamaat} width={120} /> Jama&apos;at.

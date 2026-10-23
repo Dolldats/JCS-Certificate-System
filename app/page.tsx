@@ -106,13 +106,13 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-xl">
         <div className="mx-auto flex min-h-[68px] max-w-[1440px] items-center justify-between gap-2 px-3 sm:gap-3 sm:px-6">
           <Link href="/" className="flex min-w-0 shrink items-center gap-2 sm:gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1 shadow">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow">
               <Image
                 src="/ahmadiyyah_logo.png"
                 alt="Ahmadiyyah logo"
                 width={36}
                 height={36}
-                className="h-full w-full object-contain"
+                className="h-full w-full rounded-full object-contain"
                 priority
               />
             </span>
@@ -380,7 +380,14 @@ export default function LandingPage() {
       {/* CTA */}
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-800 via-emerald-900 to-slate-900 p-8 text-white shadow-lg sm:p-10">
-          <Award className="pointer-events-none absolute -right-6 -top-6 h-48 w-48 text-amber-400/10" />
+          <Image
+            src="/ahmadiyyah_logo.png"
+            alt=""
+            aria-hidden="true"
+            width={192}
+            height={192}
+            className="pointer-events-none absolute right-8 top-1/2 h-48 w-48 -translate-y-1/2 rounded-full object-contain opacity-10"
+          />
           <h2 className="max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
             Start from the dashboard and issue your first certificate today.
           </h2>
@@ -404,24 +411,19 @@ export default function LandingPage() {
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:px-6">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-slate-100 p-0.5">
+            <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-slate-100">
               <Image
                 src="/ahmadiyyah_logo.png"
                 alt="Ahmadiyyah logo"
                 width={28}
                 height={28}
-                className="h-full w-full object-contain"
+                className="h-full w-full rounded-full object-contain"
               />
             </span>
             <span className="font-semibold text-slate-700">
               Jama&apos;at Certify
             </span>
             <span>© {new Date().getFullYear()} All rights reserved.</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link href="/login" className="hover:text-slate-800">
-              Sign in
-            </Link>
           </div>
         </div>
       </footer>

@@ -98,7 +98,7 @@ export default function DashboardPage() {
     const [allEvents, allCerts, logs, dashboardSummary] = await Promise.all([
       eventsApi.getAll(aux),
       certificatesApi.getAll(aux),
-      auditApi.getLogs(aux),
+      user?.role === 'SUPER_ADMIN' ? auditApi.getLogs(aux) : Promise.resolve([]),
       dashboardApi.getSummary().catch(() => null),
     ]);
     // Count the real roster per event — event-record counters stay 0/0
@@ -123,7 +123,7 @@ export default function DashboardPage() {
     setAuditLogs(logs);
     setSummary(dashboardSummary);
     setLoading(false);
-  }, [activeAuxiliary]);
+  }, [activeAuxiliary, user?.role]);
 
   useEffect(() => {
     (async () => {
@@ -158,7 +158,12 @@ export default function DashboardPage() {
       {/* Welcome Hero Banner */}
       <div className="bg-gradient-to-r from-emerald-800 via-emerald-900 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
         <div className="absolute right-0 top-0 bottom-0 opacity-10 pointer-events-none flex items-center pr-8">
-          <Award className="w-64 h-64 text-amber-400" />
+          <img
+            src="/ahmadiyyah_logo.png"
+            alt=""
+            aria-hidden="true"
+            className="h-64 w-64 rounded-full object-contain"
+          />
         </div>
         <div className="relative z-10 max-w-2xl space-y-2">
           <h1 className="text-xl sm:text-3xl font-bold tracking-tight">
@@ -292,7 +297,7 @@ export default function DashboardPage() {
       {/* Main Content Columns: Recent Events + Audit Trail */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Events (2 columns) */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className={`${user?.role === 'SUPER_ADMIN' ? 'lg:col-span-2' : 'lg:col-span-3'} space-y-4`}>
           <Card>
             <CardHeader>
               <div>
@@ -361,8 +366,8 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Recent Audit Activities (1 column) */}
-        <div className="space-y-4">
+        {/* Audit activity is reserved for Super Administrators. */}
+        {user?.role === 'SUPER_ADMIN' && <div className="space-y-4">
           <Card>
             <CardHeader>
               <div>
@@ -399,7 +404,7 @@ export default function DashboardPage() {
               ))}
             </CardContent>
           </Card>
-        </div>
+        </div>}
       </div>
     </div>
   );

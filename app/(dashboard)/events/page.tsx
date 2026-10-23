@@ -29,6 +29,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { formatDate } from '../../../lib/utils';
+import { getAuxiliaryLabel } from '../../../lib/auxiliaryLabels';
 
 const EVENT_TYPES: EventType[] = [
   'Ijtema',
@@ -86,16 +87,32 @@ export default function EventsPage() {
   const loadEvents = async () => {
     setLoading(true);
     const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
-    // One page at a time from the server, filtered there.
-    const result = await eventsApi.getPage({
-      page,
-      pageSize,
-      search: searchTerm.trim() || undefined,
-      status: selectedStatus === 'all' ? undefined : selectedStatus,
-      auxiliary: aux,
-    });
-    setTotalCount(result.totalCount);
-    const data = result.items;
+    let data: Event[];
+    if (selectedStatus === 'Active,In Progress') {
+      // Treat this UI option as a union of statuses so it also works with
+      // APIs that only accept one exact status filter at a time.
+      const query = searchTerm.trim().toLowerCase();
+      const matches = (await eventsApi.getAll(aux)).filter((event) => {
+        const status = event.status.trim().toLowerCase();
+        const matchesStatus = status === 'active' || status === 'in progress';
+        const matchesSearch = !query || `${event.name} ${event.venue}`.toLowerCase().includes(query);
+        return matchesStatus && matchesSearch;
+      });
+      setTotalCount(matches.length);
+      const start = (page - 1) * pageSize;
+      data = matches.slice(start, start + pageSize);
+    } else {
+      // One page at a time from the server, filtered there.
+      const result = await eventsApi.getPage({
+        page,
+        pageSize,
+        search: searchTerm.trim() || undefined,
+        status: selectedStatus === 'all' ? undefined : selectedStatus,
+        auxiliary: aux,
+      });
+      setTotalCount(result.totalCount);
+      data = result.items;
+    }
     // Reconcile both roster and certificate counts against the live API instead
     // of trusting the event record's counters, which stay 0/0 when the backend
     // doesn't maintain them. Issuing/revoking certificates now updates the card.
@@ -318,7 +335,7 @@ export default function EventsPage() {
               options={[
                 { value: 'all', label: 'All Statuses' },
                 { value: 'Upcoming', label: 'Upcoming' },
-                { value: 'Active', label: 'Active / In Progress' },
+                { value: 'Active,In Progress', label: 'Active / In Progress' },
                 { value: 'Completed', label: 'Completed' },
                 { value: 'Draft', label: 'Draft' },
               ]}
@@ -331,7 +348,7 @@ export default function EventsPage() {
       {loading ? (
         <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading events">
           <span className="dual-ring-spinner" aria-hidden="true" />
-          <span className="sr-only">Loading events</span>
+          <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
         </div>
       ) : filteredEvents.length === 0 ? (
         <Card>
@@ -474,11 +491,10 @@ export default function EventsPage() {
           />
 
           <Input
-            label="Event Theme *"
+            label="Event Theme (optional)"
             value={newEvent.theme}
             onChange={(e) => setNewEvent({ ...newEvent, theme: e.target.value })}
             placeholder="e.g. My Faith, My Identity"
-            required
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -486,7 +502,7 @@ export default function EventsPage() {
               label="Auxiliary *"
               value={newEvent.auxiliary}
               onChange={(e) => handleAuxiliaryChange(e.target.value as Auxiliary)}
-              options={AUXILIARY_OPTIONS.map((a) => ({ value: a, label: `${a} Majlis` }))}
+              options={AUXILIARY_OPTIONS.map((a) => ({ value: a, label: getAuxiliaryLabel(a) }))}
               disabled={user?.role === 'GENERAL_ADMIN'}
             />
 

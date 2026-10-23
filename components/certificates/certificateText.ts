@@ -1,26 +1,14 @@
 import { CertificateTemplate } from '../../types';
 
-const AUX_SALUTATION: Record<string, string> = {
-  Atfal: 'Tifl',
-  Khuddam: 'Khadim',
-  Ansarullah: 'Nasir',
-  Lajna: 'Lajna member',
-  Nasra: 'Nasirah',
-  'atfal-emblem': 'Tifl',
-  'khuddam-emblem': 'Khadim',
-  'ansarullah-emblem': 'Nasir',
-  'lajna-emblem': 'Lajna member',
-  'nasra-emblem': 'Nasirah',
-};
-
-/** Member salutation per auxiliary (Atfal=Tifl, Khuddam=Khadim, etc.) */
+/** Certificate honorific follows the auxiliary's audience. */
 export function getSalutation(template: {
   auxiliary?: CertificateTemplate['auxiliary'];
   logoType?: CertificateTemplate['logoType'];
 }): string {
-  const auxKey = template.auxiliary ?? '';
-  const logoKey = template.logoType ?? '';
-  return AUX_SALUTATION[auxKey] || AUX_SALUTATION[logoKey] || 'Tifl';
+  const key = template.auxiliary || template.logoType || '';
+  return ['Lajna', 'Nasra', 'lajna-emblem', 'nasra-emblem'].includes(key)
+    ? 'Sister'
+    : 'Brother';
 }
 
 function auxiliaryKey(template: {

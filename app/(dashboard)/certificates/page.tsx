@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
@@ -48,12 +48,12 @@ import {
   Sparkles,
   FileCheck,
   Printer,
-  Download,
   Trash2,
   RefreshCw,
 } from 'lucide-react';
 import { formatDate } from '../../../lib/utils';
-import { downloadBlob, safeFilename } from '../../../lib/download';
+import { formatMemberName } from '../../../lib/honorific';
+import { getAuthToken } from '../../../services/backendClient';
 
 const CERTIFICATE_TYPES: CertificateType[] = [
   'Certificate of Participation',
@@ -63,6 +63,18 @@ const CERTIFICATE_TYPES: CertificateType[] = [
   'Certificate of Recognition',
   'Certificate of Attendance',
 ];
+
+function formatTemplateUpdatedAt(value: string | undefined): string {
+  if (!value) return 'Edit time unavailable';
+  const updatedAt = new Date(value);
+  if (Number.isNaN(updatedAt.getTime())) return 'Edit time unavailable';
+
+  const timestamp = new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(updatedAt);
+  return `Edited ${timestamp}`;
+}
 
 function CertificatesContent() {
   const searchParams = useSearchParams();
@@ -85,8 +97,6 @@ function CertificatesContent() {
 
   const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
   const [bulkQueue, setBulkQueue] = useState<Certificate[] | null>(null);
-  const [downloadingCertificateId, setDownloadingCertificateId] = useState<string | null>(null);
-  const [isDownloadingEventPdf, setIsDownloadingEventPdf] = useState(false);
   const [editingCertificate, setEditingCertificate] = useState<Certificate | null>(null);
   const [certificateToDelete, setCertificateToDelete] = useState<Certificate | null>(null);
 
@@ -94,6 +104,7 @@ function CertificatesContent() {
   const [isGenerateWizardOpen, setIsGenerateWizardOpen] = useState(false);
   const [wizardEventId, setWizardEventId] = useState('');
   const [wizardParticipants, setWizardParticipants] = useState<Participant[]>([]);
+  const [wizardCertificates, setWizardCertificates] = useState<Certificate[]>([]);
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
   const [wizardCertType, setWizardCertType] = useState<CertificateType>(
     'Certificate of Participation'
@@ -143,7 +154,7 @@ function CertificatesContent() {
           auxiliary: aux,
         }),
         eventsApi.getAll(aux),
-        templatesApi.getActive(aux),
+        templatesApi.getAll(aux),
       ]);
 
       setCertificates(enrichCertificates(certs.items, allEvents));
@@ -152,11 +163,6 @@ function CertificatesContent() {
       setTemplates(allTemplates);
 
       if (allEvents.length > 0 && !wizardEventId) setWizardEventId(allEvents[0].id);
-      setWizardTemplateId((currentTemplateId) =>
-        allTemplates.some((template) => template.id === currentTemplateId)
-          ? currentTemplateId
-          : allTemplates[0]?.id || ''
-      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not load certificate data from the backend.');
     } finally {
@@ -172,6 +178,28 @@ function CertificatesContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAuxiliary, page, pageSize, searchQuery, selectedEventId]);
 
+  const selectedWizardAuxiliary = events.find((event) => event.id === wizardEventId)?.auxiliary;
+  const hasBackendSession = Boolean(getAuthToken());
+  const templatesForWizard = useMemo(
+    () =>
+      templates.filter((template) => {
+        const auxiliaryMatches =
+          !template.auxiliary ||
+          template.auxiliary === 'All' ||
+          !selectedWizardAuxiliary ||
+          template.auxiliary === selectedWizardAuxiliary;
+        const isSavedBackendTemplate =
+          !hasBackendSession || /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(template.id);
+        return auxiliaryMatches && isSavedBackendTemplate;
+      }),
+    [templates, selectedWizardAuxiliary, hasBackendSession]
+  );
+  const effectiveWizardTemplateId = templatesForWizard.some(
+    (template) => template.id === wizardTemplateId
+  )
+    ? wizardTemplateId
+    : templatesForWizard[0]?.id || '';
+
   // Keep the search box in sync when arriving via the navbar search (?q=...).
   const navbarQuery = searchParams.get('q') || '';
   const [prevNavbarQuery, setPrevNavbarQuery] = useState(navbarQuery);
@@ -181,38 +209,83 @@ function CertificatesContent() {
   }
 
   useEffect(() => {
+    let cancelled = false;
     async function loadWizardParticipants() {
       if (!wizardEventId) return;
       try {
-        const parts = await participantsApi.getByEvent(wizardEventId);
+        const [parts, eventCertificates] = await Promise.all([
+          participantsApi.getByEvent(wizardEventId),
+          certificatesApi.getByEvent(wizardEventId),
+        ]);
+        if (cancelled) return;
         const verified = parts.filter((p) => p.verificationStatus === 'Verified');
-        setWizardParticipants(verified);
-        const alreadyCertified = new Set(
-          certificates
-            .filter((certificate) => certificate.eventId === wizardEventId && certificate.status !== 'Revoked')
-            .map((certificate) => certificate.participantId)
+        const activeCertificates = eventCertificates.filter((certificate) => certificate.status !== 'Revoked');
+        const existingParticipantIds = new Set(activeCertificates.map((certificate) => certificate.participantId));
+        const existingMemberIds = new Set(
+          activeCertificates
+            .map((certificate) => certificate.memberId.trim().toLowerCase())
+            .filter(Boolean)
         );
-        const unassigned = verified
-          .filter((p) => !p.certificateAssigned && !alreadyCertified.has(p.id))
-          .map((p) => p.id);
-        setSelectedParticipantIds(unassigned);
+        const eligible = verified.filter((participant) =>
+          !existingParticipantIds.has(participant.id) &&
+          !existingMemberIds.has(participant.memberId.trim().toLowerCase())
+        );
+        setWizardParticipants(verified);
+        setWizardCertificates(activeCertificates);
+        setSelectedParticipantIds(eligible.map((participant) => participant.id));
       } catch (error) {
+        if (cancelled) return;
         toast.error(error instanceof Error ? error.message : 'Could not load verified participants for this event.');
       }
     }
     loadWizardParticipants();
+    return () => {
+      cancelled = true;
+    };
   }, [wizardEventId, certificates, toast]);
+
+  const hasActiveCertificate = (participant: Participant) =>
+    wizardCertificates.some(
+      (certificate) =>
+        certificate.participantId === participant.id ||
+        Boolean(certificate.memberId && participant.memberId &&
+          certificate.memberId.trim().toLowerCase() === participant.memberId.trim().toLowerCase())
+    );
+  const eligibleWizardParticipants = wizardParticipants.filter(
+    (participant) => !hasActiveCertificate(participant)
+  );
 
   const handleGenerateBatch = async () => {
     if (!wizardEventId || selectedParticipantIds.length === 0 || !user) return;
     setIsGenerating(true);
 
     try {
+      const uniqueParticipantIds = [...new Set(selectedParticipantIds)];
+      const eventCertificates = await certificatesApi.getByEvent(wizardEventId);
+      const activeCertificates = eventCertificates.filter((certificate) => certificate.status !== 'Revoked');
+      const activeParticipantIds = new Set(activeCertificates.map((certificate) => certificate.participantId));
+      const activeMemberIds = new Set(
+        activeCertificates.map((certificate) => certificate.memberId.trim().toLowerCase()).filter(Boolean)
+      );
+      const blockedParticipants = wizardParticipants.filter(
+        (participant) =>
+          uniqueParticipantIds.includes(participant.id) &&
+          (activeParticipantIds.has(participant.id) || activeMemberIds.has(participant.memberId.trim().toLowerCase()))
+      );
+      if (blockedParticipants.length > 0) {
+        setWizardCertificates(activeCertificates);
+        setSelectedParticipantIds((current) =>
+          current.filter((participantId) => !blockedParticipants.some((participant) => participant.id === participantId))
+        );
+        toast.error('A selected member already has an active certificate for this event. Each member can receive only one certificate per event.');
+        return;
+      }
+
       await certificatesApi.generateBulk(
         wizardEventId,
-        selectedParticipantIds,
+        uniqueParticipantIds,
         wizardCertType,
-        wizardTemplateId,
+        effectiveWizardTemplateId,
         user
       );
       setIsGenerateWizardOpen(false);
@@ -353,6 +426,7 @@ function CertificatesContent() {
           return {
             ...c,
             participantName: c.participantName || p.fullName,
+            gender: c.gender || p.gender,
             auxiliary: c.auxiliary || p.auxiliary,
             dila: c.dila || p.dila,
             jamaat: c.jamaat || p.jamaat,
@@ -364,34 +438,6 @@ function CertificatesContent() {
     }
     // Bulk print CSS keys off this class (stacked pages vs single fixed page).
     document.body.classList.add('printing-bulk');
-  };
-
-  const handleDownloadCertificate = async (certificate: Certificate) => {
-    setDownloadingCertificateId(certificate.id);
-    try {
-      const pdf = await certificatesApi.download(certificate.id);
-      downloadBlob(pdf, `${safeFilename(certificate.certificateNumber || 'certificate')}.pdf`);
-      toast.success(`Certificate ${certificate.certificateNumber} downloaded.`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not download this certificate.');
-    } finally {
-      setDownloadingCertificateId(null);
-    }
-  };
-
-  const handleDownloadEventPdfs = async () => {
-    if (!selectedEventId) return;
-    setIsDownloadingEventPdf(true);
-    try {
-      const pdf = await certificatesApi.downloadAllForEvent(selectedEventId);
-      const eventName = events.find((event) => event.id === selectedEventId)?.name || 'event-certificates';
-      downloadBlob(pdf, `${safeFilename(eventName)}-certificates.pdf`);
-      toast.success('Event certificate PDF downloaded.');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not download the event PDF.');
-    } finally {
-      setIsDownloadingEventPdf(false);
-    }
   };
 
   const closeBulkQueue = () => {
@@ -468,9 +514,6 @@ function CertificatesContent() {
               <Button variant="outline" size="md" onClick={() => void handlePreviewEventPdfs()} leftIcon={<Eye className="w-4 h-4" />}>
                 Preview Bulk Event PDFs
               </Button>
-              <Button variant="outline" size="md" onClick={() => void handleDownloadEventPdfs()} isLoading={isDownloadingEventPdf} leftIcon={<Download className="w-4 h-4" />}>
-                Download Event PDF
-              </Button>
             </>
           )}
         </div>
@@ -538,7 +581,7 @@ function CertificatesContent() {
           {loading ? (
             <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading issued certificates">
               <span className="dual-ring-spinner" aria-hidden="true" />
-              <span className="sr-only">Loading issued certificates</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
             </div>
           ) : filteredCertificates.length === 0 ? (
             <div className="p-12 text-center space-y-3">
@@ -578,7 +621,7 @@ function CertificatesContent() {
                     </TableCell>
                     <TableCell>
                       <div className="font-semibold text-slate-900">
-                        {cert.participantName}
+                        {formatMemberName(cert.participantName, cert.gender, cert.auxiliary)}
                       </div>
                       <div className="text-3xs text-slate-500 font-mono">
                         {cert.memberId} &bull; {cert.jamaat}
@@ -615,15 +658,6 @@ function CertificatesContent() {
                           leftIcon={<Eye className="w-3.5 h-3.5" />}
                         >
                           Preview
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void handleDownloadCertificate(cert)}
-                          isLoading={downloadingCertificateId === cert.id}
-                          leftIcon={<Download className="w-3.5 h-3.5" />}
-                        >
-                          Download PDF
                         </Button>
                         {cert.status === 'Revoked' && (
                           <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => void handleDeleteCertificate(cert)} leftIcon={<Trash2 className="h-3.5 w-3.5" />}>
@@ -684,23 +718,23 @@ function CertificatesContent() {
 
           <Select
             label="Certificate Design Template *"
-            value={wizardTemplateId}
+            value={effectiveWizardTemplateId}
             onChange={(e) => setWizardTemplateId(e.target.value)}
-            disabled={templates.length === 0}
+            disabled={templatesForWizard.length === 0}
             options={[
               {
                 value: '',
-                label: templates.length > 0 ? 'Select an active saved template' : 'No active saved templates found',
+                label: templatesForWizard.length > 0 ? 'Select a saved template' : 'No saved templates available',
               },
-              ...templates.map((tmpl) => ({
+              ...templatesForWizard.map((tmpl) => ({
                 value: tmpl.id,
-                label: `${tmpl.name} (${tmpl.orientation})`,
+                label: `${tmpl.name} (${tmpl.orientation}) — ${formatTemplateUpdatedAt(tmpl.updatedAt)}`,
               })),
             ]}
           />
-          {templates.length === 0 && (
+          {templatesForWizard.length === 0 && (
             <p className="-mt-2 text-xs text-amber-700">
-              Save and activate a design in the{' '}
+              Save a design in the{' '}
               <a href="/templates" className="font-semibold underline underline-offset-2">
                 Certificate Templates
               </a>{' '}
@@ -712,20 +746,22 @@ function CertificatesContent() {
             <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
               <span>
                 Verified Participants ({selectedParticipantIds.length} of{' '}
-                {wizardParticipants.length} selected)
+                {eligibleWizardParticipants.length} eligible selected)
               </span>
               <button
                 type="button"
+                disabled={eligibleWizardParticipants.length === 0}
                 onClick={() =>
                   setSelectedParticipantIds(
-                    selectedParticipantIds.length === wizardParticipants.length
+                    eligibleWizardParticipants.every((participant) => selectedParticipantIds.includes(participant.id))
                       ? []
-                      : wizardParticipants.map((p) => p.id)
+                      : eligibleWizardParticipants.map((participant) => participant.id)
                   )
                 }
-                className="text-emerald-700 font-bold hover:underline cursor-pointer"
+                className="text-emerald-700 font-bold hover:underline cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {selectedParticipantIds.length === wizardParticipants.length
+                {eligibleWizardParticipants.length > 0 &&
+                eligibleWizardParticipants.every((participant) => selectedParticipantIds.includes(participant.id))
                   ? 'Deselect All'
                   : 'Select All'}
               </button>
@@ -736,27 +772,33 @@ function CertificatesContent() {
                 No verified participants in this event yet. Add or verify participants in the Participant Roster first.
               </div>
             ) : (
-              <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 bg-white">
+              <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 bg-white">
+                {eligibleWizardParticipants.length === 0 && (
+                  <p className="bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    All verified members already have an active certificate for this event.
+                  </p>
+                )}
                 {wizardParticipants.map((p) => {
                   const isChecked = selectedParticipantIds.includes(p.id);
+                  const isAlreadyCertified = hasActiveCertificate(p);
                   return (
                     <label
                       key={p.id}
-                      className="p-2.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer text-xs"
+                      className={`p-2.5 flex items-center justify-between text-xs ${isAlreadyCertified ? 'cursor-not-allowed bg-slate-50 opacity-70' : 'cursor-pointer hover:bg-slate-50'}`}
                     >
                       <div className="flex items-center gap-2.5">
                         <input
                           type="checkbox"
                           checked={isChecked}
+                          disabled={isAlreadyCertified}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setSelectedParticipantIds([
-                                ...selectedParticipantIds,
-                                p.id,
-                              ]);
+                              setSelectedParticipantIds((current) =>
+                                current.includes(p.id) ? current : [...current, p.id]
+                              );
                             } else {
-                              setSelectedParticipantIds(
-                                selectedParticipantIds.filter((id) => id !== p.id)
+                              setSelectedParticipantIds((current) =>
+                                current.filter((id) => id !== p.id)
                               );
                             }
                           }}
@@ -764,11 +806,16 @@ function CertificatesContent() {
                         />
                         <div>
                           <span className="font-semibold text-slate-900">
-                            {p.fullName}
+                            {formatMemberName(p.fullName, p.gender, p.auxiliary)}
                           </span>
                           <span className="ml-2 font-mono text-3xs text-slate-400">
                             ({p.memberId})
                           </span>
+                          {isAlreadyCertified && (
+                            <span className="ml-2 text-3xs font-semibold text-amber-700">
+                              Certificate already issued
+                            </span>
+                          )}
                         </div>
                       </div>
                       <span className="text-3xs text-slate-500 font-medium">
@@ -796,7 +843,7 @@ function CertificatesContent() {
               size="sm"
               onClick={handleGenerateBatch}
               isLoading={isGenerating}
-              disabled={selectedParticipantIds.length === 0 || !wizardTemplateId}
+              disabled={selectedParticipantIds.length === 0 || !effectiveWizardTemplateId}
               leftIcon={<FileCheck className="w-4 h-4" />}
             >
               Generate {selectedParticipantIds.length} Certificates
@@ -821,7 +868,7 @@ function CertificatesContent() {
             ? `Event Certificates (${bulkQueue.length})`
             : 'Event Certificates'
         }
-        description="Every issued certificate for this event — preview all, print all, or download the PDFs."
+        description="Every issued certificate for this event — preview all or print all."
         maxWidth="5xl"
       >
         <div className="space-y-6">
@@ -832,7 +879,7 @@ function CertificatesContent() {
                 <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-4 py-2.5">
                   <div className="text-xs">
                     <span className="font-mono font-bold text-emerald-800">{cert.certificateNumber}</span>
-                    <span className="ml-2 font-semibold text-slate-700">{cert.participantName}</span>
+                    <span className="ml-2 font-semibold text-slate-700">{formatMemberName(cert.participantName, cert.gender, cert.auxiliary)}</span>
                   </div>
                   <span className="text-3xs font-semibold uppercase tracking-wider text-slate-400">
                     {cert.status}
@@ -860,14 +907,6 @@ function CertificatesContent() {
           </Button>
           <Button variant="outline" size="sm" onClick={() => window.print()} leftIcon={<Printer className="h-4 w-4" />}>
             Print All
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => window.print()}
-            leftIcon={<Download className="h-4 w-4" />}
-          >
-            Save All as PDFs
           </Button>
         </div>
       </Modal>
@@ -928,7 +967,7 @@ function CertificatesContent() {
 
 export default function CertificatesPage() {
   return (
-    <Suspense fallback={<div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading certificates"><span className="dual-ring-spinner" aria-hidden="true" /><span className="sr-only">Loading certificates</span></div>}>
+    <Suspense fallback={<div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading certificates"><span className="dual-ring-spinner" aria-hidden="true" /><span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span></div>}>
       <CertificatesContent />
     </Suspense>
   );

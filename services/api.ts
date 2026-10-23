@@ -1025,6 +1025,7 @@ function mapBackendParticipantToParticipant(raw: BackendRecord, fallbackEventId?
     eventId: bStr(raw.eventId || fallbackEventId),
     memberId: bStr(raw.membershipId || raw.memberId).toUpperCase(),
     fullName: bStr(raw.fullName, 'Unknown Member'),
+    gender: bStr(raw.gender || raw.sex) || undefined,
     email: bStr(raw.email) || undefined,
     phone: bStr(raw.phone) || undefined,
     // No invented auxiliary: an unassigned participant must not be filed
@@ -1223,7 +1224,8 @@ export const participantsApi = {
             details: bStr(res.message || res.verificationMessage, status === 'Verified' ? 'Verified via central Jama\'at member registry' : 'Member verification did not return a verified status.'),
             member: {
               memberId: cleanId,
-              fullName: bStr(res.fullName, `Brother ${cleanId}`),
+              fullName: bStr(res.fullName, `Member ${cleanId}`),
+              gender: bStr(res.gender || res.sex) || undefined,
               auxiliary: (res.auxiliary || auxiliary) as Auxiliary,
               // Left undefined when the registry omits it — 'National HQ' was
               // an invented value printed on certificates.
@@ -1282,6 +1284,7 @@ export const participantsApi = {
           eventId,
           membershipId: cleanId,
           fullName: memberData.fullName || `Member ${cleanId}`,
+          gender: memberData.gender || null,
           email: memberData.email || null,
           phone: memberData.phone || null,
           jamaat: memberData.jamaat || null,
@@ -1296,6 +1299,7 @@ export const participantsApi = {
         });
 
         const newParticipant = mapBackendParticipantToParticipant(res || { ...backendPayload, id: `part-${Date.now()}` }, eventId);
+        newParticipant.gender ||= memberData.gender;
         if (!res?.verificationStatus && !res?.isVerified) {
           newParticipant.verificationStatus = verification.status;
           newParticipant.verificationDetails = verification.details;
@@ -1329,6 +1333,7 @@ export const participantsApi = {
       eventId,
       memberId: cleanId,
       fullName: memberData.fullName || `Member ${cleanId}`,
+      gender: memberData.gender,
       auxiliary: (memberData.auxiliary as Auxiliary) || event.auxiliary,
       dila: memberData.dila || '',
       ilaqa: memberData.ilaqa || '',
@@ -1404,6 +1409,7 @@ export const participantsApi = {
               eventId,
               membershipId: cleanId,
               fullName: member?.fullName || `Member ${cleanId}`,
+              gender: member?.gender || null,
               email: member?.email || null,
               phone: member?.phone || null,
               jamaat: member?.jamaat || null,
@@ -1412,7 +1418,9 @@ export const participantsApi = {
               auxiliary: event.auxiliary,
             }),
           });
-          newlyAdded.push(mapBackendParticipantToParticipant(response, eventId));
+          const participant = mapBackendParticipantToParticipant(response, eventId);
+          participant.gender ||= member?.gender;
+          newlyAdded.push(participant);
           verifiedCount += 1;
         } catch (error) {
           failedCount += 1;
@@ -1496,6 +1504,7 @@ export const participantsApi = {
         eventId,
         memberId: cleanId,
         fullName: memberInfo.fullName || `Member ${cleanId}`,
+        gender: memberInfo.gender,
         auxiliary: (memberInfo.auxiliary as Auxiliary) || event.auxiliary,
         dila: memberInfo.dila || '',
         ilaqa: memberInfo.ilaqa || '',
@@ -1630,8 +1639,8 @@ const AUXILIARY_TEMPLATE_DEFAULTS: Record<Auxiliary | 'All', AuxiliaryTemplateDe
     backgroundColor: '#ffffff',
   },
   Atfal: {
-    organizationName: 'MAJLIS ATFAL-UL AHMADIYYA NIGERIA',
-    organizationSubtitle: '(Ahmadiyya Muslims Children Organization)',
+    organizationName: 'MAJLIS ATFAL-UL AHMADIYYA',
+    organizationSubtitle: "(Ahmadiyya Muslims Boy's Organization)",
     logoType: 'atfal-emblem',
     eventTitle: 'ISLAMIC VACATION COURSE/REGIONAL IJTEMA 2025',
     typeBadgeText: 'CERTIFICATE OF PARTICIPATION',
@@ -1664,7 +1673,7 @@ const AUXILIARY_TEMPLATE_DEFAULTS: Record<Auxiliary | 'All', AuxiliaryTemplateDe
     backgroundColor: '#fcfdfb',
   },
   Ansarullah: {
-    organizationName: 'MAJLIS ANSARULLAH NIGERIA',
+    organizationName: 'MAJLIS ANSARULLAH',
     organizationSubtitle: '(Ahmadiyya Muslim Elders Association)',
     logoType: 'ansarullah-emblem',
     eventTitle: 'NATIONAL IJTEMA & TARBIYYAT CONVENTION 2026',
@@ -1698,8 +1707,8 @@ const AUXILIARY_TEMPLATE_DEFAULTS: Record<Auxiliary | 'All', AuxiliaryTemplateDe
     backgroundColor: '#fafcfb',
   },
   Nasra: {
-    organizationName: 'MAJLIS NASRA-TUL-AHMADIYYA NIGERIA',
-    organizationSubtitle: "(Ahmadiyya Muslim Boys' Association)",
+    organizationName: 'NASRATUL AHMADIYYA',
+    organizationSubtitle: '(Ahmadiyya Muslim Girls Association)',
     logoType: 'nasra-emblem',
     eventTitle: 'NATIONAL NASRA IJTEMA & SKILLS EXPOSITION 2026',
     typeBadgeText: 'CERTIFICATE OF MERIT',
@@ -1771,7 +1780,7 @@ function mapBackendTemplateToTemplate(raw: BackendRecord): CertificateTemplate {
     signature1Image: bStr(config.signature1Image) || undefined,
     signatureAssetPath: bStr(config.signatureAssetPath) || undefined,
     isDefault: bBool(raw.isActive, false),
-    updatedAt: bStr(raw.updatedAt, new Date().toISOString()),
+    updatedAt: bStr(raw.updatedAt || raw.createdAt || raw.createdOn),
   };
 }
 
@@ -1799,7 +1808,7 @@ function normalizeTemplateSignature(tmpl: CertificateTemplate): CertificateTempl
     All: 'Majlis Atfal-ul-Ahmadiyya',
     Khuddam: 'Majlis Khuddam-ul-Ahmadiyya',
     Atfal: 'Majlis Atfal-ul-Ahmadiyya',
-    Ansarullah: 'Majlis Ansarullah Nigeria',
+    Ansarullah: 'Majlis Ansarullah',
     Lajna: 'Lajna Ima\'illah',
     Nasra: 'Nasra-tul-Ahmadiyya',
   };
@@ -1816,8 +1825,34 @@ function normalizeTemplateSignature(tmpl: CertificateTemplate): CertificateTempl
   // auxiliary emblem (header logo + watermark) is used instead.
   const logoUrl =
     tmpl.logoUrl && !NON_LOGO_URLS.has(tmpl.logoUrl) ? tmpl.logoUrl : undefined;
+  // Correct the old Nasra branding in existing saved templates while keeping
+  // any custom organization text the user has entered.
+  const organizationName =
+    auxiliary === 'Nasra' &&
+    tmpl.organizationName.trim().toUpperCase() === 'MAJLIS NASRA-TUL-AHMADIYYA NIGERIA'
+      ? AUXILIARY_TEMPLATE_DEFAULTS.Nasra.organizationName
+      : auxiliary === 'Atfal' &&
+          tmpl.organizationName.trim().toUpperCase() === 'MAJLIS ATFAL-UL AHMADIYYA NIGERIA'
+        ? AUXILIARY_TEMPLATE_DEFAULTS.Atfal.organizationName
+        : auxiliary === 'Ansarullah' &&
+            tmpl.organizationName.trim().toUpperCase() === 'MAJLIS ANSARULLAH NIGERIA'
+          ? AUXILIARY_TEMPLATE_DEFAULTS.Ansarullah.organizationName
+        : tmpl.organizationName;
+  const organizationSubtitle =
+    auxiliary === 'Nasra' &&
+    tmpl.organizationSubtitle.trim() === "(Ahmadiyya Muslim Boys' Association)"
+      ? AUXILIARY_TEMPLATE_DEFAULTS.Nasra.organizationSubtitle
+      : auxiliary === 'Atfal' &&
+          [
+            '(Ahmadiyya Muslims Children Organization)',
+            "(Ahmadiyya Muslim Boys' Association)",
+          ].includes(tmpl.organizationSubtitle.trim())
+        ? AUXILIARY_TEMPLATE_DEFAULTS.Atfal.organizationSubtitle
+        : tmpl.organizationSubtitle;
   return {
     ...tmpl,
+    organizationName,
+    organizationSubtitle,
     signature1Name: 'National Sadr',
     signature1Title: titleByAuxiliary[auxiliary] ?? 'Majlis Atfal-ul-Ahmadiyya',
     logoUrl,
@@ -1844,6 +1879,7 @@ function mapBackendCertificateToCertificate(raw: BackendRecord): Certificate {
     venue: bStr(evt?.venue || raw.venue),
     participantId: bStr(raw.participantId),
     participantName: bStr(part?.fullName || raw.participantName, 'Participant'),
+    gender: bStr(part?.gender || part?.sex || raw.gender || raw.sex) || undefined,
     // CertificateDto exposes the participant ID as participantMembershipId.
     memberId: bStr(part?.membershipId || raw.participantMembershipId || raw.memberId),
     // The event owns its auxiliary; fall back to the participant only when
@@ -2014,13 +2050,14 @@ export const templatesApi = {
     });
     return backendFetch<string>('CertificateTemplates/preview', {
       method: 'POST',
+      headers: { Accept: 'image/svg+xml' },
       body: JSON.stringify({
         configurationJson,
         width: 1122,
         height: 793,
         backgroundImagePath: template.backgroundImagePath || template.logoUrl || null,
       }),
-    });
+    }, 'text');
   },
 
   async save(templateData: CertificateTemplate, performedBy: User): Promise<CertificateTemplate> {
@@ -2205,6 +2242,10 @@ export const certificatesApi = {
   },
 
   async getByEvent(eventId: string): Promise<Certificate[]> {
+    if (!getAuthToken()) {
+      const certificates = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
+      return removeLegacyDemoCertificates(certificates).filter((certificate) => certificate.eventId === eventId);
+    }
     // Shared helper — a paged response is never mistaken for the full list.
     const response = await getAllBackendPages(`Certificates/event/${encodeURIComponent(eventId)}`);
     return response.map(mapBackendCertificateToCertificate);
@@ -2368,12 +2409,30 @@ export const certificatesApi = {
 
     const participants = getStorage<Participant[]>('participants', INITIAL_PARTICIPANTS);
     const certs = getStorage<Certificate[]>('certificates', INITIAL_CERTIFICATES);
+    const requestedIds = [...new Set(participantIds)];
+    const selectedParticipants = requestedIds
+      .map((participantId) => participants.find((participant) => participant.id === participantId))
+      .filter((participant): participant is Participant => Boolean(participant));
+    const alreadyCertified = certs.filter(
+      (certificate) => certificate.eventId === event.id && certificate.status !== 'Revoked'
+    );
+    const duplicateParticipant = selectedParticipants.find((participant) =>
+      alreadyCertified.some(
+        (certificate) =>
+          certificate.participantId === participant.id ||
+          Boolean(certificate.memberId && participant.memberId &&
+            certificate.memberId.trim().toLowerCase() === participant.memberId.trim().toLowerCase())
+      )
+    );
+    if (duplicateParticipant) {
+      throw new Error(`${duplicateParticipant.fullName} already has an active certificate for this event.`);
+    }
     // Falls back to a neutral prefix when the event carries no auxiliary.
     const auxCode = event.auxiliary ? event.auxiliary.slice(0, 3).toUpperCase() : 'GEN';
     const currentYear = new Date().getFullYear();
 
-    for (let i = 0; i < participantIds.length; i++) {
-      const p = participants.find((part) => part.id === participantIds[i]);
+    for (let i = 0; i < requestedIds.length; i++) {
+      const p = participants.find((part) => part.id === requestedIds[i]);
       if (!p || p.verificationStatus !== 'Verified') continue;
 
       const serial = String(certs.length + newlyGenerated.length + 1).padStart(4, '0');
@@ -2389,6 +2448,7 @@ export const certificatesApi = {
         theme: event.theme,
         participantId: p.id,
         participantName: p.fullName,
+        gender: p.gender,
         memberId: p.memberId,
         auxiliary: p.auxiliary,
         dila: p.dila,

@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { templatesApi } from '../../../services/api';
-import { CertificateTemplate, Auxiliary, CertificateType, CertificateDesign } from '../../../types';
+import { CertificateTemplate, Auxiliary, CertificateDesign } from '../../../types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -29,15 +29,6 @@ import {
   Trash2,
   RefreshCw,
 } from 'lucide-react';
-
-const CERTIFICATE_TYPES: CertificateType[] = [
-  'Certificate of Participation',
-  'Certificate of Merit',
-  'Certificate of Excellence',
-  'Certificate of Appreciation',
-  'Certificate of Recognition',
-  'Certificate of Attendance',
-];
 
 const DEFAULT_PARTICIPATION_LINE =
   'Participated in a week Islamic Vacation Course which took place';
@@ -328,7 +319,7 @@ export default function TemplatesPage() {
       {isLoadingTemplates && templates.length === 0 ? (
         <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading certificate templates">
           <span className="dual-ring-spinner" aria-hidden="true" />
-          <span className="sr-only">Loading certificate templates</span>
+          <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
         </div>
       ) : <div className="flex items-center gap-2 overflow-x-auto pb-2">
         {templates.map((tmpl) => {
@@ -947,45 +938,13 @@ export default function TemplatesPage() {
                     placeholder="e.g. (Ahmadiyya Muslims Children Organization)"
                   />
 
-                  <Input
-                    label="Main Event Headline"
-                    value={currentTemplate.eventTitle}
-                    onChange={(e) =>
-                      setCurrentTemplate({
-                        ...currentTemplate,
-                        eventTitle: e.target.value,
-                      })
-                    }
-                    placeholder="e.g. ISLAMIC VACATION COURSE/REGIONAL IJTEMA 2025"
-                  />
+                  <p className="text-xs text-slate-500">
+                    The event headline is taken from the selected event.
+                  </p>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <Select
-                      label="Certificate Type"
-                      value={currentTemplate.certificateType}
-                      onChange={(e) => {
-                        const newType = e.target.value as CertificateType;
-                        setCurrentTemplate({
-                          ...currentTemplate,
-                          certificateType: newType,
-                          typeBadgeText: newType.toUpperCase(),
-                        });
-                      }}
-                      options={CERTIFICATE_TYPES.map((t) => ({ value: t, label: t }))}
-                    />
-
-                    <Input
-                      label="Badge Pill Text"
-                      value={currentTemplate.typeBadgeText}
-                      onChange={(e) =>
-                        setCurrentTemplate({
-                          ...currentTemplate,
-                          typeBadgeText: e.target.value,
-                        })
-                      }
-                      placeholder="e.g. CERTIFICATE OF PARTICIPATION"
-                    />
-                  </div>
+                  <p className="text-xs text-slate-500">
+                    Certificate type is selected when generating certificates and appears automatically on each one.
+                  </p>
 
                   <Input
                     label="Theme Callout (fallback until events carry themes)"

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Certificate, CertificateTemplate } from '../../types';
+import { getSalutation } from './certificateText';
 
 interface RoyalWaveCertificateProps {
   certificate?: Partial<Certificate>;
@@ -49,20 +50,7 @@ export function RoyalWaveCertificate({
     (certificate as unknown as { toPlace?: string })?.toPlace ||
     (durationParts.length > 1 ? durationParts.slice(1).join(' to ').trim() : undefined);
 
-  const AUX_SALUTATION: Record<string, string> = {
-    Atfal: 'Tifl',
-    Khuddam: 'Khadim',
-    Ansarullah: 'Nasir',
-    Lajna: 'Lajna member',
-    Nasra: 'Nasirah',
-    'atfal-emblem': 'Tifl',
-    'khuddam-emblem': 'Khadim',
-    'ansarullah-emblem': 'Nasir',
-    'lajna-emblem': 'Lajna member',
-    'nasra-emblem': 'Nasirah',
-  };
-  const salutation =
-    AUX_SALUTATION[template.auxiliary as string] || AUX_SALUTATION[template.logoType] || 'Tifl';
+  const salutation = getSalutation(template);
 
   const eventName = certificate?.eventName || template.eventTitle;
   const theme = certificate?.theme || template.themeTitle;
@@ -158,7 +146,7 @@ export function RoyalWaveCertificate({
           {/* Body lines with underline blanks */}
           <div className="w-full text-center text-[14px] leading-[2] text-slate-900 font-sans">
             <p>
-              This is to congratulate and certify that {salutation}{' '}
+              This is to certify that {salutation}{' '}
               <Blank value={participantName} width={130} />, Dilla{' '}
               <Blank value={dilla} width={90} />.
             </p>
