@@ -31,9 +31,9 @@ export function AuthSplitShell({ children, showMobileBrand = true, wideForm = fa
         />
 
         <div className="relative flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-white p-1 overflow-hidden flex items-center justify-center shadow-lg">
+          <div className="w-9 h-9 rounded-full bg-white p-1 overflow-hidden flex items-center justify-center shadow-lg">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/ahmadiyyah_logo.png" alt="Ahmadiyyah logo" className="w-full h-full object-contain" />
+            <img src="/ahmadiyyah_logo.png" alt="Ahmadiyyah logo" className="w-full h-full rounded-full object-contain" />
           </div>
           <span className="text-xs font-bold tracking-[0.18em]">JAMA&apos;AT CERTIFY</span>
         </div>
@@ -74,9 +74,9 @@ export function AuthSplitShell({ children, showMobileBrand = true, wideForm = fa
           {/* Mobile brand row */}
           {showMobileBrand && (
             <div className="mb-6 flex items-center justify-center gap-2.5 lg:hidden">
-              <div className="theme-logo-tile w-9 h-9 rounded-xl shadow-sm border p-1 overflow-hidden flex items-center justify-center">
+              <div className="theme-logo-tile w-9 h-9 rounded-full shadow-sm border p-1 overflow-hidden flex items-center justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/ahmadiyyah_logo.png" alt="Ahmadiyyah logo" className="w-full h-full object-contain" />
+                <img src="/ahmadiyyah_logo.png" alt="Ahmadiyyah logo" className="w-full h-full rounded-full object-contain" />
               </div>
               <span className="whitespace-nowrap text-[10px] font-bold leading-tight tracking-[0.12em] theme-text sm:text-xs sm:tracking-[0.18em]">
                 JAMA&apos;AT<span className="sm:hidden"><br /></span><span className="hidden sm:inline"> </span>CERTIFY
