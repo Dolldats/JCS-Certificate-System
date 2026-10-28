@@ -158,6 +158,9 @@ public class CertificateTemplatesController : ControllerBase
         {
             ["ParticipantName"] = string.IsNullOrWhiteSpace(request.ParticipantName) ? "Sample Participant" : request.ParticipantName,
             ["EventName"] = string.IsNullOrWhiteSpace(request.EventName) ? "Jama'at Certificate Event" : request.EventName,
+            ["EventTheme"] = string.IsNullOrWhiteSpace(request.EventTheme)
+                ? (string.IsNullOrWhiteSpace(request.EventName) ? "Jama'at Certificate Event" : request.EventName)
+                : request.EventTheme,
             ["EventDate"] = string.IsNullOrWhiteSpace(request.EventDate) ? DateTime.UtcNow.ToString("yyyy-MM-dd") : request.EventDate,
             ["Venue"] = string.IsNullOrWhiteSpace(request.Venue) ? "Sample Event Venue" : request.Venue,
             ["CertificateNumber"] = string.IsNullOrWhiteSpace(request.CertificateNumber) ? "JCS-SAMPLE-2026-0001" : request.CertificateNumber,
@@ -189,7 +192,7 @@ public class CertificateTemplatesController : ControllerBase
                 return false;
             }
 
-            var supported = new[] { "ParticipantName", "EventName", "EventDate", "Venue", "CertificateNumber", "Jamaat", "Dila", "Ilaqa", "Auxiliary", "IssueDate" };
+            var supported = new[] { "ParticipantName", "EventName", "EventTheme", "EventDate", "Venue", "CertificateNumber", "Jamaat", "Dila", "Ilaqa", "Auxiliary", "IssueDate" };
             foreach (var element in layout.TextElements)
             {
                 if (!supported.Contains(element.Placeholder, StringComparer.OrdinalIgnoreCase))
@@ -320,6 +323,7 @@ public class TemplatePreviewRequest
     public string? ParticipantName { get; set; }
     public string? EventName { get; set; }
     public string? EventDate { get; set; }
+    public string? EventTheme { get; set; }
     public string? Venue { get; set; }
     public string? CertificateNumber { get; set; }
     public string? Jamaat { get; set; }
