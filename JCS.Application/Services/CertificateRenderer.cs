@@ -65,7 +65,7 @@ public class CertificateRenderer : ICertificateRenderer
             .FitArea();
     }
 
-    public byte[] RenderPdf(TemplateLayoutDto layout, IReadOnlyDictionary<string, string?> values, decimal width = 1122, decimal height = 793, string? backgroundImagePath = null, string? verificationUrl = null)
+    public byte[] RenderPdf(TemplateLayoutDto layout, IReadOnlyDictionary<string, string?> values, decimal width = 1122, decimal height = 793, string? backgroundImagePath = null)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -83,19 +83,9 @@ public class CertificateRenderer : ICertificateRenderer
                         layers.PrimaryLayer().Image(File.ReadAllBytes(backgroundImagePath)).FitArea();
                     }
                     AddImages(layers, layout);
-                    AddQrCode(layers, verificationUrl, width, height);
                     if (layout.TextElements != null)
                     {
-                        var content = values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
-                        var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
-                        var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
-                        var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
-                        var text = layers.Layer().TranslateX((float)element.X).TranslateY((float)element.Y).Text(content ?? string.Empty)
-                            .FontFamily(fontFamily)
-                            .FontSize(fontSize)
-                            .FontColor(textColor);
-
-                        if (element.Bold)
+                        foreach (var element in layout.TextElements)
                         {
                             var content = GetValue(values, element.Placeholder);
                             var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
@@ -106,9 +96,15 @@ public class CertificateRenderer : ICertificateRenderer
                                 .FontSize(fontSize)
                                 .FontColor(textColor);
 
-                        if (element.Italic)
-                        {
-                            text.Italic();
+                            if (element.Bold)
+                            {
+                                text.Bold();
+                            }
+
+                            if (element.Italic)
+                            {
+                                text.Italic();
+                            }
                         }
                     }
                 });

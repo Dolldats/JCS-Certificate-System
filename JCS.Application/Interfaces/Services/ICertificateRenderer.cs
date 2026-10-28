@@ -9,8 +9,7 @@ public interface ICertificateRenderer
         IReadOnlyDictionary<string, string?> values,
         decimal width = 1122,
         decimal height = 793,
-        string? backgroundImagePath = null,
-        string? verificationUrl = null);
+        string? backgroundImagePath = null);
     byte[] RenderPdfBatch(IReadOnlyCollection<CertificateRenderRequest> requests);
 }
 

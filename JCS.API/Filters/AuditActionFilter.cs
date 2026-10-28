@@ -52,7 +52,6 @@ public class AuditActionFilter : IAsyncActionFilter
         var entityName = context.Controller.GetType().Name.Replace("Controller", string.Empty);
         string? entityId = context.RouteData.Values.TryGetValue("id", out var id) ? id?.ToString() : null;
         var details = $"HTTP {context.HttpContext.Response.StatusCode}";
-        Auxiliary? auxiliary = null;
 
         // Give participant enrollment logs the context an admin needs to understand
         // the action without opening browser network tools.
@@ -74,9 +73,9 @@ public class AuditActionFilter : IAsyncActionFilter
             Action = action,
             PerformedBy = performedBy,
             Auxiliary = auxiliary,
-            EntityName = context.Controller.GetType().Name.Replace("Controller", string.Empty),
-            EntityId = context.RouteData.Values.TryGetValue("id", out var id) ? id?.ToString() : null,
-            Details = $"HTTP {context.HttpContext.Response.StatusCode}",
+            EntityName = entityName,
+            EntityId = entityId,
+            Details = details,
             PerformedAt = DateTime.UtcNow
         },
         context.HttpContext.RequestAborted);

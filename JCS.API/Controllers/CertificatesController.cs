@@ -283,8 +283,7 @@ public class CertificatesController : ControllerBase
             var bytes = _certificateRenderer.RenderPdf(layout, values,
                 entity.CertificateTemplate.Width > 0 ? entity.CertificateTemplate.Width : 1122,
                 entity.CertificateTemplate.Height > 0 ? entity.CertificateTemplate.Height : 793,
-                ResolveAssetPath(entity.CertificateTemplate.BackgroundImagePath),
-                BuildVerificationUrl(entity.CertificateNumber));
+                ResolveAssetPath(entity.CertificateTemplate.BackgroundImagePath));
             var directory = Path.Combine(_environment.ContentRootPath, "uploads", "certificates");
             Directory.CreateDirectory(directory);
             entity.FilePath = Path.Combine(directory, $"{entity.CertificateNumber}.pdf");
@@ -347,8 +346,7 @@ public class CertificatesController : ControllerBase
             values,
             certificate.CertificateTemplate.Width > 0 ? certificate.CertificateTemplate.Width : 1122, 
             certificate.CertificateTemplate.Height > 0 ? certificate.CertificateTemplate.Height : 793,
-            ResolveAssetPath(certificate.CertificateTemplate.BackgroundImagePath),
-            BuildVerificationUrl(certificate.CertificateNumber));
+            ResolveAssetPath(certificate.CertificateTemplate.BackgroundImagePath));
 
         var directory = Path.Combine(_environment.ContentRootPath, "uploads", "certificates");
         Directory.CreateDirectory(directory);
@@ -402,8 +400,7 @@ public class CertificatesController : ControllerBase
                 values,
                 certificate.CertificateTemplate.Width > 0 ? certificate.CertificateTemplate.Width : 1122,
                 certificate.CertificateTemplate.Height > 0 ? certificate.CertificateTemplate.Height : 793,
-                ResolveAssetPath(certificate.CertificateTemplate.BackgroundImagePath),
-                BuildVerificationUrl(certificate.CertificateNumber));
+                ResolveAssetPath(certificate.CertificateTemplate.BackgroundImagePath));
 
             var directory = Path.Combine(_environment.ContentRootPath, "uploads", "certificates");
             Directory.CreateDirectory(directory);
