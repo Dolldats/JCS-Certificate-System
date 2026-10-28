@@ -224,6 +224,7 @@ public class CertificatesController : ControllerBase
             {
                 ["ParticipantName"] = entity.Participant.FullName,
                 ["EventName"] = entity.Event.Name,
+                ["EventTheme"] = entity.Event.Name,
                 ["EventDate"] = entity.Event.EventDate.ToString("yyyy-MM-dd"),
                 ["Venue"] = entity.Event.Venue,
                 ["CertificateNumber"] = entity.CertificateNumber,
@@ -277,6 +278,7 @@ public class CertificatesController : ControllerBase
         {
             ["ParticipantName"] = certificate.Participant.FullName,
             ["EventName"] = certificate.Event.Name,
+            ["EventTheme"] = certificate.Event.Name,
             ["EventDate"] = certificate.Event.EventDate.ToString("yyyy-MM-dd"),
             ["Venue"] = certificate.Event.Venue,
             ["CertificateNumber"] = certificate.CertificateNumber,
@@ -331,6 +333,7 @@ public class CertificatesController : ControllerBase
             {
                 ["ParticipantName"] = certificate.Participant.FullName,
                 ["EventName"] = certificate.Event.Name,
+                ["EventTheme"] = certificate.Event.Name,
                 ["EventDate"] = certificate.Event.EventDate.ToString("yyyy-MM-dd"),
                 ["Venue"] = certificate.Event.Venue,
                 ["CertificateNumber"] = certificate.CertificateNumber,
@@ -386,6 +389,7 @@ public class CertificatesController : ControllerBase
             {
                 ["ParticipantName"] = certificate.Participant.FullName,
                 ["EventName"] = certificate.Event.Name,
+                ["EventTheme"] = certificate.Event.Name,
                 ["EventDate"] = certificate.Event.EventDate.ToString("yyyy-MM-dd"),
                 ["Venue"] = certificate.Event.Venue,
                 ["CertificateNumber"] = certificate.CertificateNumber,
