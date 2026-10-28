@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 using JCS.Application.Interfaces.Repositories;
 using System.Text.Json;
 using JCS.Application.DTOs.CertificateTemplate;
+using JCS.Application.DTOs.Participant;
+using JCS.Domain.Entities;
+using JCS.Domain.Enum;
 using Microsoft.AspNetCore.Authorization;
 using JCS.API.Common;
 
@@ -20,14 +23,16 @@ public class CertificatesController : ControllerBase
     private readonly ICertificateRenderer _certificateRenderer;
     private readonly IWebHostEnvironment _environment;
     private readonly IParticipantService _participantService;
+    private readonly IJamaatMemberService _jamaatMemberService;
 
-    public CertificatesController(ICertificateService certificateService, ICertificateRepository certificateRepository, ICertificateRenderer certificateRenderer, IWebHostEnvironment environment, IParticipantService participantService)
+    public CertificatesController(ICertificateService certificateService, ICertificateRepository certificateRepository, ICertificateRenderer certificateRenderer, IWebHostEnvironment environment, IParticipantService participantService, IJamaatMemberService jamaatMemberService)
     {
         _certificateService = certificateService;
         _certificateRepository = certificateRepository;
         _certificateRenderer = certificateRenderer;
         _environment = environment;
         _participantService = participantService;
+        _jamaatMemberService = jamaatMemberService;
     }
 
     [HttpGet]
@@ -137,9 +142,18 @@ public class CertificatesController : ControllerBase
             return BadRequest(ModelState);
         }
 
+        var participant = await _participantService.GetByIdAsync(dto.ParticipantId, token);
+        if (participant == null)
+        {
+            return NotFound(new { message = "Participant was not found." });
+        }
+        if (participant.EventId != dto.EventId)
+        {
+            return BadRequest(new { message = "The participant is not enrolled in the selected event." });
+        }
+
         if (User.IsInRole("GeneralAdmin"))
         {
-            var participant = await _participantService.GetByIdAsync(dto.ParticipantId, token);
             var userAux = User.FindFirst("Auxiliary")?.Value;
             if (participant != null && userAux != "None" && !CanAccessParticipant(participant))
             {
@@ -147,7 +161,15 @@ public class CertificatesController : ControllerBase
             }
         }
 
-        var result = await _certificateService.CreateAsync(dto, token);
+        CertificateDto result;
+        try
+        {
+            result = await _certificateService.CreateAsync(dto, token);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
         return CreatedAtAction(nameof(GetCertificateById), new { id = result.Id }, result);
     }
 
@@ -192,6 +214,30 @@ public class CertificatesController : ControllerBase
         if (!deleted)
         {
             return NotFound(new { message = $"Certificate with id {id} not found." });
+        }
+
+        // Remove the generated PDF only when it is inside the certificate upload folder.
+        // The database record remains deleted even if an old or missing file cannot be removed.
+        var certificateDirectory = Path.GetFullPath(Path.Combine(_environment.ContentRootPath, "uploads", "certificates"));
+        var certificatePath = string.IsNullOrWhiteSpace(existing.FilePath) ? null : Path.GetFullPath(existing.FilePath);
+        var directoryPrefix = certificateDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        if (certificatePath != null
+            && certificatePath.StartsWith(directoryPrefix, StringComparison.OrdinalIgnoreCase)
+            && System.IO.File.Exists(certificatePath))
+        {
+            try
+            {
+                System.IO.File.Delete(certificatePath);
+            }
+            catch (IOException)
+            {
+                // A stale PDF can be cleaned up later; do not undo the successful record deletion.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Preserve the successful API deletion even if the filesystem blocks cleanup.
+            }
         }
 
         return NoContent();
@@ -261,9 +307,16 @@ public class CertificatesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/generate")]
-    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin,Member")]
     public async Task<IActionResult> GenerateCertificate(Guid id, CancellationToken token)
     {
+        var certificateDetails = await _certificateService.GetByIdAsync(id, token);
+        if (certificateDetails == null)
+        {
+            return NotFound(new { message = $"Certificate with id {id} not found." });
+        }
+        if (!await CanAccessCertificateAsync(certificateDetails, token)) return Forbid();
+
         var certificate = await _certificateRepository.GetByIdAsync(id, token);
         if (certificate?.Participant == null || certificate.Event == null || certificate.CertificateTemplate == null)
         {

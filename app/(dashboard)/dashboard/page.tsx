@@ -1,0 +1,411 @@
+'use client';
+
+import React, { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useAuth } from '../../../context/AuthContext';
+import { eventsApi, certificatesApi, auditApi, dashboardApi, participantsApi } from '../../../services/api';
+import { Event, Certificate, AuditLog, Auxiliary } from '../../../types';
+import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
+import { Badge } from '../../../components/ui/Badge';
+import { Button } from '../../../components/ui/Button';
+import {
+  Users,
+  Award,
+  Plus,
+  ArrowRight,
+  Clock,
+  TrendingUp,
+  RefreshCw,
+} from 'lucide-react';
+import { formatDate, formatDateTime } from '../../../lib/utils';
+
+interface DashboardSummary {
+  totalEvents?: number;
+  activeEvents?: number;
+  totalParticipants?: number;
+  verifiedParticipants?: number;
+  certificatesIssued?: number;
+  memberApiMatchRate?: number;
+}
+
+/** Shows a KPI as a proportional ring; a zero denominator is shown as unavailable. */
+function KpiPieChart({
+  value,
+  total,
+  label,
+  color,
+}: {
+  value: number;
+  total: number;
+  label: string;
+  color: string;
+}) {
+  const hasData = total > 0;
+  const percentage = hasData ? Math.min(100, Math.round((value / total) * 100)) : 0;
+  const [animatedPercentage, setAnimatedPercentage] = useState(0);
+  const radius = 25;
+  const circumference = 2 * Math.PI * radius;
+
+  useEffect(() => {
+    // Start at zero after mount so loaded API values animate without changing the displayed metric.
+    const frame = window.requestAnimationFrame(() => setAnimatedPercentage(percentage));
+    return () => window.cancelAnimationFrame(frame);
+  }, [percentage]);
+
+  return (
+    <div
+      role="img"
+      aria-label={hasData
+        ? `${label}: ${value} of ${total}, ${percentage} percent.`
+        : `${label}: no data available.`}
+      className="relative grid h-[60px] w-[60px] shrink-0 place-items-center"
+    >
+      <svg aria-hidden="true" viewBox="0 0 60 60" className="absolute inset-0 h-full w-full -rotate-90">
+        <circle cx="30" cy="30" r={radius} fill="none" stroke="var(--line)" strokeWidth="5" />
+        <circle
+          cx="30"
+          cy="30"
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - animatedPercentage / 100)}
+          className="kpi-ring-progress"
+        />
+      </svg>
+      <span className="text-[11px] font-bold tabular-nums text-slate-700">
+        {hasData ? <>{percentage}<span className="text-[8px]">%</span></> : '—'}
+      </span>
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const { user, activeAuxiliary } = useAuth();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // `showSpinner` is false for the first load so the effect body never sets
+  // state synchronously; the Refresh button turns it on.
+  const loadData = useCallback(async (showSpinner = true) => {
+    if (showSpinner) setLoading(true);
+    const aux = activeAuxiliary === 'All' ? undefined : (activeAuxiliary as Auxiliary);
+    const [allEvents, allCerts, logs, dashboardSummary] = await Promise.all([
+      eventsApi.getAll(aux),
+      certificatesApi.getAll(aux),
+      user?.role === 'SUPER_ADMIN' ? auditApi.getLogs(aux) : Promise.resolve([]),
+      dashboardApi.getSummary().catch(() => null),
+    ]);
+    // Count the real roster per event — event-record counters stay 0/0
+    // when the backend doesn't maintain them.
+    const withCounts = await Promise.all(
+      allEvents.map(async (event) => {
+        try {
+          const parts = await participantsApi.getByEvent(event.id);
+          if (parts.length === 0) return event;
+          return {
+            ...event,
+            participantsCount: parts.length,
+            verifiedCount: parts.filter((p) => p.verificationStatus === 'Verified').length,
+          };
+        } catch {
+          return event;
+        }
+      })
+    );
+    setEvents(withCounts);
+    setCertificates(allCerts);
+    setAuditLogs(logs);
+    setSummary(dashboardSummary);
+    setLoading(false);
+  }, [activeAuxiliary, user?.role]);
+
+  useEffect(() => {
+    (async () => {
+      await loadData(false);
+    })();
+  }, [loadData]);
+
+  const summaryMatchesScope = Boolean(summary && (activeAuxiliary === 'All' || user?.role === 'GENERAL_ADMIN'));
+  const totalEvents = summaryMatchesScope ? (summary?.totalEvents ?? events.length) : events.length;
+  const totalParticipants = summaryMatchesScope
+    ? (summary?.totalParticipants ?? events.reduce((sum, e) => sum + e.participantsCount, 0))
+    : events.reduce((sum, e) => sum + e.participantsCount, 0);
+  const totalVerified = summaryMatchesScope
+    ? (summary?.verifiedParticipants ?? events.reduce((sum, e) => sum + e.verifiedCount, 0))
+    : events.reduce((sum, e) => sum + e.verifiedCount, 0);
+  // Count issued certificates only; drafts and revoked certificates are not completed issuances.
+  const totalCertificates = summaryMatchesScope
+    ? (summary?.certificatesIssued ?? certificates.filter((certificate) => certificate.status === 'Issued').length)
+    : certificates.filter((certificate) => certificate.status === 'Issued').length;
+  const activeEventsCount = summaryMatchesScope
+    ? (summary?.activeEvents ?? events.filter((e) => e.status === 'Active' || e.status === 'Upcoming').length)
+    : events.filter((e) => e.status === 'Active' || e.status === 'Upcoming').length;
+  // With no participants there is no meaningful API match rate, so display it as unavailable.
+  const apiMatchPercentage = totalParticipants > 0
+    ? (summaryMatchesScope && typeof summary?.memberApiMatchRate === 'number'
+      ? Math.round(summary.memberApiMatchRate)
+      : Math.round((totalVerified / totalParticipants) * 100))
+    : null;
+
+  return (
+    <div className="space-y-6">
+      {/* Welcome Hero Banner */}
+      <div className="bg-gradient-to-r from-emerald-800 via-emerald-900 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+        <div className="absolute right-0 top-0 bottom-0 opacity-10 pointer-events-none flex items-center pr-8">
+          <img
+            src="/ahmadiyyah_logo.png"
+            alt=""
+            aria-hidden="true"
+            className="h-64 w-64 rounded-full object-contain"
+          />
+        </div>
+        <div className="relative z-10 max-w-2xl space-y-2">
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight">
+            Assalam alaykum, {user?.fullName}
+          </h1>
+          <p className="text-xs sm:text-sm text-emerald-100/80 leading-relaxed">
+            Centralized certificate management system for Jama&apos;at events. Create events, verify participant Member IDs against central records, and customize print-ready certificates in the design studio.
+          </p>
+
+          <div className="pt-3 flex flex-wrap items-center gap-3">
+            <Link href="/events">
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<Plus className="w-4 h-4" />}
+              >
+                Create Event
+              </Button>
+            </Link>
+            <Link href="/participants">
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+                leftIcon={<Users className="w-4 h-4" />}
+              >
+                Verify Members
+              </Button>
+            </Link>
+            <Link href="/templates">
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+                leftIcon={<Award className="w-4 h-4" />}
+              >
+                Certificate Studio
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+              onClick={() => void loadData()}
+              disabled={loading}
+              leftIcon={
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              }
+            >
+              Refresh
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="hover:shadow-sm transition-shadow">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-2xs uppercase tracking-wider font-semibold text-slate-500">
+                Active &amp; Total Events
+              </p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900">{totalEvents}</span>
+                <span className="text-xs text-emerald-600 font-medium">
+                  ({activeEventsCount} active)
+                </span>
+              </div>
+            </div>
+            <KpiPieChart value={activeEventsCount} total={totalEvents} label="Active events" color="#0a9b70" />
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-sm transition-shadow">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-2xs uppercase tracking-wider font-semibold text-slate-500">
+                Verified Participants
+              </p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900">{totalVerified}</span>
+                <span className="text-xs text-slate-500 font-medium">
+                  / {totalParticipants} total
+                </span>
+              </div>
+            </div>
+            <KpiPieChart value={totalVerified} total={totalParticipants} label="Verified participants" color="#3978e8" />
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-sm transition-shadow">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-2xs uppercase tracking-wider font-semibold text-slate-500">
+                Certificates Issued
+              </p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900">
+                  {totalCertificates}
+                </span>
+                <span className="text-xs text-amber-600 font-medium">Printed/Ready</span>
+              </div>
+            </div>
+            <KpiPieChart value={totalCertificates} total={totalParticipants} label="Certificates issued" color="#e78a19" />
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-sm transition-shadow">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-2xs uppercase tracking-wider font-semibold text-slate-500">
+                Member API Match Rate
+              </p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-emerald-700">
+                  {apiMatchPercentage === null ? '—' : `${apiMatchPercentage}%`}
+                </span>
+                {apiMatchPercentage !== null && (
+                  <span className="text-xs text-emerald-600 font-medium flex items-center gap-0.5">
+                    <TrendingUp className="w-3 h-3" /> Live
+                  </span>
+                )}
+              </div>
+            </div>
+            <KpiPieChart value={totalVerified} total={totalParticipants} label="Member API match rate" color="#0f8d91" />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content Columns: Recent Events + Audit Trail */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Events (2 columns) */}
+        <div className={`${user?.role === 'SUPER_ADMIN' ? 'lg:col-span-2' : 'lg:col-span-3'} space-y-4`}>
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle>Recent Auxiliary Events</CardTitle>
+                <p className="text-xs text-slate-500">
+                  {activeAuxiliary === 'All'
+                    ? 'Across all 5 auxiliaries'
+                    : `Filtered to ${activeAuxiliary}`}
+                </p>
+              </div>
+              <Link href="/events">
+                <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                  View All
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent className="p-0">
+              {events.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-400">
+                  No events found for this auxiliary.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {events.slice(0, 4).map((event) => (
+                    <div
+                      key={event.id}
+                      className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-slate-900">
+                            {event.name}
+                          </h4>
+                          <Badge auxiliary={event.auxiliary} />
+                          <Badge status={event.status} />
+                        </div>
+                        <p className="text-xs text-slate-500 flex items-center gap-2">
+                          <span className="font-medium text-slate-700">{event.venue}</span>
+                          <span>&bull;</span>
+                          <span>{formatDate(event.date)}</span>
+                          <span>&bull;</span>
+                          <span className="bg-slate-100 px-2 py-0.5 rounded text-3xs font-mono">
+                            {event.orgLevel}: {event.orgUnitName}
+                          </span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="text-right text-xs">
+                          <div className="font-semibold text-slate-800">
+                            {event.verifiedCount} / {event.participantsCount}
+                          </div>
+                          <div className="text-3xs text-slate-400">Verified</div>
+                        </div>
+                        <Link href={`/participants?eventId=${event.id}`}>
+                          <Button variant="outline" size="sm">
+                            Manage
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Audit activity is reserved for Super Administrators. */}
+        {user?.role === 'SUPER_ADMIN' && <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle>Recent Audit Trail</CardTitle>
+                <p className="text-xs text-slate-500">Security &amp; Action Log</p>
+              </div>
+              <Link href="/audit">
+                <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                  Audit Log
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              {auditLogs.slice(0, 5).map((log) => (
+                <div
+                  key={log.id}
+                  className="p-3 rounded-lg border border-slate-100 bg-slate-50/50 space-y-1"
+                >
+                  <div className="flex items-center justify-between text-2xs">
+                    <span className="font-bold text-slate-800">{log.action}</span>
+                    <span className="text-slate-400 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {formatDateTime(log.timestamp)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                    {log.details}
+                  </p>
+                  <div className="flex items-center justify-between text-3xs text-slate-400 pt-1">
+                    <span>By: {log.adminName}</span>
+                    {log.auxiliary && <Badge auxiliary={log.auxiliary} />}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>}
+      </div>
+    </div>
+  );
+}

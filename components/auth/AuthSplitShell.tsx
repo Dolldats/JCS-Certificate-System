@@ -1,0 +1,94 @@
+'use client';
+
+import React from 'react';
+import { BadgeCheck, FileBadge, History } from 'lucide-react';
+import { ThemeToggle } from '../ui/ThemeToggle';
+
+interface AuthSplitShellProps {
+  children: React.ReactNode;
+  showMobileBrand?: boolean;
+  wideForm?: boolean;
+}
+
+const BULLETS = [
+  { icon: BadgeCheck, text: 'Verify Member IDs effortlessly' },
+  { icon: FileBadge, text: 'Issue and print certificates' },
+  { icon: History, text: 'Audit every action' },
+];
+
+export function AuthSplitShell({ children, showMobileBrand = true, wideForm = false }: AuthSplitShellProps) {
+  return (
+    <div className="grid min-h-dvh grid-cols-1 border-t-[3px] border-emerald-900 bg-white lg:grid-cols-2">
+      {/* Left — dark brand panel */}
+      <div className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-emerald-950 via-[#0b2e23] to-slate-950 text-white px-12 py-8">
+        <div
+          className="absolute -top-32 -left-32 w-96 h-96 rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.18) 0%, transparent 70%)' }}
+        />
+        <div
+          className="absolute -bottom-40 -right-24 w-[28rem] h-[28rem] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)' }}
+        />
+
+        <div className="relative flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-full bg-white p-1 overflow-hidden flex items-center justify-center shadow-lg">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/ahmadiyyah_logo.png" alt="Ahmadiyyah logo" className="w-full h-full rounded-full object-contain" />
+          </div>
+          <span className="text-xs font-bold tracking-[0.18em]">JAMA&apos;AT CERTIFY</span>
+        </div>
+
+        <div className="relative flex flex-col items-center text-center">
+          <div className="w-28 h-28 rounded-full bg-white border border-white/20 p-2 flex items-center justify-center shadow-2xl overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/ahmadiyyah_logo.png" alt="Ahmadiyyah logo" className="w-full h-full object-contain rounded-full" />
+          </div>
+          <h1 className="mt-8 text-[26px] font-bold tracking-tight leading-snug max-w-sm">
+            Jama&apos;at Certificate Management System
+          </h1>
+          <p className="mt-3 text-xs leading-relaxed text-slate-300/90 max-w-xs">
+            Verify members, issue certificates, and manage auxiliary templates all in one place.
+          </p>
+
+          <div className="mt-8 space-y-3.5 w-fit">
+            {BULLETS.map((b) => (
+              <div key={b.text} className="flex items-center gap-3 text-left">
+                <span className="w-7 h-7 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
+                  <b.icon className="w-3.5 h-3.5 text-emerald-200" />
+                </span>
+                <span className="text-xs text-slate-200">{b.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="relative text-3xs text-slate-400">
+          © {new Date().getFullYear()} Jama&apos;at Certify. All rights reserved.
+        </p>
+      </div>
+
+      {/* Theme-aware form side */}
+      <div className="auth-form-area relative flex items-center justify-center px-4 py-16 sm:px-8 sm:py-10">
+        <ThemeToggle className="absolute right-5 top-5 sm:right-8 sm:top-8" />
+        <div className={`w-full ${wideForm ? 'max-w-md' : 'max-w-sm'}`}>
+          {/* Mobile brand row */}
+          {showMobileBrand && (
+            <div className="mb-6 flex items-center justify-center gap-2.5 lg:hidden">
+              <div className="theme-logo-tile w-9 h-9 rounded-full shadow-sm border p-1 overflow-hidden flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/ahmadiyyah_logo.png" alt="Ahmadiyyah logo" className="w-full h-full rounded-full object-contain" />
+              </div>
+              <span className="whitespace-nowrap text-[10px] font-bold leading-tight tracking-[0.12em] theme-text sm:text-xs sm:tracking-[0.18em]">
+                JAMA&apos;AT<span className="sm:hidden"><br /></span><span className="hidden sm:inline"> </span>CERTIFY
+              </span>
+            </div>
+          )}
+
+          <div className={wideForm ? '' : 'px-5 py-6 sm:px-8 sm:py-8'}>
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,8 +1,56 @@
 @import "tailwindcss";
 
+/* ============================================================
+   GLOBAL SCALE
+   The whole UI is sized in rem, so one change here scales every
+   font, icon, spacing and control together. 18px (from the 16px
+   default) is a ~12.5% bump — comfortably readable on a large
+   monitor without breaking the responsive layouts.
+   The printed A4 certificate is pinned back to 16px in @media print
+   so the artwork on paper stays exactly as designed.
+   ============================================================ */
+html {
+  font-size: 18px;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --background: #f3f7f4;
+  --foreground: #17231d;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-muted: #f5f8f6;
+  --text-primary: #17231d;
+  --text-secondary: #52635a;
+  --text-muted: #77867d;
+  --line: #dfe8e2;
+  --accent: #087452;
+  --accent-soft: #e8f4ed;
+  --sidebar: #ffffff;
+  --sidebar-text: #24342b;
+  --sidebar-muted: #75837a;
+  --sidebar-line: #e5ece7;
+  --shadow-color: 20 50 34;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #111a16;
+  --foreground: #e8f0eb;
+  --surface: #18231d;
+  --surface-raised: #1d2b23;
+  --surface-muted: #202d26;
+  --text-primary: #e8f0eb;
+  --text-secondary: #c0cec5;
+  --text-muted: #93a399;
+  --line: #34453b;
+  --accent: #55c797;
+  --accent-soft: #1b382b;
+  --sidebar: #17211b;
+  --sidebar-text: #e1ece5;
+  --sidebar-muted: #91a197;
+  --sidebar-line: #2d3c33;
+  --shadow-color: 0 0 0;
 }
 
 @theme inline {
@@ -12,15 +60,581 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+/* Register the custom angle so CSS can interpolate the shared pie-chart fill. */
+@property --pie-progress {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.animated-pie {
+  background: conic-gradient(
+    var(--pie-color) 0deg var(--pie-progress),
+    var(--pie-remainder) var(--pie-progress) 360deg
+  );
+  transition: --pie-progress 1100ms cubic-bezier(.16, 1, .3, 1);
+}
+
+/* SVG KPI rings animate their dash length independently of the shared pie chart. */
+.kpi-ring-progress {
+  transition: stroke-dashoffset 1100ms cubic-bezier(.16, 1, .3, 1);
+}
+
+/* Keep the brand mark still and recognizable while its surrounding ring spins. */
+.login-logo-loader__ring {
+  animation: login-logo-spin 1.2s linear infinite;
+}
+
+@keyframes login-logo-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated-pie, .kpi-ring-progress { transition: none; }
+  .login-logo-loader__ring { animation: none; }
+}
+
+button, input, select, textarea { font: inherit; }
+
+/* Confirm dialog: the success stage pops in after the confirm spinner. */
+@keyframes dialog-stage-pop {
+  from { opacity: 0; transform: scale(.94) translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.dialog-stage-pop { animation: dialog-stage-pop .24s cubic-bezier(.16, 1, .3, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .dialog-stage-pop { animation: none; }
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 58%, transparent);
+  outline-offset: 2px;
+}
+
+.app-background {
+  background:
+    radial-gradient(ellipse at 88% 0%, rgba(16, 125, 81, .055), transparent 36%),
+    linear-gradient(145deg, #f7faf8 0%, #f1f6f2 55%, #edf4ef 100%);
+  color: var(--text-primary);
+}
+.landing-page {
+  background:
+    radial-gradient(ellipse at 88% 5%, rgba(16, 125, 81, .05), transparent 35%),
+    #f3f7f4;
+  color: var(--text-primary);
+}
+html[data-theme='dark'] .landing-page {
+  background:
+    radial-gradient(ellipse at 88% 5%, rgba(33, 120, 83, .1), transparent 35%),
+    #111a16;
+}
+
+html[data-theme='dark'] .app-background {
+  background:
+    radial-gradient(ellipse at 88% 0%, rgba(33, 120, 83, .12), transparent 36%),
+    linear-gradient(145deg, #111a16 0%, #141e19 58%, #17241d 100%);
+}
+
+.theme-main { color: var(--text-primary); }
+.surface-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 5px 20px rgb(var(--shadow-color) / .045);
+}
+.theme-header {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  box-shadow: 0 10px 30px rgb(var(--shadow-color) / .075);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  backdrop-filter: blur(22px) saturate(145%);
+}
+.navbar-search {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.navbar-search:focus-within {
+  border-color: var(--line);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--line) 45%, transparent);
+}
+.navbar-search-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+/* Dropdown menus sit on a solid ash surface. A translucent panel let the page
+   behind bleed through, so the menu came out half ash and half white. */
+.dropdown-surface {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+  border: 1px solid var(--line);
+}
+.auth-form-area { background: var(--surface); color: var(--text-primary); }
+.page-loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: var(--background);
+}
+.toast-notification {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid;
+  border-radius: 9999px;
+  box-shadow: 0 12px 32px rgb(15 23 42 / 12%);
+  backdrop-filter: blur(14px);
+}
+.toast-notification--success {
+  border-color: #80c9aa;
+  background: rgb(190 211 201 / 94%);
+  color: #263a33;
+}
+.toast-notification--info {
+  border-color: #a9c8e7;
+  background: rgb(224 236 247 / 96%);
+  color: #26394c;
+}
+.toast-notification--error {
+  border-color: #e5aab3;
+  background: rgb(249 229 232 / 96%);
+  color: #55252d;
+}
+.toast-notification__icon { width: 20px; height: 20px; flex: none; }
+.toast-notification--success .toast-notification__icon { color: #00966b; }
+.toast-notification--info .toast-notification__icon { color: #3476ad; }
+.toast-notification--error .toast-notification__icon { color: #c33d51; }
+.toast-notification__title { font-size: 13px; font-weight: 700; line-height: 1.35; }
+.toast-notification__message { overflow-wrap: anywhere; font-size: 13px; font-weight: 600; line-height: 1.4; }
+.toast-notification__close {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.toast-notification__close:hover { background: rgb(15 23 42 / 8%); color: currentColor; }
+html[data-theme='dark'] .toast-notification { box-shadow: 0 14px 36px rgb(0 0 0 / 32%); }
+html[data-theme='dark'] .toast-notification--success {
+  border-color: #08785a;
+  background: rgb(23 47 40 / 96%);
+  color: #e2ece7;
+}
+html[data-theme='dark'] .toast-notification--info {
+  border-color: #315f82;
+  background: rgb(27 43 57 / 97%);
+  color: #e1eaf2;
+}
+html[data-theme='dark'] .toast-notification--error {
+  border-color: #74404a;
+  background: rgb(54 33 39 / 97%);
+  color: #f5e5e8;
+}
+html[data-theme='dark'] .toast-notification--success .toast-notification__icon { color: #00c78c; }
+html[data-theme='dark'] .toast-notification--info .toast-notification__icon { color: #78b8e8; }
+html[data-theme='dark'] .toast-notification--error .toast-notification__icon { color: #ff8292; }
+html[data-theme='dark'] .toast-notification__close { color: #a6b4ad; }
+html[data-theme='dark'] .toast-notification__close:hover { background: rgb(255 255 255 / 10%); color: #f5f8f6; }
+.dual-ring-spinner {
+  position: relative;
+  display: block;
+  width: 52px;
+  height: 52px;
+  border: 4px solid transparent;
+  border-top-color: #15803d;
+  border-bottom-color: #15803d;
+  border-radius: 50%;
+  animation: dual-ring-spin 900ms linear infinite;
+}
+.dual-ring-spinner::after {
+  position: absolute;
+  inset: 7px;
+  border: 4px solid transparent;
+  border-right-color: #22c55e;
+  border-left-color: #22c55e;
+  border-radius: 50%;
+  content: '';
+  animation: dual-ring-spin 700ms linear infinite reverse;
+}
+@keyframes dual-ring-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dual-ring-spinner,
+  .dual-ring-spinner::after {
+    animation: none;
+  }
+}
+.theme-logo-tile { background: var(--surface); border-color: var(--line); }.theme-text { color: var(--text-primary); }
+.theme-toggle {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.theme-toggle:hover { color: var(--accent); border-color: var(--accent); box-shadow: 0 3px 10px rgb(var(--shadow-color) / .08); }
+/* Frosted surfaces stay translucent over the dashboard canvas in both themes. */
+.sidebar-surface {
+  background: color-mix(in srgb, var(--sidebar) 78%, transparent);
+  color: var(--sidebar-text);
+  border-color: color-mix(in srgb, var(--sidebar-line) 82%, transparent);
+  box-shadow: 8px 0 30px rgb(var(--shadow-color) / .06);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  backdrop-filter: blur(22px) saturate(145%);
+}
+.sidebar-drawer { background: var(--sidebar); color: var(--sidebar-text); }
+.sidebar-divider { border-color: var(--sidebar-line); }
+.sidebar-heading { color: var(--text-primary); }
+.sidebar-muted, .sidebar-icon { color: var(--sidebar-muted); }
+.sidebar-link { color: var(--sidebar-text); }
+.sidebar-link:hover { color: var(--accent); background: var(--accent-soft); }
+
+/* Map the app's existing Tailwind palette to semantic dark surfaces. The
+   certificate artwork is excluded so its printed colors stay true. */
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-white'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-white/'] {
+  background-color: var(--surface) !important;
+}
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-slate-50'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-slate-50/'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-slate-100'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-gray-50'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-gray-50/'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-gray-100'] {
+  background-color: var(--surface-muted) !important;
+}
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-emerald-50'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-emerald-50/'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-green-50'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-green-50/'] {
+  background-color: var(--accent-soft) !important;
+}
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-emerald-100'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-green-100'] {
+  background-color: #244334 !important;
+}
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-rose-50'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-rose-50/'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-red-50'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-red-50/'] { background-color: #3b2428 !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-rose-900'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-rose-800'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-rose-700'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-red-900'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-red-800'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-red-700'] { color: #fda4af !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-rose-200'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-red-200'] { border-color: #63373e !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-slate-900'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-slate-800'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-gray-900'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-gray-800'] { color: var(--text-primary) !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-slate-700'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-slate-600'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-gray-700'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-gray-600'] { color: var(--text-secondary) !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-slate-500'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-slate-400'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-gray-500'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-gray-400'] { color: var(--text-muted) !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-emerald-900'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-emerald-800'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-emerald-700'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='text-emerald-600'] { color: #83d9b1 !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-slate-100'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-slate-200'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-slate-300'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-gray-100'],
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-gray-200'] { border-color: var(--line) !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='border-white/'] { border-color: var(--line) !important; }
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-slate-50']:hover,
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-slate-50/']:hover,
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class~='bg-gray-50']:hover,
+html[data-theme='dark'] body :not(.certificate-print-area):not(.certificate-print-area *)[class*='bg-gray-50/']:hover { background-color: var(--surface-raised) !important; }
+html[data-theme='dark'] body input::placeholder,
+html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* ============================================================
+   PRINT — A4 Landscape Certificate
+   @page MUST be at root level; Chrome ignores it inside @media.
+   ============================================================ */
+@page {
+  size: A4 landscape;
+  margin: 0;
+}
+
+@media print {
+  /* The printed certificate must stay exactly as designed — the screen
+     scale bump does not apply to paper. */
+  html {
+    font-size: 16px !important;
+  }
+
+  /* Hide everything except the certificate */
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    /* The modal sets body overflow:hidden inline — must not clip the page */
+    overflow: visible !important;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Single certificate print: constrain body to exactly 1 A4 page height (210mm)
+     so a long background page cannot cause Chrome to repeat the fixed certificate */
+  body:not(.printing-bulk) {
+    height: 210mm !important;
+    max-height: 210mm !important;
+    overflow: hidden !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  /* Neutralize the screen-only scale-to-fit scaffolding: any transform on an
+     ancestor turns it into the containing block for position:fixed (so the
+     certificate below would no longer resolve against the page), and
+     overflow/height constraints would clip it — the classic blank-page cause. */
+  .certificate-screen-scaler {
+    transform: none !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .certificate-screen-sizer,
+  .certificate-screen-wrap {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Modal chrome around the certificate must not transform or clip it */
+  .modal-panel {
+    transform: none !important;
+    overflow: visible !important;
+  }
+
+  .modal-scroll-content {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Make the certificate fill the full printed page */
+  .certificate-print-area,
+  .certificate-print-area * {
+    visibility: visible;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  .certificate-print-area {
+    position: fixed !important;
+    inset: 0 !important;
+    left: 0 !important;
+    top: 0 !important;
+    /* Explicit A4 landscape physical dimensions */
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    /* Remove all screen-specific styling */
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: hidden !important;
+    /* Force aspect-ratio to not fight the fixed dimensions */
+    aspect-ratio: unset !important;
+    /* Print-safe bold font stack — webfonts can render thin in PDFs */
+    font-family: Arial, Helvetica, sans-serif !important;
+    /* Ensure backgrounds print */
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* The verification QR code lives beside the artwork, not inside it, so the
+     "hide everything except the certificate" rule above would erase it.
+     Restore it — it is part of the certificate. */
+  .certificate-qr,
+  .certificate-qr * {
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Keep the screen preview compact and enlarge the QR only on paper/PDF. */
+  .certificate-qr .certificate-qr-code {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  .certificate-qr .certificate-qr-code > svg {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  .certificate-qr .certificate-qr-code > div > div {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  /* Inner content keeps the same tight rhythm as the screen preview */
+  .certificate-print-area > div[class*='z-10'] {
+    padding: 5mm 8mm !important;
+  }
+
+  /* Force bold weights to survive PDF embedding */
+  .certificate-print-area h1 {
+    font-weight: 900 !important;
+    font-size: 28pt !important;
+    line-height: 1.15 !important;
+  }
+
+  .certificate-print-area h2 {
+    font-weight: 800 !important;
+  }
+
+  /* Force SVG and decorative elements to keep their colors */
+  .certificate-print-area svg,
+  .certificate-print-area svg * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Prevent page breaks inside the certificate */
+  .certificate-print-area {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Bulk mode: all certificates in the queue are rendered directly into
+     #bulk-print-container portalled to <body>. When printing in bulk mode,
+     we hide the normal application and render ONLY the bulk print container. */
+  body.printing-bulk > :not(#bulk-print-container) {
+    display: none !important;
+  }
+
+  body.printing-bulk #bulk-print-container {
+    display: block !important;
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 297mm !important;
+    background: #ffffff !important;
+  }
+
+  body.printing-bulk #bulk-print-container,
+  body.printing-bulk #bulk-print-container * {
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  body.printing-bulk .bulk-certificate-page {
+    display: block !important;
+    position: relative !important;
+    width: 297mm !important;
+    height: 210mm !important;
+    min-height: 210mm !important;
+    max-height: 210mm !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid-page !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+  }
+
+  body.printing-bulk .bulk-certificate-page:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  body.printing-bulk #bulk-print-container .certificate-screen-wrap,
+  body.printing-bulk #bulk-print-container .certificate-screen-sizer,
+  body.printing-bulk #bulk-print-container .certificate-screen-scaler {
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    position: static !important;
+    transform: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    display: block !important;
+  }
+
+  body.printing-bulk #bulk-print-container .certificate-print-area {
+    position: relative !important;
+    inset: auto !important;
+    left: auto !important;
+    top: auto !important;
+    width: 297mm !important;
+    height: 210mm !important;
+    min-width: 297mm !important;
+    min-height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    display: block !important;
+  }
+}
+
+#bulk-print-container {
+  display: none;
 }

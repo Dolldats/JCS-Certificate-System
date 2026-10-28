@@ -122,6 +122,10 @@ public class ParticipantService : IParticipantService
             VerificationMessage = dto.VerificationMessage,
             CreatedAt = DateTime.UtcNow
         };
+        if (dto.IsVerified)
+        {
+            participant.VerifiedAt = DateTime.UtcNow;
+        }
 
         await _participantRepository.AddAsync(participant, token);
 

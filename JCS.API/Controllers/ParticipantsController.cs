@@ -124,6 +124,9 @@ public class ParticipantsController : ControllerBase
             dto.VerificationStatus = VerificationStatus.Verified;
             dto.VerificationMessage = verification.Message;
         }
+        dto.IsVerified = verification.Status == VerificationStatus.Verified;
+        dto.VerificationStatus = verification.Status;
+        dto.VerificationMessage = verification.Message;
 
         var targetEvent = await _eventService.GetByIdAsync(dto.EventId, token);
         if (targetEvent == null)
@@ -289,7 +292,10 @@ public class ParticipantsController : ControllerBase
                     Jamaat = verification.Jamaat,
                     Dila = verification.Dila,
                     Ilaqa = verification.Ilaqa,
-                    Auxiliary = verification.Auxiliary ?? targetEvent.Auxiliary
+                    Auxiliary = verification.Auxiliary ?? targetEvent.Auxiliary,
+                    IsVerified = true,
+                    VerificationStatus = VerificationStatus.Verified,
+                    VerificationMessage = verification.Message
                 }, token);
                 result.Imported++;
             }
@@ -389,7 +395,10 @@ public class ParticipantsController : ControllerBase
                     Jamaat = verification.Jamaat,
                     Dila = verification.Dila,
                     Ilaqa = verification.Ilaqa,
-                    Auxiliary = verification.Auxiliary ?? targetEvent.Auxiliary
+                    Auxiliary = verification.Auxiliary ?? targetEvent.Auxiliary,
+                    IsVerified = true,
+                    VerificationStatus = VerificationStatus.Verified,
+                    VerificationMessage = verification.Message
                 }, token);
                 result.Imported++;
             }

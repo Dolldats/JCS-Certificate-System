@@ -86,7 +86,16 @@ public class CertificateRenderer : ICertificateRenderer
                     AddQrCode(layers, verificationUrl, width, height);
                     if (layout.TextElements != null)
                     {
-                        foreach (var element in layout.TextElements)
+                        var content = values.TryGetValue(element.Placeholder, out var value) ? value : element.Placeholder;
+                        var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
+                        var fontFamily = string.IsNullOrWhiteSpace(element.FontFamily) ? "Arial" : element.FontFamily;
+                        var fontSize = element.FontSize > 0 ? (float)element.FontSize : 12f;
+                        var text = layers.Layer().TranslateX((float)element.X).TranslateY((float)element.Y).Text(content ?? string.Empty)
+                            .FontFamily(fontFamily)
+                            .FontSize(fontSize)
+                            .FontColor(textColor);
+
+                        if (element.Bold)
                         {
                             var content = GetValue(values, element.Placeholder);
                             var textColor = string.IsNullOrWhiteSpace(element.TextColor) ? "#000000" : element.TextColor;
@@ -97,15 +106,9 @@ public class CertificateRenderer : ICertificateRenderer
                                 .FontSize(fontSize)
                                 .FontColor(textColor);
 
-                            if (element.Bold)
-                            {
-                                text.Bold();
-                            }
-
-                            if (element.Italic)
-                            {
-                                text.Italic();
-                            }
+                        if (element.Italic)
+                        {
+                            text.Italic();
                         }
                     }
                 });

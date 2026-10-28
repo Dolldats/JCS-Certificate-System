@@ -1,5 +1,6 @@
 using JCS.Application.Common;
 using JCS.Application.Interfaces.Repositories;
+using JCS.Application.DTOs.Participant;
 using JCS.Domain.Entities;
 using JCS.Domain.Enum;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -48,6 +49,24 @@ public class AuditActionFilter : IAsyncActionFilter
         }
 
         var action = $"{request.Method} {request.Path}";
+        var entityName = context.Controller.GetType().Name.Replace("Controller", string.Empty);
+        string? entityId = context.RouteData.Values.TryGetValue("id", out var id) ? id?.ToString() : null;
+        var details = $"HTTP {context.HttpContext.Response.StatusCode}";
+        Auxiliary? auxiliary = null;
+
+        // Give participant enrollment logs the context an admin needs to understand
+        // the action without opening browser network tools.
+        if (request.Method == "POST"
+            && context.ActionArguments.TryGetValue("dto", out var argument)
+            && argument is CreateParticipantDto participant)
+        {
+            action = "Participant Added";
+            entityName = "Participant";
+            entityId = participant.MembershipId;
+            auxiliary = participant.Auxiliary;
+            details = $"{participant.FullName} ({participant.MembershipId}) added to event {participant.EventId}; " +
+                $"verification: {participant.VerificationStatus}; HTTP {context.HttpContext.Response.StatusCode}.";
+        }
 
         await _auditLogRepository.AddAsync(new AuditLog
         {
