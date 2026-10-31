@@ -2,6 +2,7 @@
 
 import { useAuth } from '../../context/AuthContext';
 import { AuthTransitionLoading } from '../auth/AuthTransitionLoading';
+import { DashboardLoadingSkeleton } from './LoadingSkeletons';
 import { usePathname } from 'next/navigation';
 
 export function PageLoading() {
@@ -16,15 +17,5 @@ export function PageLoading() {
     return <main role="status" aria-busy="true" className="sr-only">Loading page</main>;
   }
 
-  return (
-    <main
-      className="page-loading-screen"
-      role="status"
-      aria-label="Loading page"
-      aria-busy="true"
-    >
-      <span className="dual-ring-spinner" aria-hidden="true" />
-      <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
-    </main>
-  );
+  return <DashboardLoadingSkeleton label="Loading page" />;
 }

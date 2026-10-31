@@ -26,7 +26,10 @@ export function CardHeader({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('px-6 py-4 border-b border-slate-100 flex items-center justify-between', className)}
+      className={cn(
+        'flex flex-col items-start gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6',
+        className
+      )}
       {...props}
     >
       {children}
@@ -81,7 +84,7 @@ export function CardFooter({
   return (
     <div
       className={cn(
-        'px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between',
+        'glass-band flex flex-col items-start gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6',
         className
       )}
       {...props}

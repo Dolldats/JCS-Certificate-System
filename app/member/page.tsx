@@ -12,6 +12,7 @@ import { certificatesApi, cleanTheme, eventsApi, participantsApi, templatesApi }
 import { Certificate, CertificateTemplate } from '../../types';
 import { CertificatePreview } from '../../components/certificates/CertificatePreview';
 import { Modal } from '../../components/ui/Modal';
+import { MemberPortalLoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
 interface MemberEvent {
   eventId: string;
@@ -163,17 +164,7 @@ export default function MemberPage() {
   };
 
   if (isLoading || !user || user.role !== 'MEMBER') {
-    return (
-      <main
-        className="page-loading-screen content-center justify-items-center gap-3 px-6"
-        role="status"
-        aria-label="Loading member portal"
-        aria-busy="true"
-      >
-        <span className="dual-ring-spinner" aria-hidden="true" />
-        <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
-      </main>
-    );
+    return <MemberPortalLoadingSkeleton />;
   }
 
   const certificateCount = events.filter((event) => event.certificateIssued).length;

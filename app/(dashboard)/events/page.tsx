@@ -15,6 +15,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { FilterDropdown } from '../../../components/ui/FilterDropdown';
 import { Pagination } from '../../../components/ui/Pagination';
+import { EventCardsLoadingSkeleton } from '../../../components/ui/LoadingSkeletons';
 import {
   CalendarDays,
   Plus,
@@ -302,7 +303,7 @@ export default function EventsPage() {
       </div>
 
       {/* Search and Filters Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+      <div className="glass-surface flex flex-col sm:flex-row gap-3 items-center justify-between p-4 rounded-xl shadow-2xs">
         <div className="w-full sm:w-80">
           <Input
             placeholder="Search by event name, venue, or region..."
@@ -346,10 +347,7 @@ export default function EventsPage() {
 
       {/* Events Grid */}
       {loading ? (
-        <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading events">
-          <span className="dual-ring-spinner" aria-hidden="true" />
-          <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
-        </div>
+        <EventCardsLoadingSkeleton />
       ) : filteredEvents.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center space-y-3">

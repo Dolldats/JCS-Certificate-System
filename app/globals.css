@@ -2,15 +2,13 @@
 
 /* ============================================================
    GLOBAL SCALE
-   The whole UI is sized in rem, so one change here scales every
-   font, icon, spacing and control together. 18px (from the 16px
-   default) is a ~12.5% bump — comfortably readable on a large
-   monitor without breaking the responsive layouts.
-   The printed A4 certificate is pinned back to 16px in @media print
-   so the artwork on paper stays exactly as designed.
+   Keep the compact 16px base on phones, then enlarge rem-based UI on
+   wide screens. Printed certificates reset to 16px in @media print.
    ============================================================ */
-html {
-  font-size: 18px;
+html { font-size: 16px; }
+
+@media (min-width: 64rem) {
+  html { font-size: 18px; }
 }
 
 :root {
@@ -121,33 +119,72 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .app-background {
   background:
-    radial-gradient(ellipse at 88% 0%, rgba(16, 125, 81, .055), transparent 36%),
+    radial-gradient(ellipse at 12% 12%, rgba(16, 125, 81, .11), transparent 34%),
+    radial-gradient(ellipse at 90% 8%, rgba(102, 160, 201, .11), transparent 32%),
     linear-gradient(145deg, #f7faf8 0%, #f1f6f2 55%, #edf4ef 100%);
   color: var(--text-primary);
 }
 .landing-page {
   background:
-    radial-gradient(ellipse at 88% 5%, rgba(16, 125, 81, .05), transparent 35%),
+    radial-gradient(ellipse at 12% 8%, rgba(16, 125, 81, .10), transparent 32%),
+    radial-gradient(ellipse at 92% 30%, rgba(102, 160, 201, .09), transparent 34%),
     #f3f7f4;
   color: var(--text-primary);
 }
 html[data-theme='dark'] .landing-page {
   background:
-    radial-gradient(ellipse at 88% 5%, rgba(33, 120, 83, .1), transparent 35%),
+    radial-gradient(ellipse at 12% 8%, rgba(33, 120, 83, .22), transparent 34%),
+    radial-gradient(ellipse at 92% 28%, rgba(47, 86, 126, .2), transparent 36%),
     #111a16;
 }
 
 html[data-theme='dark'] .app-background {
   background:
-    radial-gradient(ellipse at 88% 0%, rgba(33, 120, 83, .12), transparent 36%),
+    radial-gradient(ellipse at 12% 8%, rgba(33, 120, 83, .20), transparent 35%),
+    radial-gradient(ellipse at 92% 8%, rgba(47, 86, 126, .16), transparent 34%),
     linear-gradient(145deg, #111a16 0%, #141e19 58%, #17241d 100%);
 }
 
 .theme-main { color: var(--text-primary); }
 .surface-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  box-shadow: 0 5px 20px rgb(var(--shadow-color) / .045);
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 68%, transparent);
+  box-shadow: 0 16px 42px rgb(var(--shadow-color) / .075), inset 0 1px 0 color-mix(in srgb, white 52%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(145%);
+  backdrop-filter: blur(20px) saturate(145%);
+}
+.glass-surface {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  box-shadow: 0 16px 42px rgb(var(--shadow-color) / .075), inset 0 1px 0 color-mix(in srgb, white 52%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(145%);
+  backdrop-filter: blur(20px) saturate(145%);
+}
+html[data-theme='dark'] .surface-card,
+html[data-theme='dark'] .glass-surface {
+  background: color-mix(in srgb, var(--surface-raised) 78%, transparent);
+  border-color: color-mix(in srgb, var(--line) 76%, transparent);
+  box-shadow: 0 18px 46px rgb(0 0 0 / .20), inset 0 1px 0 rgb(255 255 255 / .055);
+}
+.glass-control {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface) 68%, transparent);
+  border-color: color-mix(in srgb, var(--line) 82%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+  backdrop-filter: blur(14px) saturate(135%);
+}
+.glass-control:hover {
+  background: color-mix(in srgb, var(--surface-raised) 84%, transparent);
+}
+.glass-band {
+  background: color-mix(in srgb, var(--surface) 56%, transparent);
+  border-color: color-mix(in srgb, var(--line) 68%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+html[data-theme='dark'] .glass-band {
+  background: color-mix(in srgb, var(--surface) 58%, transparent);
 }
 .theme-header {
   color: var(--text-primary);
@@ -170,21 +207,40 @@ html[data-theme='dark'] .app-background {
   outline: none;
   box-shadow: none;
 }
-/* Dropdown menus sit on a solid ash surface. A translucent panel let the page
-   behind bleed through, so the menu came out half ash and half white. */
+/* Frosted dropdowns use a tinted surface so text remains readable over blur. */
 .dropdown-surface {
-  background: var(--surface-muted);
+  background: color-mix(in srgb, var(--surface-raised) 78%, transparent);
   color: var(--text-primary);
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  box-shadow: 0 18px 42px rgb(var(--shadow-color) / .15);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  backdrop-filter: blur(22px) saturate(145%);
 }
-.auth-form-area { background: var(--surface); color: var(--text-primary); }
-.page-loading-screen {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: grid;
-  place-items: center;
-  background: var(--background);
+.auth-form-area {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: var(--text-primary);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+}
+.modal-panel {
+  background: color-mix(in srgb, var(--surface-raised) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 76%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  backdrop-filter: blur(24px) saturate(145%);
+}
+.skeleton-block {
+  display: block;
+  border-radius: 0.65rem;
+  background: linear-gradient(100deg, #e6ece8 25%, #f5f8f6 42%, #e6ece8 63%);
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+html[data-theme='dark'] .skeleton-block {
+  background: linear-gradient(100deg, #26352d 25%, #35473d 42%, #26352d 63%);
+  background-size: 220% 100%;
+}
+@keyframes skeleton-shimmer {
+  to { background-position-x: -220%; }
 }
 .toast-notification {
   display: flex;
@@ -253,33 +309,8 @@ html[data-theme='dark'] .toast-notification--info .toast-notification__icon { co
 html[data-theme='dark'] .toast-notification--error .toast-notification__icon { color: #ff8292; }
 html[data-theme='dark'] .toast-notification__close { color: #a6b4ad; }
 html[data-theme='dark'] .toast-notification__close:hover { background: rgb(255 255 255 / 10%); color: #f5f8f6; }
-.dual-ring-spinner {
-  position: relative;
-  display: block;
-  width: 52px;
-  height: 52px;
-  border: 4px solid transparent;
-  border-top-color: #15803d;
-  border-bottom-color: #15803d;
-  border-radius: 50%;
-  animation: dual-ring-spin 900ms linear infinite;
-}
-.dual-ring-spinner::after {
-  position: absolute;
-  inset: 7px;
-  border: 4px solid transparent;
-  border-right-color: #22c55e;
-  border-left-color: #22c55e;
-  border-radius: 50%;
-  content: '';
-  animation: dual-ring-spin 700ms linear infinite reverse;
-}
-@keyframes dual-ring-spin {
-  to { transform: rotate(360deg); }
-}
 @media (prefers-reduced-motion: reduce) {
-  .dual-ring-spinner,
-  .dual-ring-spinner::after {
+  .skeleton-block {
     animation: none;
   }
 }
@@ -294,7 +325,9 @@ html[data-theme='dark'] .toast-notification__close:hover { background: rgb(255 2
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--text-secondary);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+  backdrop-filter: blur(14px) saturate(135%);
   font-size: 12px;
   font-weight: 600;
   transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
@@ -311,7 +344,12 @@ html[data-theme='dark'] .toast-notification__close:hover { background: rgb(255 2
   -webkit-backdrop-filter: blur(22px) saturate(145%);
   backdrop-filter: blur(22px) saturate(145%);
 }
-.sidebar-drawer { background: var(--sidebar); color: var(--sidebar-text); }
+.sidebar-drawer {
+  background: color-mix(in srgb, var(--sidebar) 88%, transparent);
+  color: var(--sidebar-text);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  backdrop-filter: blur(24px) saturate(145%);
+}
 .sidebar-divider { border-color: var(--sidebar-line); }
 .sidebar-heading { color: var(--text-primary); }
 .sidebar-muted, .sidebar-icon { color: var(--sidebar-muted); }
