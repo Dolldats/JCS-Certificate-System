@@ -103,7 +103,7 @@ export default function LandingPage() {
   return (
     <div className="landing-page min-h-screen text-slate-900">
       {/* Sticky white navigation bar, styled to match the dashboard header. */}
-      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 shadow-sm backdrop-blur-xl">
+      <header className="glass-surface sticky top-0 z-50 border-x-0 border-t-0">
         <div className="mx-auto flex min-h-[68px] max-w-[1440px] items-center justify-between gap-2 px-3 sm:gap-3 sm:px-6">
           <Link href="/" className="flex min-w-0 shrink items-center gap-2 sm:gap-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow">
@@ -225,7 +225,7 @@ export default function LandingPage() {
                 priority
               />
             </div>
-            <div className="absolute -bottom-4 left-4 flex items-center gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-lg">
+            <div className="glass-surface absolute -bottom-4 left-4 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 shadow-lg">
               <FileBadge className="h-4 w-4 text-emerald-700" />
               JCS-ATF-2025-0042 • Verified & issued
             </div>
@@ -234,7 +234,7 @@ export default function LandingPage() {
       </section>
 
       {/* Auxiliaries */}
-      <section className="border-b border-slate-200 bg-white">
+      <section className="glass-band border-b">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-2 px-4 py-6 sm:px-6">
           <span className="mr-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
             Built for all auxiliaries:
@@ -267,7 +267,7 @@ export default function LandingPage() {
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+              className="glass-surface rounded-2xl p-5 shadow-sm transition-shadow hover:shadow-md"
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
                 <f.icon className="h-5 w-5" />
@@ -282,7 +282,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section id="how-it-works" className="border-y border-slate-200 bg-white">
+      <section id="how-it-works" className="glass-band border-y">
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">
             How it works
@@ -295,7 +295,7 @@ export default function LandingPage() {
             {STEPS.map((s) => (
               <div
                 key={s.step}
-                className="rounded-2xl bg-slate-50 p-6 ring-1 ring-slate-200"
+                className="glass-surface rounded-2xl p-6"
               >
                 <div className="text-sm font-black tracking-widest text-emerald-600">
                   {s.step}
@@ -318,7 +318,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/login"
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+              className="glass-control inline-flex items-center gap-2 rounded-lg border px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors"
             >
               Sign in to continue
             </Link>
@@ -365,7 +365,7 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+          <div className="glass-surface overflow-hidden rounded-2xl shadow-lg">
             <Image
               src="/certificate-design2.png"
               alt="Second sample certificate design"
@@ -408,7 +408,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white">
+      <footer className="glass-band border-t">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:px-6">
           <div className="flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-slate-100">

@@ -13,6 +13,7 @@ import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
 import { Pagination } from '../../../components/ui/Pagination';
+import { TableLoadingSkeleton } from '../../../components/ui/LoadingSkeletons';
 import {
   Table,
   TableHeader,
@@ -179,7 +180,7 @@ export default function AuditPage() {
         </Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+      <div className="glass-surface flex flex-col sm:flex-row gap-3 items-center justify-between p-4 rounded-xl shadow-2xs">
         <div className="w-full sm:w-80">
           <Input
             placeholder="Search by keyword, actor, or target..."
@@ -211,10 +212,7 @@ export default function AuditPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading audit logs">
-              <span className="dual-ring-spinner" aria-hidden="true" />
-              <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
-            </div>
+            <TableLoadingSkeleton label="Loading audit logs" columns={6} />
           ) : filteredLogs.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <ClipboardList className="w-12 h-12 text-slate-300 mx-auto" />

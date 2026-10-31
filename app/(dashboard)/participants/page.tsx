@@ -14,6 +14,7 @@ import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { Pagination } from '../../../components/ui/Pagination';
+import { TableLoadingSkeleton } from '../../../components/ui/LoadingSkeletons';
 import { formatMemberName } from '../../../lib/honorific';
 import {
   Table,
@@ -354,7 +355,7 @@ function ParticipantsContent() {
       </Card>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+      <div className="glass-surface flex flex-col sm:flex-row gap-3 items-center justify-between p-4 rounded-xl shadow-2xs">
         <div className="w-full sm:w-80">
           <Input
             placeholder="Search by Member ID, name, or Jama'at..."
@@ -406,10 +407,7 @@ function ParticipantsContent() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading participant records">
-              <span className="dual-ring-spinner" aria-hidden="true" />
-              <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
-            </div>
+            <TableLoadingSkeleton label="Loading participant records" columns={6} />
           ) : filteredParticipants.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <Users className="w-12 h-12 text-slate-300 mx-auto" />
@@ -721,7 +719,7 @@ function ParticipantsContent() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-center text-xs">
+              <div className="grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-3 md:grid-cols-5">
                 <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200">
                   <div className="text-lg font-bold text-emerald-700">
                     {bulkSummary.verifiedCount}

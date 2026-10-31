@@ -62,7 +62,7 @@ export function FilterDropdown({
         onClick={() => setOpen((current) => !current)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50 focus:border-slate-400 focus:outline-none"
+        className="glass-control flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800 transition-colors focus:border-slate-400 focus:outline-none"
       >
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate">{active?.label}</span>
@@ -83,7 +83,7 @@ export function FilterDropdown({
       {open && (
         <div
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"
+          className="dropdown-surface absolute left-0 right-0 top-full z-50 mt-1.5 max-h-72 overflow-y-auto rounded-xl p-1.5 shadow-xl"
         >
           {options.map((option) => {
             const isActive = option.value === value;

@@ -13,6 +13,7 @@ import { Select } from '../../../components/ui/Select';
 import { Modal } from '../../../components/ui/Modal';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { Pagination } from '../../../components/ui/Pagination';
+import { TableLoadingSkeleton } from '../../../components/ui/LoadingSkeletons';
 import { getAuxiliaryLabel } from '../../../lib/auxiliaryLabels';
 import {
   Table,
@@ -254,7 +255,7 @@ export default function AdminsPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+      <div className="glass-surface flex items-center justify-between p-4 rounded-xl shadow-2xs">
         <div className="w-full sm:w-80">
           <Input
             placeholder="Search admins by name, Member ID, or auxiliary..."
@@ -270,10 +271,7 @@ export default function AdminsPage() {
       </div>
 
       {loading ? (
-        <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading administrators">
-          <span className="dual-ring-spinner" aria-hidden="true" />
-          <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
-        </div>
+        <TableLoadingSkeleton label="Loading administrators" columns={6} />
       ) : (
       <Card>
         <CardContent className="p-0">
