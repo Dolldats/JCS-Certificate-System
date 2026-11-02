@@ -1,0 +1,8 @@
+# Netlify build configuration for the Next.js frontend.
+# The .NET API (JCS.* projects) is hosted separately and is not built here.
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
