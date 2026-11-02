@@ -6,6 +6,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useAuth } from '../../context/AuthContext';
 import { AuthTransitionLoading } from '../auth/AuthTransitionLoading';
+import { DashboardLoadingSkeleton } from '../ui/LoadingSkeletons';
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { isLoading, user, authTransition, completeAuthTransition } = useAuth();
@@ -32,17 +33,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       return <AuthTransitionLoading title={authTransition === 'signing-in' ? 'Signing you in' : 'Signing you out'} />;
     }
     if (isLoading) {
-      return (
-        <div className="app-background grid min-h-screen w-full place-content-center justify-items-center gap-3" role="status" aria-label="Loading dashboard">
-          <span className="dual-ring-spinner" aria-hidden="true" />
-          <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
-        </div>
-      );
+      return <DashboardLoadingSkeleton />;
     }
     const loadingTitle = user ? 'Opening your account' : 'Returning to sign in';
     return (
       <div className="app-background flex min-h-screen w-full items-center justify-center" role="status" aria-label={loadingTitle}>
-        <div className="flex min-w-56 flex-col items-center rounded-2xl border border-white/70 bg-white/95 px-8 py-7 text-center shadow-2xl dark:border-white/10 dark:bg-slate-900/95">
+        <div className="glass-surface flex min-w-56 flex-col items-center rounded-2xl px-8 py-7 text-center shadow-2xl">
           <div className="login-logo-loader relative mb-4 grid h-[76px] w-[76px] place-items-center">
             <span aria-hidden="true" className="login-logo-loader__ring absolute inset-0 rounded-full border-[3px] border-emerald-100 border-t-emerald-600" />
             <span aria-hidden="true" className="absolute inset-[7px] rounded-full bg-emerald-500/10" />

@@ -25,7 +25,7 @@ export function TableHeader({
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <thead
-      className={cn('bg-slate-50/80 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200', className)}
+      className={cn('bg-slate-50/65 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200 backdrop-blur-md', className)}
       {...props}
     >
       {children}

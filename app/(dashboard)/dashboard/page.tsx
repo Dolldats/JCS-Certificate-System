@@ -8,6 +8,7 @@ import { Event, Certificate, AuditLog, Auxiliary } from '../../../types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
+import { SkeletonBlock } from '../../../components/ui/LoadingSkeletons';
 import {
   Users,
   Award,
@@ -220,76 +221,132 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        aria-busy={loading}
+        aria-label={loading ? 'Loading dashboard metrics' : undefined}
+      >
         <Card className="hover:shadow-sm transition-shadow">
           <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-2xs uppercase tracking-wider font-semibold text-slate-500">
-                Active &amp; Total Events
-              </p>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900">{totalEvents}</span>
-                <span className="text-xs text-emerald-600 font-medium">
-                  ({activeEventsCount} active)
-                </span>
+            {loading ? (
+              <div aria-hidden="true" className="flex w-full items-center justify-between">
+                <div className="space-y-3">
+                  <SkeletonBlock className="h-3 w-36" />
+                  <div className="flex items-center gap-2">
+                    <SkeletonBlock className="h-7 w-8" />
+                    <SkeletonBlock className="h-3 w-16" />
+                  </div>
+                </div>
+                <SkeletonBlock className="h-[60px] w-[60px] rounded-full" />
               </div>
-            </div>
-            <KpiPieChart value={activeEventsCount} total={totalEvents} label="Active events" color="#0a9b70" />
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-sm transition-shadow">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-2xs uppercase tracking-wider font-semibold text-slate-500">
-                Verified Participants
-              </p>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900">{totalVerified}</span>
-                <span className="text-xs text-slate-500 font-medium">
-                  / {totalParticipants} total
-                </span>
-              </div>
-            </div>
-            <KpiPieChart value={totalVerified} total={totalParticipants} label="Verified participants" color="#3978e8" />
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-sm transition-shadow">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-2xs uppercase tracking-wider font-semibold text-slate-500">
-                Certificates Issued
-              </p>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900">
-                  {totalCertificates}
-                </span>
-                <span className="text-xs text-amber-600 font-medium">Printed/Ready</span>
-              </div>
-            </div>
-            <KpiPieChart value={totalCertificates} total={totalParticipants} label="Certificates issued" color="#e78a19" />
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-sm transition-shadow">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-2xs uppercase tracking-wider font-semibold text-slate-500">
-                Member API Match Rate
-              </p>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-emerald-700">
-                  {apiMatchPercentage === null ? '—' : `${apiMatchPercentage}%`}
-                </span>
-                {apiMatchPercentage !== null && (
-                  <span className="text-xs text-emerald-600 font-medium flex items-center gap-0.5">
-                    <TrendingUp className="w-3 h-3" /> Live
+            ) : <>
+              <div>
+                <p className="text-2xs uppercase tracking-wider font-semibold text-slate-500">
+                  Active &amp; Total Events
+                </p>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-slate-900">{totalEvents}</span>
+                  <span className="text-xs text-emerald-600 font-medium">
+                    ({activeEventsCount} active)
                   </span>
-                )}
+                </div>
               </div>
-            </div>
-            <KpiPieChart value={totalVerified} total={totalParticipants} label="Member API match rate" color="#0f8d91" />
+              <KpiPieChart value={activeEventsCount} total={totalEvents} label="Active events" color="#0a9b70" />
+            </>}
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-sm transition-shadow">
+          <CardContent className="p-5 flex items-center justify-between">
+            {loading ? (
+              <div aria-hidden="true" className="flex w-full items-center justify-between">
+                <div className="space-y-3">
+                  <SkeletonBlock className="h-3 w-36" />
+                  <div className="flex items-center gap-2">
+                    <SkeletonBlock className="h-7 w-8" />
+                    <SkeletonBlock className="h-3 w-16" />
+                  </div>
+                </div>
+                <SkeletonBlock className="h-[60px] w-[60px] rounded-full" />
+              </div>
+            ) : <>
+              <div>
+                <p className="text-2xs uppercase tracking-wider font-semibold text-slate-500">
+                  Verified Participants
+                </p>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-slate-900">{totalVerified}</span>
+                  <span className="text-xs text-slate-500 font-medium">
+                    / {totalParticipants} total
+                  </span>
+                </div>
+              </div>
+              <KpiPieChart value={totalVerified} total={totalParticipants} label="Verified participants" color="#3978e8" />
+            </>}
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-sm transition-shadow">
+          <CardContent className="p-5 flex items-center justify-between">
+            {loading ? (
+              <div aria-hidden="true" className="flex w-full items-center justify-between">
+                <div className="space-y-3">
+                  <SkeletonBlock className="h-3 w-36" />
+                  <div className="flex items-center gap-2">
+                    <SkeletonBlock className="h-7 w-8" />
+                    <SkeletonBlock className="h-3 w-16" />
+                  </div>
+                </div>
+                <SkeletonBlock className="h-[60px] w-[60px] rounded-full" />
+              </div>
+            ) : <>
+              <div>
+                <p className="text-2xs uppercase tracking-wider font-semibold text-slate-500">
+                  Certificates Issued
+                </p>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-slate-900">
+                    {totalCertificates}
+                  </span>
+                  <span className="text-xs text-amber-600 font-medium">Printed/Ready</span>
+                </div>
+              </div>
+              <KpiPieChart value={totalCertificates} total={totalParticipants} label="Certificates issued" color="#e78a19" />
+            </>}
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-sm transition-shadow">
+          <CardContent className="p-5 flex items-center justify-between">
+            {loading ? (
+              <div aria-hidden="true" className="flex w-full items-center justify-between">
+                <div className="space-y-3">
+                  <SkeletonBlock className="h-3 w-36" />
+                  <div className="flex items-center gap-2">
+                    <SkeletonBlock className="h-7 w-14" />
+                    <SkeletonBlock className="h-3 w-10" />
+                  </div>
+                </div>
+                <SkeletonBlock className="h-[60px] w-[60px] rounded-full" />
+              </div>
+            ) : <>
+              <div>
+                <p className="text-2xs uppercase tracking-wider font-semibold text-slate-500">
+                  Member API Match Rate
+                </p>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-emerald-700">
+                    {apiMatchPercentage === null ? '—' : `${apiMatchPercentage}%`}
+                  </span>
+                  {apiMatchPercentage !== null && (
+                    <span className="text-xs text-emerald-600 font-medium flex items-center gap-0.5">
+                      <TrendingUp className="w-3 h-3" /> Live
+                    </span>
+                  )}
+                </div>
+              </div>
+              <KpiPieChart value={totalVerified} total={totalParticipants} label="Member API match rate" color="#0f8d91" />
+            </>}
           </CardContent>
         </Card>
       </div>
@@ -315,7 +372,29 @@ export default function DashboardPage() {
               </Link>
             </CardHeader>
             <CardContent className="p-0">
-              {events.length === 0 ? (
+              {loading ? (
+                <div role="status" aria-label="Loading recent events" aria-busy="true" className="divide-y divide-slate-100">
+                  {Array.from({ length: 3 }, (_, index) => (
+                    <div aria-hidden="true" className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center sm:p-5" key={index}>
+                      <div className="min-w-0 flex-1 space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <SkeletonBlock className="h-4 w-40 max-w-full" />
+                          <SkeletonBlock className="h-6 w-20 rounded-full" />
+                          <SkeletonBlock className="h-6 w-24 rounded-full" />
+                        </div>
+                        <SkeletonBlock className="h-3 w-64 max-w-full" />
+                      </div>
+                      <div className="flex shrink-0 items-center justify-between gap-4 sm:justify-end">
+                        <div className="space-y-2 text-right">
+                          <SkeletonBlock className="h-3 w-10" />
+                          <SkeletonBlock className="h-3 w-14" />
+                        </div>
+                        <SkeletonBlock className="h-10 w-20 rounded-lg" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : events.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-400">
                   No events found for this auxiliary.
                 </div>
@@ -381,10 +460,24 @@ export default function DashboardPage() {
               </Link>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
-              {auditLogs.slice(0, 5).map((log) => (
+              {loading ? (
+                <div role="status" aria-label="Loading recent audit activity" aria-busy="true" className="space-y-3">
+                  {Array.from({ length: 4 }, (_, index) => (
+                    <div aria-hidden="true" className="space-y-3 rounded-lg border border-slate-100 bg-slate-50/50 p-3" key={index}>
+                      <div className="flex items-center justify-between gap-3">
+                        <SkeletonBlock className="h-4 w-36 max-w-[55%]" />
+                        <SkeletonBlock className="h-3 w-28 max-w-[40%]" />
+                      </div>
+                      <SkeletonBlock className="h-3 w-full" />
+                      <SkeletonBlock className="h-3 w-2/3" />
+                      <SkeletonBlock className="h-3 w-24" />
+                    </div>
+                  ))}
+                </div>
+              ) : auditLogs.slice(0, 5).map((log) => (
                 <div
                   key={log.id}
-                  className="p-3 rounded-lg border border-slate-100 bg-slate-50/50 space-y-1"
+                  className="glass-surface p-3 rounded-lg space-y-1"
                 >
                   <div className="flex items-center justify-between text-2xs">
                     <span className="font-bold text-slate-800">{log.action}</span>

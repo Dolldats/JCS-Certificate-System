@@ -14,6 +14,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog';
 import { processSignatureImage } from '../../../lib/utils';
 import { CertificatePreview } from '../../../components/certificates/CertificatePreview';
+import { TemplatePillsLoadingSkeleton } from '../../../components/ui/LoadingSkeletons';
 import {
   Save,
   Check,
@@ -317,10 +318,7 @@ export default function TemplatesPage() {
 
       {/* Template Selector Pills */}
       {isLoadingTemplates && templates.length === 0 ? (
-        <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading certificate templates">
-          <span className="dual-ring-spinner" aria-hidden="true" />
-          <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
-        </div>
+        <TemplatePillsLoadingSkeleton />
       ) : <div className="flex items-center gap-2 overflow-x-auto pb-2">
         {templates.map((tmpl) => {
           const isSelected = tmpl.id === selectedTemplateId;
@@ -331,7 +329,7 @@ export default function TemplatesPage() {
               className={`px-4 py-2.5 rounded-xl border text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-2 ${
                 isSelected
                   ? 'bg-emerald-800 text-white border-emerald-700 shadow-sm'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  : 'glass-control text-slate-700 border-slate-200'
               }`}
             >
               <span
@@ -347,7 +345,7 @@ export default function TemplatesPage() {
 
       {/* Preview-only (default): just the certificate. Hover reveals Edit Template. */}
       {currentTemplate && !isEditing && (
-        <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="glass-surface group relative overflow-hidden rounded-2xl shadow-sm">
           <CertificatePreview
             template={currentTemplate}
             previewMode={true}
@@ -597,7 +595,7 @@ export default function TemplatesPage() {
                             className={`p-2 rounded-xl border-2 text-left cursor-pointer transition-all ${
                               isActive
                                 ? 'border-emerald-600 bg-emerald-50/60 shadow-xs'
-                                : 'border-slate-200 bg-white hover:border-slate-400'
+                                : 'glass-control border-slate-200 hover:border-slate-400'
                             }`}
                           >
                             {option.thumb}
@@ -639,7 +637,7 @@ export default function TemplatesPage() {
                               backgroundColor: preset.bg,
                             })
                           }
-                          className="p-2 rounded-lg border border-slate-200 hover:border-slate-400 bg-slate-50/50 flex items-center gap-2 text-left cursor-pointer transition-colors"
+                          className="glass-control p-2 rounded-lg border border-slate-200 hover:border-slate-400 flex items-center gap-2 text-left cursor-pointer transition-colors"
                         >
                           <div className="flex -space-x-1 shrink-0">
                             <span

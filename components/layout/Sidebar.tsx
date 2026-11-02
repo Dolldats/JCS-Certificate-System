@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
+import { Auxiliary } from '../../types';
+import { getAuxiliaryLabel } from '../../lib/auxiliaryLabels';
 import {
   LayoutDashboard,
   CalendarDays,
@@ -25,9 +27,17 @@ interface SidebarProps {
 
 export function Sidebar({ onCloseMobile, collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, activeAuxiliary, setActiveAuxiliary } = useAuth();
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const mobileAuxiliaries: (Auxiliary | 'All')[] = [
+    'All',
+    'Khuddam',
+    'Ansarullah',
+    'Lajna',
+    'Nasra',
+    'Atfal',
+  ];
 
   const navItems = [
     {
@@ -134,6 +144,27 @@ export function Sidebar({ onCloseMobile, collapsed = false, onToggleCollapse }: 
           </button>
         )}
       </div>
+
+      {onCloseMobile && isSuperAdmin && (
+        <div className="mx-3 mt-3 rounded-xl border border-emerald-200/70 bg-emerald-50/70 p-3 lg:hidden">
+          <label htmlFor="mobile-auxiliary-scope" className="mb-1.5 block text-[11px] font-semibold text-emerald-900">
+            Auxiliary view
+          </label>
+          <select
+            id="mobile-auxiliary-scope"
+            value={activeAuxiliary}
+            onChange={(event) => {
+              setActiveAuxiliary(event.target.value as Auxiliary | 'All');
+              onCloseMobile();
+            }}
+            className="glass-control w-full rounded-lg border border-emerald-200 px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15"
+          >
+            {mobileAuxiliaries.map((auxiliary) => (
+              <option key={auxiliary} value={auxiliary}>{getAuxiliaryLabel(auxiliary)}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Nav Links */}
       <nav className={cn('flex-1 py-4 space-y-1 overflow-y-auto', collapsed ? 'px-2' : 'px-3')}>

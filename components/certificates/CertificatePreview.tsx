@@ -204,7 +204,7 @@ export function CertificatePreview({
   return (
     <div className="flex flex-col items-center w-full">
       {showActions && (
-        <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 mb-4 print:hidden bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+        <div className="glass-surface w-full flex flex-col sm:flex-row items-center justify-between gap-3 mb-4 print:hidden p-3.5 rounded-xl shadow-xs">
           <div className="flex items-center gap-2.5">
             <span className="text-xs font-semibold text-slate-700">
               Serial Number: <span className="font-mono text-emerald-700 font-bold">{certNumber}</span>

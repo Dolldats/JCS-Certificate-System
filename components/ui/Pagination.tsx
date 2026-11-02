@@ -74,7 +74,7 @@ export function Pagination({
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
+        'glass-surface flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
         className
       )}
     >
@@ -89,7 +89,7 @@ export function Pagination({
             value={pageSize}
             disabled={isLoading}
             onChange={(event) => onPageSizeChange(Number(event.target.value))}
-            className="cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-800 transition-colors hover:bg-slate-50 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="glass-control cursor-pointer appearance-none rounded-lg border border-slate-300 py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-800 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {PAGE_SIZE_OPTIONS.map((option) => (
               <option key={option} value={option}>
@@ -116,7 +116,7 @@ export function Pagination({
       </div>
 
       {/* Page buttons */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between gap-1 sm:justify-start">
         <button
           type="button"
           onClick={() => go(safePage - 1)}
@@ -127,33 +127,39 @@ export function Pagination({
           <ChevronLeft className="h-4 w-4" />
         </button>
 
-        {pageNumbers.map((entry, index) =>
-          entry === 'gap' ? (
-            <span
-              key={`gap-${index}`}
-              aria-hidden="true"
-              className="px-1 text-xs text-slate-400 select-none"
-            >
-              …
-            </span>
-          ) : (
-            <button
-              key={entry}
-              type="button"
-              onClick={() => go(entry)}
-              disabled={isLoading}
-              aria-current={entry === safePage ? 'page' : undefined}
-              className={cn(
-                'flex h-8 min-w-8 cursor-pointer items-center justify-center rounded-lg px-2 text-xs font-semibold transition-colors',
-                entry === safePage
-                  ? 'bg-emerald-700 text-white shadow-sm'
-                  : 'text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
-              )}
-            >
-              {entry}
-            </button>
-          )
-        )}
+        <div className="hidden items-center gap-1 sm:flex">
+          {pageNumbers.map((entry, index) =>
+            entry === 'gap' ? (
+              <span
+                key={`gap-${index}`}
+                aria-hidden="true"
+                className="px-1 text-xs text-slate-400 select-none"
+              >
+                …
+              </span>
+            ) : (
+              <button
+                key={entry}
+                type="button"
+                onClick={() => go(entry)}
+                disabled={isLoading}
+                aria-current={entry === safePage ? 'page' : undefined}
+                className={cn(
+                  'flex h-8 min-w-8 cursor-pointer items-center justify-center rounded-lg px-2 text-xs font-semibold transition-colors',
+                  entry === safePage
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60'
+                )}
+              >
+                {entry}
+              </button>
+            )
+          )}
+        </div>
+
+        <span className="px-2 text-xs font-medium tabular-nums text-slate-500 sm:hidden" aria-live="polite">
+          {safePage} / {totalPages}
+        </span>
 
         <button
           type="button"

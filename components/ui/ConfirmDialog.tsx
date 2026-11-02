@@ -125,7 +125,7 @@ export function ConfirmDialog({
       <div className="flex min-h-full items-center justify-center p-4 text-center">
         <div
           className={cn(
-            'relative w-full max-w-sm rounded-[28px] bg-white px-6 py-8 shadow-2xl transition-all duration-200',
+            'glass-surface relative w-full max-w-sm rounded-[28px] px-6 py-8 shadow-2xl transition-all duration-200',
             mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
           )}
           onClick={(e) => e.stopPropagation()}
@@ -159,7 +159,7 @@ export function ConfirmDialog({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 cursor-pointer rounded-full border border-blue-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                  className="glass-control flex-1 cursor-pointer rounded-full border border-blue-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors"
                 >
                   {cancelLabel}
                 </button>
@@ -219,7 +219,7 @@ export function ConfirmDialog({
                 <button
                   type="button"
                   onClick={() => setStage('confirm')}
-                  className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer"
+                  className="glass-control cursor-pointer rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors"
                 >
                   Try again
                 </button>

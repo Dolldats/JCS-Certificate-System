@@ -1,7 +1,7 @@
 export function AuthTransitionLoading({ title }: { title: string }) {
   return (
     <div className="app-background flex min-h-screen w-full items-center justify-center" role="status" aria-label={title}>
-      <div className="flex min-w-56 flex-col items-center rounded-2xl border border-white/70 bg-white/95 px-8 py-7 text-center shadow-2xl dark:border-white/10 dark:bg-slate-900/95">
+      <div className="glass-surface flex min-w-56 flex-col items-center rounded-2xl px-8 py-7 text-center shadow-2xl">
         <div className="login-logo-loader relative mb-4 grid h-[76px] w-[76px] place-items-center">
           <span aria-hidden="true" className="login-logo-loader__ring absolute inset-0 rounded-full border-[3px] border-emerald-100 border-t-emerald-600" />
           <span aria-hidden="true" className="absolute inset-[7px] rounded-full bg-emerald-500/10" />

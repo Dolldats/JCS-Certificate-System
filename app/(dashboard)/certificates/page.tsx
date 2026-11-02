@@ -21,6 +21,7 @@ import {
   Auxiliary,
 } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
+import { TableLoadingSkeleton } from '../../../components/ui/LoadingSkeletons';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -532,7 +533,7 @@ function CertificatesContent() {
       </Card>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+      <div className="glass-surface flex flex-col sm:flex-row gap-3 items-center justify-between p-4 rounded-xl shadow-2xs">
         <div className="w-full sm:w-80">
           <Input
             placeholder="Search by serial #, participant, or event..."
@@ -579,10 +580,7 @@ function CertificatesContent() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading issued certificates">
-              <span className="dual-ring-spinner" aria-hidden="true" />
-              <span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span>
-            </div>
+            <TableLoadingSkeleton label="Loading issued certificates" columns={7} />
           ) : filteredCertificates.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <Award className="w-12 h-12 text-slate-300 mx-auto" />
@@ -967,7 +965,7 @@ function CertificatesContent() {
 
 export default function CertificatesPage() {
   return (
-    <Suspense fallback={<div className="grid min-h-36 place-items-center p-12" role="status" aria-label="Loading certificates"><span className="dual-ring-spinner" aria-hidden="true" /><span className="text-sm text-slate-500 dark:text-slate-400">Loading...</span></div>}>
+    <Suspense fallback={<Card><CardContent className="p-0"><TableLoadingSkeleton label="Loading certificates" columns={7} /></CardContent></Card>}>
       <CertificatesContent />
     </Suspense>
   );

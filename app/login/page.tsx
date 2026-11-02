@@ -21,7 +21,7 @@ export default function LoginPage() {
   }, [authTransition, completeAuthTransition]);
 
   const inputClass =
-    'w-full rounded-full border border-slate-300 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15';
+    'glass-control w-full rounded-full border border-slate-300 py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +45,7 @@ export default function LoginPage() {
           aria-live="polite"
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 px-6 backdrop-blur-sm"
         >
-          <div className="flex min-w-56 flex-col items-center rounded-2xl border border-white/70 bg-white/95 px-8 py-7 text-center shadow-2xl dark:border-white/10 dark:bg-slate-900/95">
+          <div className="glass-surface flex min-w-56 flex-col items-center rounded-2xl px-8 py-7 text-center shadow-2xl">
             <div className="login-logo-loader relative mb-4 grid h-[76px] w-[76px] place-items-center">
               <span aria-hidden="true" className="login-logo-loader__ring absolute inset-0 rounded-full border-[3px] border-emerald-100 border-t-emerald-600" />
               <span aria-hidden="true" className="absolute inset-[7px] rounded-full bg-emerald-500/10" />

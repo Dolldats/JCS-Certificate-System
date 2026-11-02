@@ -18,7 +18,7 @@ const BULLETS = [
 
 export function AuthSplitShell({ children, showMobileBrand = true, wideForm = false }: AuthSplitShellProps) {
   return (
-    <div className="grid min-h-dvh grid-cols-1 border-t-[3px] border-emerald-900 bg-white lg:grid-cols-2">
+    <div className="app-background grid min-h-dvh grid-cols-1 border-t-[3px] border-emerald-900 lg:grid-cols-2">
       {/* Left — dark brand panel */}
       <div className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-emerald-950 via-[#0b2e23] to-slate-950 text-white px-12 py-8">
         <div
