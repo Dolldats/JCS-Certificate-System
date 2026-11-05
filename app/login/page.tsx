@@ -20,8 +20,7 @@ export default function LoginPage() {
     if (authTransition === 'signing-out') completeAuthTransition();
   }, [authTransition, completeAuthTransition]);
 
-  const inputClass =
-    'glass-control w-full rounded-full border border-slate-300 py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15';
+  const inputClass = 'jcs-login-input w-full rounded-full border py-3 pl-10 pr-4 text-sm outline-none transition-colors';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +36,7 @@ export default function LoginPage() {
   };
 
   return (
-    <AuthSplitShell showMobileBrand={false} wideForm>
+    <AuthSplitShell variant="login" wideForm>
       {/* Cover the form during authentication; success redirects to the role-specific portal. */}
       {loading && (
         <div
@@ -61,18 +60,18 @@ export default function LoginPage() {
           </div>
         </div>
       )}
-      <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Sign in to Jama&apos;at Certify</h2>
-      <p className="mt-1 text-sm text-slate-500">
+      <h2 className="jcs-login-title text-2xl font-semibold tracking-tight sm:text-[28px]">Sign in</h2>
+      <p className="jcs-login-subtitle mt-2 text-sm">
         Sign in to your account to continue
       </p>
 
-      <form onSubmit={handleLogin} className="mt-7 space-y-4">
+      <form onSubmit={handleLogin} className="jcs-login-form mt-7 space-y-4">
         <div>
-          <label htmlFor="member-id" className="mb-2 block text-sm font-medium text-slate-700">
+          <label htmlFor="member-id" className="jcs-login-label mb-2 block text-sm font-medium">
             Member ID
           </label>
           <div className="relative">
-            <UserRound aria-hidden="true" className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <UserRound aria-hidden="true" className="jcs-login-icon absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2" />
             <input
               id="member-id"
               name="memberId"
@@ -90,14 +89,15 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <label htmlFor="password" className="mb-2 block text-sm font-medium text-slate-700">Password</label>
+          <label htmlFor="password" className="jcs-login-label mb-2 block text-sm font-medium">Password</label>
           <div className="relative">
-            <LockKeyhole aria-hidden="true" className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <LockKeyhole aria-hidden="true" className="jcs-login-icon absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2" />
             <input
               id="password"
               name="password"
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
+              placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -106,7 +106,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              className="jcs-login-icon absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer transition-colors"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
               aria-pressed={showPassword}
             >
@@ -119,7 +119,7 @@ export default function LoginPage() {
           <p
             role="alert"
             aria-live="assertive"
-            className="text-sm text-rose-600 font-medium"
+            className="jcs-login-error rounded-xl border px-3.5 py-3 text-sm font-medium"
           >
             {error}
           </p>
@@ -127,13 +127,16 @@ export default function LoginPage() {
 
         <Button
           type="submit"
-          className="h-12 w-full rounded-full bg-gradient-to-r from-emerald-950 via-[#0b2e23] to-slate-950 text-base font-semibold hover:from-emerald-900 hover:via-[#103b2d] hover:to-slate-900"
+          className="jcs-login-submit h-12 w-full rounded-full text-base font-semibold shadow-none"
           size="lg"
           isLoading={loading}
         >
           Sign in
         </Button>
       </form>
+      <p className="jcs-login-note mt-5 text-center text-[11px] leading-5">
+        Sign in with the Member ID and password assigned to your Jama&apos;at account.
+      </p>
     </AuthSplitShell>
   );
 }
