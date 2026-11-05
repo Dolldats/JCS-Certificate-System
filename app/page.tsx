@@ -2,8 +2,12 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
-import { CountUp } from '../components/ui/CountUp';
+import { Badge } from '../components/shadcn/badge';
+import { Card, CardContent } from '../components/shadcn/card';
+import { buttonVariants } from '../components/shadcn/button';
+import { cn } from '../lib/utils';
 import {
+  ArrowDownRight,
   ArrowRight,
   Award,
   BadgeCheck,
@@ -12,7 +16,6 @@ import {
   History,
   Printer,
   ShieldCheck,
-  Sparkles,
 } from 'lucide-react';
 
 export const metadata: Metadata = {
@@ -21,413 +24,275 @@ export const metadata: Metadata = {
     'Create events, verify Member IDs, and issue print-ready certificates across Atfal, Khuddam, Ansarullah, Lajna and Nasra.',
 };
 
-const AUXILIARIES = ['Atfal', 'Khuddam', 'Ansarullah', 'Lajna', 'Nasra'];
+const auxiliaries = ['Atfal', 'Khuddam', 'Ansarullah', 'Lajna', 'Nasra'];
 
-// Hero figures — these count up when the section scrolls into view.
-const HERO_STATS = [
-  {
-    value: 5,
-    prefix: '',
-    suffix: '',
-    label: 'Auxiliaries',
-    description: 'Atfal to Nasra, each with its own identity',
-  },
-  {
-    value: 4,
-    prefix: 'A',
-    suffix: '',
-    label: 'Print-ready',
-    description: 'A4 landscape, exact colour output',
-  },
-  {
-    value: 100,
-    prefix: '',
-    suffix: '%',
-    label: 'Audited',
-    description: 'Every action logged with admin and time',
-  },
+const stats = [
+  { value: '05', label: 'auxiliaries', note: 'one shared workspace' },
+  { value: 'A4', label: 'print format', note: 'landscape-ready output' },
+  { value: '01', label: 'clear workflow', note: 'create, verify, issue' },
 ];
 
-const FEATURES = [
+const features = [
   {
     icon: CalendarDays,
-    title: 'Event management',
-    text: 'Create Ijtemas, seminars and courses by Mulk, District, Ilaqa, Dila or Jamaat with dates, venue and theme.',
+    title: 'Events with the right structure',
+    text: 'Set dates, venues and themes, then organize by Mulk, District, Ilaqa, Dila or Jamaat.',
+    style: 'feature-sage lg:col-span-7',
   },
   {
     icon: BadgeCheck,
-    title: 'Member ID verification',
-    text: 'Verify participants against the central Jamaat registry — Valid, Not Found, Invalid or Duplicate.',
+    title: 'Member IDs checked at the source',
+    text: 'Verify against central records and spot valid, missing, invalid or duplicate entries.',
+    style: 'feature-forest lg:col-span-5',
   },
   {
     icon: Award,
-    title: 'Certificate Studio',
-    text: 'Design on-brand templates per auxiliary with colors, logos, signatures and A4 landscape print output.',
+    title: 'A certificate studio that respects your identity',
+    text: 'Give each auxiliary its own colors, marks, signatures and polished A4 landscape templates.',
+    style: 'feature-gold lg:col-span-5',
   },
   {
     icon: Printer,
-    title: 'Bulk issue & print',
-    text: 'Assign certificate types, generate numbers like JCS-ATF-2025-0042, and print crisp A4 certificates.',
+    title: 'Issue a full event in a few steps',
+    text: 'Assign certificate types, generate unique numbers and print crisp certificates in bulk.',
+    style: 'feature-plain lg:col-span-7',
   },
   {
     icon: History,
-    title: 'Full audit trail',
-    text: 'Every login, verification, generation and revocation is logged with admin, role and timestamp.',
+    title: 'A clear history of every action',
+    text: 'Review logins, verification, generation and revocation with the admin and timestamp.',
+    style: 'feature-plain lg:col-span-6',
   },
   {
     icon: ShieldCheck,
-    title: 'Role-based access',
-    text: 'Super Admins see all five auxiliaries; General Admins are scoped to their assigned Majlis.',
+    title: 'Access shaped around each role',
+    text: 'Super Admins see all auxiliaries. General Admins stay within their assigned Majlis.',
+    style: 'feature-sage lg:col-span-6',
   },
 ];
 
-const STEPS = [
+const steps = [
   {
-    step: '01',
-    title: 'Create an event',
-    text: 'Set the auxiliary, org level, venue, dates and theme. Everything starts from an event.',
+    number: '01',
+    title: 'Create the event',
+    text: 'Choose an auxiliary, set the venue and dates, and make the event yours.',
   },
   {
-    step: '02',
+    number: '02',
     title: 'Verify participants',
-    text: 'Import or add Member IDs and verify each member in one click against central records.',
+    text: 'Add Member IDs and check each participant against central records.',
   },
   {
-    step: '03',
-    title: 'Issue & print',
-    text: 'Pick a template, assign certificate types, generate numbers and print A4 landscape certificates.',
+    number: '03',
+    title: 'Issue and print',
+    text: 'Select a template, generate certificate numbers, then print in A4 landscape.',
   },
 ];
 
 export default function LandingPage() {
   return (
-    <div className="landing-page min-h-screen text-slate-900">
-      {/* Sticky white navigation bar, styled to match the dashboard header. */}
-      <header className="glass-surface sticky top-0 z-50 border-x-0 border-t-0">
-        <div className="mx-auto flex min-h-[68px] max-w-[1440px] items-center justify-between gap-2 px-3 sm:gap-3 sm:px-6">
-          <Link href="/" className="flex min-w-0 shrink items-center gap-2 sm:gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow">
-              <Image
-                src="/ahmadiyyah_logo.png"
-                alt="Ahmadiyyah logo"
-                width={36}
-                height={36}
-                className="h-full w-full rounded-full object-contain"
-                priority
-              />
+    <main className="jcs-site min-h-dvh">
+      <header className="jcs-nav sticky top-0 z-50 border-b">
+        <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
+          <Link href="/" aria-label="Jama'at Certify home" className="flex shrink-0 items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-white p-0.5">
+              <Image src="/ahmadiyyah_logo.png" alt="" width={36} height={36} className="h-full w-full rounded-full object-contain" priority />
             </span>
-            <span className="whitespace-nowrap text-[10px] font-bold leading-tight tracking-[0.12em] text-slate-900 sm:text-xs sm:tracking-[0.18em]">
-              JAMA&apos;AT<span className="sm:hidden"><br /></span><span className="hidden sm:inline"> </span>CERTIFY
-            </span>
+            <span className="text-xs font-bold tracking-[0.16em] sm:text-sm">JAMA&apos;AT CERTIFY</span>
           </Link>
 
-          <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
-            <a href="#features" className="transition-colors hover:text-emerald-700">
-              Features
-            </a>
-            <a href="#how-it-works" className="transition-colors hover:text-emerald-700">
-              How it works
-            </a>
-            <a href="#templates" className="transition-colors hover:text-emerald-700">
-              Templates
-            </a>
+          <nav aria-label="Main navigation" className="hidden items-center gap-8 text-sm text-[var(--jcs-muted)] md:flex">
+            <a href="#features" className="transition-colors hover:text-[var(--jcs-ink)]">What it does</a>
+            <a href="#workflow" className="transition-colors hover:text-[var(--jcs-ink)]">Workflow</a>
+            <a href="#templates" className="transition-colors hover:text-[var(--jcs-ink)]">Certificates</a>
           </nav>
 
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <ThemeToggle className="shrink-0" />
-            <Link
-              href="/login"
-              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-700 px-3 py-2 text-xs font-semibold whitespace-nowrap text-white shadow-sm transition-colors hover:bg-emerald-800 sm:gap-1.5 sm:px-4 sm:text-sm"
-            >
-              Sign in
-              <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link href="/login" className={cn(buttonVariants.primary, 'min-h-10 px-4 text-xs sm:text-sm')}>
+              Sign in <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-emerald-950 via-[#0b2e23] to-slate-950 text-white">
-        <div
-          className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full"
-          style={{
-            background:
-              'radial-gradient(circle, rgba(52,211,153,0.18) 0%, transparent 70%)',
-          }}
-        />
-        <div
-          className="pointer-events-none absolute -bottom-40 -right-24 h-[28rem] w-[28rem] rounded-full"
-          style={{
-            background:
-              'radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)',
-          }}
-        />
-
-        <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:items-center lg:py-24">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-600/60 bg-emerald-700/40 px-3 py-1 text-xs font-semibold text-amber-300">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Atfal • Khuddam • Ansarullah • Lajna • Nasra</span>
-            </div>
-            <h1 className="mt-5 text-3xl font-bold leading-tight tracking-tight sm:text-5xl">
-              Certificates for every Jama&apos;at event, done right.
+      <section className="jcs-hero relative overflow-hidden">
+        <div aria-hidden="true" className="jcs-hero-rule absolute inset-y-0 right-0 hidden w-[42%] lg:block" />
+        <div className="relative mx-auto grid max-w-7xl gap-12 px-5 pb-16 pt-14 sm:px-8 sm:pb-20 sm:pt-20 lg:grid-cols-[0.94fr_1.06fr] lg:items-center lg:gap-16 lg:py-20">
+          <div className="relative z-10">
+            <Badge className="jcs-hero-badge mb-6 gap-2 border-white/20 bg-white/5 text-emerald-100">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
+              For every Jama&apos;at auxiliary
+            </Badge>
+            <h1 className="max-w-[650px] text-4xl font-semibold leading-[1.06] tracking-[-0.045em] text-[#f5f3e9] sm:text-5xl lg:text-[62px]">
+              Certificates for every Jama&apos;at event.
             </h1>
-            <p className="mt-4 max-w-xl text-sm leading-relaxed text-emerald-100/80 sm:text-base">
-              Jama&apos;at Certify is the central workspace to create events,
-              verify Member IDs against central records, and issue beautiful
-              print-ready certificates — with a full audit trail.
+            <p className="jcs-hero-copy mt-6 max-w-[520px] text-base leading-7 sm:text-lg">
+              Verify members, manage gatherings and issue polished certificates from one trusted workspace.
             </p>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <a href="#workflow" className={cn(buttonVariants.secondary, 'min-h-12 px-5')}>
+                Explore the workflow <ArrowDownRight className="h-4 w-4" />
+              </a>
+              <a href="#templates" className="jcs-hero-secondary inline-flex min-h-12 items-center gap-2 rounded-full px-4 text-sm font-medium transition-colors">
+                See certificate designs <ArrowRight className="h-4 w-4" />
+              </a>
+            </div>
 
-            <div className="relative mt-8 overflow-hidden rounded-2xl border border-white/15 bg-white/[0.06] backdrop-blur-sm">
-              {/* Gold accent line across the top of the panel */}
-              <div
-                aria-hidden="true"
-                className="absolute inset-x-0 top-0 h-px"
-                style={{
-                  background:
-                    'linear-gradient(90deg, transparent 0%, rgba(245,158,11,0.9) 50%, transparent 100%)',
-                }}
-              />
-              <div className="grid grid-cols-3 divide-x divide-white/10">
-                {HERO_STATS.map((stat) => (
-                  <div key={stat.label} className="px-2 py-4 text-center sm:px-4 sm:py-5">
-                    <div className="text-3xl font-bold leading-none text-amber-400 sm:text-4xl">
-                      {stat.prefix ? (
-                        <CountUp
-                          to={stat.value}
-                          prefix={stat.prefix}
-                          suffix={stat.suffix}
-                        />
-                      ) : (
-                        <CountUp to={stat.value} suffix={stat.suffix} />
-                      )}
-                    </div>
-                    <div className="mt-2.5 text-[10px] font-bold uppercase tracking-normal text-white sm:text-xs sm:tracking-wider">
-                      {stat.label}
-                    </div>
-                    <div className="mt-1 text-[10px] leading-snug text-emerald-100/65 sm:text-[11px] sm:text-emerald-100/55">
-                      {stat.description}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="mt-12 grid max-w-[540px] grid-cols-3 divide-x divide-white/15 border-t border-white/15 pt-6">
+              {stats.map((stat) => (
+                <div key={stat.label} className="pr-3 first:pr-3 sm:pr-5">
+                  <p className="text-2xl font-semibold tracking-tight text-[#edcf78] sm:text-3xl">{stat.value}</p>
+                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.11em] text-white">{stat.label}</p>
+                  <p className="mt-1 text-[10px] leading-snug text-emerald-100/65 sm:text-xs">{stat.note}</p>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="relative">
-            <div className="overflow-hidden rounded-2xl border border-white/15 bg-white shadow-2xl">
+          <div className="relative mx-auto w-full max-w-[680px] lg:ml-auto">
+            <div className="jcs-certificate-frame relative overflow-hidden rounded-[18px] p-2 sm:p-3">
               <Image
                 src="/certificate-design1.png"
-                alt="Sample Jama'at certificate design"
+                alt="Sample certificate prepared in Jama'at Certify"
                 width={1200}
                 height={850}
-                className="h-auto w-full object-cover"
+                className="relative z-10 h-auto w-full rounded-xl"
                 priority
               />
             </div>
-            <div className="glass-surface absolute -bottom-4 left-4 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 shadow-lg">
-              <FileBadge className="h-4 w-4 text-emerald-700" />
-              JCS-ATF-2025-0042 • Verified & issued
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Auxiliaries */}
-      <section className="glass-band border-b">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-2 px-4 py-6 sm:px-6">
-          <span className="mr-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Built for all auxiliaries:
-          </span>
-          {AUXILIARIES.map((aux) => (
-            <span
-              key={aux}
-              className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800"
-            >
-              {aux}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">
-          What you can do
-        </p>
-        <h2 className="mt-2 max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
-          One workspace from event creation to printed certificate
-        </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-500">
-          No spreadsheets, no manual name-typing on designs. Verify once, then
-          generate consistent certificates with numbers, themes and signatures.
-        </p>
-
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((f) => (
-            <div
-              key={f.title}
-              className="glass-surface rounded-2xl p-5 shadow-sm transition-shadow hover:shadow-md"
-            >
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-                <f.icon className="h-5 w-5" />
+            <div className="jcs-issued-note absolute -bottom-5 left-4 z-20 flex items-center gap-3 rounded-xl px-4 py-3 shadow-lg sm:left-8">
+              <span className="jcs-issued-icon flex h-9 w-9 items-center justify-center rounded-lg"><FileBadge className="h-4 w-4" /></span>
+              <span>
+                <span className="block text-xs font-semibold">Certificate issued</span>
+                <span className="jcs-issued-meta mt-0.5 block text-[11px]">JCS-ATF-2025-0042 · Verified</span>
               </span>
-              <h3 className="mt-4 text-sm font-bold">{f.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
-                {f.text}
-              </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-label="Auxiliaries supported" className="jcs-auxiliaries border-b">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-2 px-5 py-5 sm:gap-3 sm:px-8">
+          <span className="mr-2 text-xs font-semibold text-[var(--jcs-muted)]">One system for</span>
+          {auxiliaries.map((name) => (
+            <Badge key={name} className="jcs-aux-badge border px-3 py-1.5 text-xs">{name}</Badge>
           ))}
         </div>
       </section>
 
-      {/* How it works */}
-      <section id="how-it-works" className="glass-band border-y">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">
-            How it works
-          </p>
-          <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-            Three steps to issued certificates
+      <section id="features" className="mx-auto max-w-7xl scroll-mt-24 px-5 py-16 sm:px-8 sm:py-24">
+        <div className="max-w-3xl">
+          <h2 className="text-3xl font-semibold leading-tight tracking-[-0.035em] text-[var(--jcs-ink)] sm:text-4xl">
+            The details are handled, so the moment can matter.
           </h2>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--jcs-muted)]">
+            From the first participant check to the final printed page, keep event records accurate and certificates consistent.
+          </p>
+        </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {STEPS.map((s) => (
-              <div
-                key={s.step}
-                className="glass-surface rounded-2xl p-6"
-              >
-                <div className="text-sm font-black tracking-widest text-emerald-600">
-                  {s.step}
+        <div className="mt-10 grid gap-4 lg:grid-cols-12">
+          {features.map((feature) => (
+            <Card key={feature.title} className={cn('jcs-feature group min-h-[218px] overflow-hidden rounded-2xl border p-6 transition-transform duration-200 hover:-translate-y-1 sm:p-8', feature.style)}>
+              <CardContent className="flex h-full flex-col p-0">
+                <div className="flex items-start justify-between gap-4">
+                  <span className="jcs-feature-icon flex h-11 w-11 items-center justify-center rounded-xl">
+                    <feature.icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <ArrowRight aria-hidden="true" className="jcs-feature-arrow mt-1 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
                 </div>
-                <h3 className="mt-2 text-base font-bold">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                  {s.text}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-800"
-            >
-              Start with an event
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/login"
-              className="glass-control inline-flex items-center gap-2 rounded-lg border px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors"
-            >
-              Sign in to continue
-            </Link>
-          </div>
+                <div className="mt-auto pt-8">
+                  <h3 className="text-lg font-semibold tracking-tight">{feature.title}</h3>
+                  <p className="jcs-feature-copy mt-2 max-w-[62ch] text-sm leading-6">{feature.text}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </section>
 
-      {/* Templates */}
-      <section id="templates" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <div className="grid items-center gap-8 lg:grid-cols-2">
+      <section id="workflow" className="jcs-workflow scroll-mt-24 border-y">
+        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[0.72fr_1.28fr]">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">
-              Certificate Studio
-            </p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-              Official-looking designs, ready for A4 landscape printing
+            <p className="text-sm font-semibold text-[var(--jcs-brand)]">A clear path from event to keepsake.</p>
+            <h2 className="mt-3 max-w-md text-3xl font-semibold leading-tight tracking-[-0.035em] text-[var(--jcs-ink)] sm:text-4xl">
+              Three steps. One dependable record.
             </h2>
-            <p className="mt-3 text-sm leading-relaxed text-slate-500">
-              Each auxiliary gets its own identity — Atfal green, Khuddam
-              emerald & gold, Lajna teal, Ansarullah navy, Nasra purple — with
-              organization headers, themes, venues and signatories baked in.
-            </p>
-            <ul className="mt-5 space-y-2.5 text-sm text-slate-600">
-              <li className="flex items-center gap-2">
-                <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-600" />
-                10+ prestige layouts with torus rings, seals and watermarks
-              </li>
-              <li className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" />
-                Verification numbers and revocation support
-              </li>
-              <li className="flex items-center gap-2">
-                <Printer className="h-4 w-4 shrink-0 text-emerald-600" />
-                Exact-color A4 landscape print stylesheet included
-              </li>
-            </ul>
-            <div className="mt-6">
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-800"
-              >
-                Open Certificate Studio
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
           </div>
-          <div className="glass-surface overflow-hidden rounded-2xl shadow-lg">
+          <ol className="grid gap-0 md:grid-cols-3">
+            {steps.map((step, index) => (
+              <li key={step.number} className={cn('jcs-step relative border-t py-5 md:border-t-0 md:py-0 md:pl-6', index > 0 && 'md:border-l')}>
+                <span className="text-sm font-semibold tracking-[0.1em] text-[var(--jcs-brand)]">{step.number}</span>
+                <h3 className="mt-5 text-lg font-semibold tracking-tight text-[var(--jcs-ink)]">{step.title}</h3>
+                <p className="mt-2 pr-4 text-sm leading-6 text-[var(--jcs-muted)]">{step.text}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section id="templates" className="mx-auto grid max-w-7xl scroll-mt-24 items-center gap-10 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-2 lg:gap-16">
+        <div>
+          <h2 className="max-w-xl text-3xl font-semibold leading-tight tracking-[-0.035em] text-[var(--jcs-ink)] sm:text-4xl">
+            Official-looking designs, ready for A4 landscape printing.
+          </h2>
+          <p className="mt-4 max-w-xl text-base leading-7 text-[var(--jcs-muted)]">
+            Each auxiliary keeps its own identity, while event details, signatories and verification numbers stay consistent.
+          </p>
+          <ul className="mt-6 space-y-3">
+            {[
+              ['10+ layouts', 'with seals, watermarks and distinctive frames'],
+              ['Verified numbers', 'with revocation support'],
+              ['Print ready', 'with exact-color A4 landscape output'],
+            ].map(([title, text]) => (
+              <li key={title} className="flex items-center gap-3 text-sm text-[var(--jcs-muted)]">
+                <BadgeCheck className="h-4 w-4 shrink-0 text-[var(--jcs-brand)]" />
+                <span><strong className="font-semibold text-[var(--jcs-ink)]">{title}</strong> {text}</span>
+              </li>
+            ))}
+          </ul>
+          <Link href="/login" className={cn(buttonVariants.primary, 'mt-8 min-h-12 px-5')}>
+            Open Certificate Studio <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+        <Card className="jcs-template-card overflow-hidden rounded-[20px] border p-2 sm:p-3">
+          <CardContent className="p-0">
             <Image
               src="/certificate-design2.png"
-              alt="Second sample certificate design"
+              alt="A second certificate template design"
               width={1200}
               height={850}
-              className="h-auto w-full object-cover"
+              className="h-auto w-full rounded-xl"
             />
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="jcs-closing">
+        <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-8 px-5 py-14 sm:px-8 md:flex-row md:items-center md:py-16">
+          <div>
+            <h2 className="max-w-2xl text-2xl font-semibold leading-tight tracking-[-0.03em] text-white sm:text-3xl">
+              Ready to make your next event easier to remember?
+            </h2>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-emerald-100/75">
+              Sign in with your Member ID to create an event and prepare its certificates.
+            </p>
           </div>
+          <Link href="/login" className={cn(buttonVariants.secondary, 'shrink-0 px-5')}>
+            Sign in <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-800 via-emerald-900 to-slate-900 p-8 text-white shadow-lg sm:p-10">
-          <Image
-            src="/ahmadiyyah_logo.png"
-            alt=""
-            aria-hidden="true"
-            width={192}
-            height={192}
-            className="pointer-events-none absolute right-8 top-1/2 h-48 w-48 -translate-y-1/2 rounded-full object-contain opacity-10"
-          />
-          <h2 className="max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
-            Start from the dashboard and issue your first certificate today.
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-emerald-100/80">
-            Sign in with your Member ID, create an Ijtema or seminar, verify
-            participants and print — all in one place.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-emerald-950 transition-colors hover:bg-amber-400"
-            >
-              Sign in
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+      <footer className="jcs-footer border-t">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 py-6 text-xs text-[var(--jcs-muted)] sm:flex-row sm:px-8">
+          <div className="flex items-center gap-2.5">
+            <Image src="/ahmadiyyah_logo.png" alt="" width={24} height={24} className="rounded-full" />
+            <span className="font-semibold text-[var(--jcs-ink)]">Jama&apos;at Certify</span>
           </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="glass-band border-t">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:px-6">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-slate-100">
-              <Image
-                src="/ahmadiyyah_logo.png"
-                alt="Ahmadiyyah logo"
-                width={28}
-                height={28}
-                className="h-full w-full rounded-full object-contain"
-              />
-            </span>
-            <span className="font-semibold text-slate-700">
-              Jama&apos;at Certify
-            </span>
-            <span>© {new Date().getFullYear()} All rights reserved.</span>
-          </div>
+          <span>© {new Date().getFullYear()} · Certificate management for Jama&apos;at events</span>
         </div>
       </footer>
-    </div>
+    </main>
   );
 }
-

@@ -177,17 +177,17 @@ export default function MemberPage() {
   return (
     <main className="app-background min-h-screen min-w-0 px-4 py-5 sm:px-8 sm:py-10">
       <div className="mx-auto max-w-5xl space-y-6 sm:space-y-8 print:hidden">
-        <header className="theme-header sticky top-2 z-40 flex flex-col gap-3 rounded-2xl px-4 py-3 sm:top-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-3.5">
-          <div className="flex min-w-0 items-center gap-3">
-            <img src="/ahmadiyyah_logo.png" alt="Ahmadiyyah logo" className="h-10 w-10 shrink-0 rounded-full bg-white object-contain shadow-sm sm:h-11 sm:w-11" />
+        <header className="theme-header sticky top-2 z-40 flex flex-row items-center justify-between gap-1 rounded-2xl px-3 py-3 sm:top-3 sm:gap-4 sm:px-6 sm:py-3.5">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <img src="/ahmadiyyah_logo.png" alt="Ahmadiyyah logo" className="h-8 w-8 shrink-0 rounded-full bg-white object-contain shadow-sm sm:h-11 sm:w-11" />
             <div className="min-w-0">
-              <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-800 sm:text-xs sm:tracking-[0.14em]">Jama&apos;at Certify</p>
-              <h1 className="truncate text-base font-bold text-slate-900 sm:text-lg">Member Portal</h1>
+              <p className="truncate text-[9px] font-bold uppercase tracking-[0.08em] text-emerald-800 sm:text-xs sm:tracking-[0.14em]">Jama&apos;at Certify</p>
+              <h1 className="truncate text-sm font-bold text-slate-900 sm:text-lg">Member Portal</h1>
             </div>
           </div>
-          <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:shrink-0">
-            <ThemeToggle />
-            <Button variant="ghost" size="sm" className="min-h-10" onClick={logout} leftIcon={<LogOut className="h-4 w-4" />}>
+          <div className="member-header-actions flex w-auto shrink-0 flex-nowrap items-center justify-end gap-1 sm:gap-2">
+            <ThemeToggle className="member-header-theme shrink-0" />
+            <Button variant="ghost" size="sm" className="min-h-9 shrink-0 whitespace-nowrap px-2 text-[11px] sm:min-h-10 sm:px-4 sm:text-sm" onClick={logout} leftIcon={<LogOut className="h-4 w-4" />}>
               Sign out
             </Button>
           </div>
