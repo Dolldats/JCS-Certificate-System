@@ -16,9 +16,9 @@ function Blank({ value, width }: { value?: string; width: number }) {
   return (
     <span
       className={`inline-block border-b border-slate-900 leading-[1.5] px-1.5 text-center align-baseline ${
-        filled ? 'font-bold text-black' : ''
+        filled ? 'font-bold' : ''
       }`}
-      style={{ minWidth: width }}
+      style={{ minWidth: width, color: filled ? 'var(--certificate-name-color)' : undefined, borderBottom: filled ? 'none' : undefined }}
     >
       {filled ? value : ' '}
     </span>
@@ -84,6 +84,7 @@ export function RoyalWaveCertificate({
     <div
       id={`certificate-print-area-${certificate?.id ?? 'preview'}`}
       className="certificate-print-area relative w-full h-full bg-white shadow-2xl rounded-sm overflow-hidden select-none"
+      style={{ '--certificate-name-color': primaryColor } as React.CSSProperties}
     >
       {/* Framed artwork background (waves + gold seal baked in) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -154,7 +155,9 @@ export function RoyalWaveCertificate({
               from <Blank value={jamaat} width={150} /> Muqami,{' '}
               <Blank value={muqami} width={130} />.
             </p>
-            <p>Participated in a week Islamic Vacation Course which took place</p>
+            <p>
+              Participated in the <Blank value={certificate?.eventName} width={210} /> which took place
+            </p>
             <p>
               at <Blank value={venue} width={130} /> from{' '}
               <Blank value={fromPlace} width={105} /> to <Blank value={toPlace} width={130} />.

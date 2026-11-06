@@ -16,9 +16,9 @@ function Blank({ value, width }: { value?: string; width: number }) {
   return (
     <span
       className={`inline-block border-b-[1.5px] border-black leading-[1.5] px-1.5 text-center align-baseline ${
-        filled ? 'font-black text-black' : ''
+        filled ? 'font-black' : ''
       }`}
-      style={{ minWidth: width }}
+      style={{ minWidth: width, color: filled ? 'var(--certificate-name-color)' : undefined, borderBottom: filled ? 'none' : undefined }}
     >
       {filled ? value : ' '}
     </span>
@@ -39,8 +39,6 @@ export function ModernCertificate({
   const salutation = getSalutation(template);
   const eventName = certificate?.eventName || template.eventTitle;
   const theme = certificate?.theme || template.themeTitle;
-  const participationLine =
-    template.participationLine || 'Participated in a week Islamic Vacation Course which took place';
   const certNumber = certificate?.certificateNumber || (previewMode ? 'JCS-ATF-2025-0001' : 'JCS-VERIFIED');
 
   // Colors
@@ -76,9 +74,10 @@ export function ModernCertificate({
       className="certificate-print-area relative w-full h-full bg-white shadow-2xl rounded-sm overflow-hidden select-none"
       style={{
         backgroundColor: bgColor,
+        '--certificate-name-color': primaryColor,
         /* Screen size is driven by the parent scale-to-fit wrapper
            (see CertificatePreview). Print size is forced in globals.css. */
-      }}
+      } as React.CSSProperties}
     >
       {/* 1. Subtle Guilloche / Wavy Background Watermark */}
       {template.showWaveWatermark && (
@@ -270,7 +269,7 @@ export function ModernCertificate({
               <Blank value={jamaat} width={110} /> Jama&apos;at.
             </p>
             <p className="mt-1">
-              {participationLine} at{' '}
+              Participated in the <Blank value={certificate?.eventName} width={210} /> which took place at{' '}
               <Blank value={venue} width={120} />.
             </p>
           </div>

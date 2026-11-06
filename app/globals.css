@@ -465,6 +465,21 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     overflow: hidden !important;
   }
 
+  /* A single certificate is often printed from inside the preview modal.
+     Any transformed/filtered app-shell ancestor becomes the containing block
+     for position: fixed and offsets the certificate down the sheet. Remove
+     those containing blocks from ancestors of the certificate so its A4
+     coordinates always start at the physical page origin. */
+  body:not(.printing-bulk) *:has(.certificate-print-area) {
+    transform: none !important;
+    filter: none !important;
+    perspective: none !important;
+    contain: none !important;
+    will-change: auto !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
   body * {
     visibility: hidden;
   }
@@ -514,8 +529,11 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     /* Explicit A4 landscape physical dimensions */
     width: 297mm !important;
     height: 210mm !important;
+    min-width: 297mm !important;
+    min-height: 210mm !important;
     max-width: 297mm !important;
     max-height: 210mm !important;
+    box-sizing: border-box !important;
     /* Remove all screen-specific styling */
     margin: 0 !important;
     padding: 0 !important;
@@ -565,6 +583,12 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     padding: 5mm 8mm !important;
   }
 
+  /* Keep the Emerald Ribbon header clear of the top frame and lift its footer
+     labels away from the lower frame when saved as PDF. */
+  .certificate-print-area.certificate-emerald-ribbon > .emerald-ribbon-content {
+    padding: 11mm 8mm !important;
+  }
+
   /* Force bold weights to survive PDF embedding */
   .certificate-print-area h1 {
     font-weight: 900 !important;
@@ -596,6 +620,31 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
      we hide the normal application and render ONLY the bulk print container. */
   body.printing-bulk > :not(#bulk-print-container) {
     display: none !important;
+  }
+
+  /* A single certificate is portalled to body so modal scroll position and
+     dashboard layout cannot offset it in Chrome's Save as PDF preview. */
+  body.printing-single > :not(.single-print-container) {
+    display: none !important;
+  }
+
+  body.printing-single .single-print-container {
+    display: none !important;
+    position: static !important;
+    width: 297mm !important;
+    height: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  body.printing-single .single-print-container[data-active='true'] {
+    display: block !important;
+  }
+
+  body.printing-single .single-print-container[data-active='true'],
+  body.printing-single .single-print-container[data-active='true'] * {
+    visibility: visible !important;
   }
 
   body.printing-bulk #bulk-print-container {
@@ -669,7 +718,6 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     border-radius: 0 !important;
     box-shadow: none !important;
     border: none !important;
-    background: #ffffff !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
     display: block !important;
@@ -677,6 +725,10 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
 }
 
 #bulk-print-container {
+  display: none;
+}
+
+.single-print-container {
   display: none;
 }
 

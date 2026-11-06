@@ -10,6 +10,18 @@ interface SapphireModernCertificateProps {
   previewMode?: boolean;
 }
 
+function Blank({ value, width }: { value?: string; width: number }) {
+  const filled = Boolean(value?.trim()) && !/^[_\s]+$/.test(value || '');
+  return (
+    <span
+      className="inline-block border-b border-slate-800 px-1 text-center align-baseline leading-[1.5]"
+      style={{ minWidth: width, color: filled ? 'var(--certificate-name-color)' : undefined, borderBottom: filled ? 'none' : undefined }}
+    >
+      {filled ? value : '\u00a0'}
+    </span>
+  );
+}
+
 /**
  * "Sapphire Modern" design (coded):
  * white canvas, deep diagonal corner blocks with gold edges,
@@ -73,7 +85,7 @@ export function SapphireModernCertificate({
     <div
       id={`certificate-print-area-${certificate?.id ?? 'preview'}`}
       className="certificate-print-area relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
-      style={{ backgroundColor: bgColor }}
+      style={{ backgroundColor: bgColor, '--certificate-name-color': primaryColor } as React.CSSProperties}
     >
       {/* Diagonal corner blocks with gold edges */}
       <svg
@@ -204,21 +216,23 @@ export function SapphireModernCertificate({
           <div className="w-full text-center text-[14.5px] leading-[1.7] text-black font-bold font-sans">
             <p>
               This is to certify that {salutation}{' '}
-              <span className="font-black text-black px-1">{participantName}</span>, Dilla{' '}
-              <span className="font-black text-black px-1">{dilla}</span>.
+              <Blank value={participantName} width={130} />, Dilla{' '}
+              <Blank value={dilla} width={90} />.
             </p>
             <p>
-              from <span className="font-black text-black px-1">{jamaat}</span> Muqami,{' '}
-              <span className="font-black text-black px-1">{muqami}</span>.
+              from <Blank value={jamaat} width={130} /> Muqami,{' '}
+              <Blank value={muqami} width={100} />.
             </p>
           </div>
 
           <div className="w-full text-center text-[14.5px] font-bold text-black font-sans leading-[1.7]">
-            <p>Participated in a week Islamic Vacation Course which took place</p>
             <p>
-              at <span className="font-black text-black px-1">{venue}</span> from{' '}
-              <span className="font-black text-black px-1">{fromPlace}</span> to{' '}
-              <span className="font-black text-black px-1">{toPlace}</span>.
+              Participated in the <Blank value={certificate?.eventName} width={210} /> which took place
+            </p>
+            <p>
+              at <Blank value={venue} width={120} /> from{' '}
+              <Blank value={fromPlace} width={100} /> to{' '}
+              <Blank value={toPlace} width={120} />.
             </p>
           </div>
 

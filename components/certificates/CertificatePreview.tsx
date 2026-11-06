@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Certificate, CertificateTemplate } from '../../types';
 import { ModernCertificate } from './ModernCertificate';
@@ -9,6 +9,7 @@ import { IvoryMinimalCertificate } from './IvoryMinimalCertificate';
 import { RoyalMaroonCertificate } from './RoyalMaroonCertificate';
 import { TealSurgeCertificate } from './TealSurgeCertificate';
 import { OnyxExecutiveCertificate } from './OnyxExecutiveCertificate';
+import { EmeraldRibbonCertificate } from './EmeraldRibbonCertificate';
 import { Button } from '../ui/Button';
 import { QrCode } from '../ui/QrCode';
 import { formatDate } from '../../lib/utils';
@@ -48,14 +49,28 @@ export function CertificatePreview({
   showActions = false,
   qrSize = 72,
 }: CertificatePreviewProps) {
+  const printId = useId().replace(/:/g, '');
+  const printContainerRef = useRef<HTMLDivElement>(null);
   const handlePrint = () => {
+    document.querySelectorAll<HTMLElement>('.single-print-container').forEach((container) => {
+      container.dataset.active = container.dataset.printId === printId ? 'true' : 'false';
+    });
+    document.body.classList.add('printing-single');
+    const finishPrint = () => {
+      document.body.classList.remove('printing-single');
+      document.querySelectorAll<HTMLElement>('.single-print-container').forEach((container) => {
+        delete container.dataset.active;
+      });
+      window.removeEventListener('afterprint', finishPrint);
+    };
+    window.addEventListener('afterprint', finishPrint, { once: true });
     window.print();
   };
 
   const handleDownload = () => {
     const prevTitle = document.title;
     document.title = `${(certificate?.type || template.certificateType || 'Certificate').toUpperCase()}-${certNumber}`;
-    window.print();
+    handlePrint();
     setTimeout(() => {
       document.title = prevTitle;
     }, 1000);
@@ -116,6 +131,13 @@ export function CertificatePreview({
 
   function renderCertificate() {
     switch (template.design || 'modern-rings') {
+      case 'emerald-ribbon':
+        return (
+          <EmeraldRibbonCertificate
+            certificate={formattedCertificate}
+            template={resolvedTemplate}
+          />
+        );
       case 'emerald-prestige':
         return (
           <EmeraldPrestigeCertificate
@@ -182,11 +204,50 @@ export function CertificatePreview({
   useEffect(() => {
     // Scoped to this instance's scaler, so a bulk queue of certificates each
     // target their own artwork rather than the first one on the page.
-    const el =
-      (scalerRef.current?.querySelector('.certificate-print-area') as HTMLElement | null) ??
-      null;
+    const el = (scalerRef.current?.querySelector('.certificate-print-area') as HTMLElement | null) ?? null;
     setPrintArea((current) => (current === el ? current : el));
   });
+
+  const [singlePrintArea, setSinglePrintArea] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const el =
+      (printContainerRef.current?.querySelector('.certificate-print-area') as HTMLElement | null) ??
+      null;
+    setSinglePrintArea((current) => (current === el ? current : el));
+  });
+
+  useEffect(() => {
+    // Certificate styles reuse SVG definition IDs for gradients, watermarks,
+    // and seals. Namespace every rendered instance so on-screen previews,
+    // single-print copies, and each certificate in a bulk queue stay isolated.
+    const namespaceIds = (root: HTMLElement | null, suffix: string) => {
+      if (!root) return;
+      const ids = new Map<string, string>();
+      root.querySelectorAll<HTMLElement | SVGElement>('[id]').forEach((element) => {
+        const id = element.id;
+        if (!id.endsWith(suffix)) {
+          const uniqueId = `${id}${suffix}`;
+          ids.set(id, uniqueId);
+          element.id = uniqueId;
+        }
+      });
+      if (ids.size === 0) return;
+      root.querySelectorAll<HTMLElement | SVGElement>('*').forEach((element) => {
+        for (const attribute of Array.from(element.attributes)) {
+          let value = attribute.value.replace(/url\(#([^)]+)\)/g, (match, id: string) =>
+            ids.has(id) ? `url(#${ids.get(id)})` : match
+          );
+          if (value.startsWith('#') && ids.has(value.slice(1))) {
+            value = `#${ids.get(value.slice(1))}`;
+          }
+          if (value !== attribute.value) element.setAttribute(attribute.name, value);
+        }
+      });
+    };
+
+    namespaceIds(scalerRef.current, `-screen-${printId}`);
+    namespaceIds(printContainerRef.current, `-print-${printId}`);
+  }, [printId]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -281,6 +342,21 @@ export function CertificatePreview({
           pins the artwork to the page, so a QR anchored outside it would print
           at the top of the sheet instead of on the certificate. */}
       {printArea && qrBlock && createPortal(qrBlock, printArea)}
+
+      {/* Print a separate copy directly under <body>. This avoids modal scroll
+          offsets and transformed dashboard ancestors shifting the PDF artwork. */}
+      {showActions && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={printContainerRef}
+          className="single-print-container"
+          data-print-id={printId}
+          aria-hidden="true"
+        >
+          {renderCertificate()}
+        </div>,
+        document.body
+      )}
+      {showActions && singlePrintArea && qrBlock && createPortal(qrBlock, singlePrintArea, 'single-print-qr')}
 
       {showActions && (
         <p className="print:hidden mt-3 text-3xs text-slate-500 text-center leading-relaxed max-w-4xl">

@@ -16,9 +16,9 @@ function Blank({ value, width }: { value?: string; width: number }) {
   return (
     <span
       className={`inline-block border-b border-slate-500 leading-[1.5] px-1.5 text-center align-baseline ${
-        filled ? 'font-semibold text-black border-black' : ''
+        filled ? 'font-semibold border-black' : ''
       }`}
-      style={{ minWidth: width }}
+      style={{ minWidth: width, color: filled ? 'var(--certificate-name-color)' : undefined, borderBottom: filled ? 'none' : undefined }}
     >
       {filled ? value : ' '}
     </span>
@@ -44,8 +44,6 @@ export function OnyxExecutiveCertificate({
 
   const eventName = certificate?.eventName || template.eventTitle;
   const theme = certificate?.theme || template.themeTitle;
-  const participationLine =
-    template.participationLine || 'Participated in a week Islamic Vacation Course which took place';
   const certNumber =
     certificate?.certificateNumber || (previewMode ? 'JCS-ATF-2025-0001' : 'JCS-VERIFIED');
 
@@ -78,7 +76,7 @@ export function OnyxExecutiveCertificate({
     <div
       id={`certificate-print-area-${certificate?.id ?? 'preview'}`}
       className="certificate-print-area relative w-full h-full shadow-2xl rounded-sm overflow-hidden select-none"
-      style={{ backgroundColor: bgColor }}
+      style={{ backgroundColor: bgColor, '--certificate-name-color': primaryColor } as React.CSSProperties}
     >
       {/* Hairline double frame */}
       <div className="absolute inset-4 border pointer-events-none" style={{ borderColor: primaryColor }} />
@@ -176,9 +174,9 @@ export function OnyxExecutiveCertificate({
               <Blank value={dilla} width={90} /> Dilla,{' '}
               <Blank value={jamaat} width={120} /> Jama&apos;at.
             </p>
-            <p>{participationLine}</p>
             <p>
-              at <Blank value={venue} width={130} />.
+              Participated in the <Blank value={certificate?.eventName} width={210} /> which took place at{' '}
+              <Blank value={venue} width={130} />.
             </p>
           </div>
 

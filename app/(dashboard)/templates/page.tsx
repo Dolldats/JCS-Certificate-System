@@ -31,40 +31,6 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
-const DEFAULT_PARTICIPATION_LINE =
-  'Participated in a week Islamic Vacation Course which took place';
-
-// Participation presets differ per auxiliary: Atfal/Nasra run vacation
-// courses, Khuddam/Ansarullah run ijtemas, Lajna runs seminars.
-function getParticipationPresets(auxiliary?: Auxiliary | 'All'): string[] {
-  switch (auxiliary) {
-    case 'Khuddam':
-    case 'Ansarullah':
-      return [
-        'Participated in a day National Ijtema which took place',
-        'Participated in a 2-day National Ijtema which took place',
-        'Participated in a 3-day National Ijtema which took place',
-        'Participated in the Annual National Ijtema which took place',
-      ];
-    case 'Lajna':
-      return [
-        'Participated in a day Tarbiyyat Seminar which took place',
-        'Participated in a 2-day Tarbiyyat Seminar which took place',
-        'Participated in a 3-day Tarbiyyat Seminar which took place',
-        'Participated in the National Tarbiyyat Seminar which took place',
-      ];
-    case 'Atfal':
-    case 'Nasra':
-    default:
-      return [
-        'Participated in a day Islamic Vacation Course which took place',
-        'Participated in a 2-day Islamic Vacation Course which took place',
-        'Participated in a 3-day Islamic Vacation Course which took place',
-        DEFAULT_PARTICIPATION_LINE,
-      ];
-  }
-}
-
 const COLOR_PRESETS = [
   { name: 'Atfal / Khuddam Green', primary: '#15803d', accent: '#84cc16', bg: '#ffffff' },
   { name: 'Royal Emerald & Gold', primary: '#046a38', accent: '#d97706', bg: '#fffbeb' },
@@ -96,7 +62,6 @@ export default function TemplatesPage() {
   const [serverPreviewUrl, setServerPreviewUrl] = useState('');
   const [isLoadingServerPreview, setIsLoadingServerPreview] = useState(false);
   const signatureInputRef = useRef<HTMLInputElement>(null);
-  const participationInputRef = useRef<HTMLInputElement>(null);
 
   const handleSignatureFile = useCallback(
     (file: File | undefined) => {
@@ -578,6 +543,30 @@ export default function TemplatesPage() {
                               </svg>
                             ),
                           },
+                          {
+                            id: 'emerald-ribbon' as CertificateDesign,
+                            name: 'Emerald Ribbon',
+                            desc: 'Dark field, vivid ribbon corners',
+                            recommended: {
+                              primaryColor: '#0e9f6e',
+                              accentColor: '#34e8ae',
+                              backgroundColor: '#031510',
+                              showTorusRings: false,
+                              showWaveWatermark: false,
+                              showRosetteBadge: true,
+                            },
+                            thumb: (
+                              <svg viewBox="0 0 120 84" className="w-full h-14 rounded-md border border-slate-700">
+                                <rect width="120" height="84" fill="#031510" />
+                                <rect x="4" y="4" width="112" height="76" fill="none" stroke="#0e9f6e" strokeWidth="2" />
+                                <path d="M4 4h12l24 18-24 18H4l20-18L4 4Zm112 76h-12L80 62l24-18h12L96 62l20 18Z" fill="#34e8ae" />
+                                <rect x="43" y="18" width="34" height="4" rx="2" fill="#f8fafc" />
+                                <rect x="47" y="26" width="26" height="2" rx="1" fill="#a7f3d0" />
+                                <rect x="35" y="38" width="50" height="3" rx="1.5" fill="#34e8ae" />
+                                <path d="M33 53h54M42 59h36M48 67h24" stroke="#d1fae5" strokeOpacity=".7" strokeWidth="1.5" />
+                              </svg>
+                            ),
+                          },
                         ]
                       ).map((option) => {
                         const isActive = (currentTemplate.design || 'modern-rings') === option.id;
@@ -957,48 +946,18 @@ export default function TemplatesPage() {
                     helperText="Shows only when the event has no theme saved yet."
                   />
 
-                  <Select
-                    label="Participation Line (duration)"
-                    value={(() => {
-                      const presets = getParticipationPresets(currentTemplate.auxiliary);
-                      const current =
-                        currentTemplate.participationLine || presets[presets.length - 1];
-                      return presets.includes(current) ? current : 'custom';
-                    })()}
-                    onChange={(e) => {
-                      if (e.target.value === 'custom') {
-                        participationInputRef.current?.focus();
-                        return;
-                      }
-                      setCurrentTemplate({
-                        ...currentTemplate,
-                        participationLine: e.target.value,
-                      });
-                    }}
-                    options={[
-                      ...getParticipationPresets(currentTemplate.auxiliary).map((p) => ({
-                        value: p,
-                        label: p,
-                      })),
-                      { value: 'custom', label: 'Custom — type your own below' },
-                    ]}
-                  />
-
-                  <Input
-                    label="Custom participation text (type your suggestion here)"
-                    value={
-                      currentTemplate.participationLine ||
-                      getParticipationPresets(currentTemplate.auxiliary).slice(-1)[0]
-                    }
-                    ref={participationInputRef}
-                    onChange={(e) =>
-                      setCurrentTemplate({
-                        ...currentTemplate,
-                        participationLine: e.target.value,
-                      })
-                    }
-                    placeholder="e.g. Participated in a 3-day program which took place"
-                  />
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3.5">
+                    <p className="text-xs font-semibold text-slate-800">Participation statement</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-700">
+                      Participated in the{' '}
+                      <span className="inline-block min-w-24 border-b border-dashed border-emerald-700 px-1 text-center font-semibold text-emerald-900">Event name</span>{' '}
+                      which took place at{' '}
+                      <span className="inline-block min-w-20 border-b border-dashed border-emerald-700 px-1 text-center font-semibold text-emerald-900">Venue</span>.
+                    </p>
+                    <p className="mt-1.5 text-[11px] leading-5 text-slate-500">
+                      Both values come from the selected event. Enter only the event name and venue in Events.
+                    </p>
+                  </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">

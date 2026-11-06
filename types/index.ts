@@ -43,13 +43,15 @@ export type CertificateStatus = 'Issued' | 'Revoked';
 // 'royal-maroon': maroon/gold strips, medallion header, formal centered layout
 // 'teal-surge': flowing wave bands, left header, rounded badge
 // 'onyx-executive': charcoal/gold hairline frame, formal centered layout
+// 'emerald-ribbon': deep charcoal canvas, emerald chevrons, centered presentation
 export type CertificateDesign =
   | 'modern-rings'
   | 'emerald-prestige'
   | 'ivory-minimal'
   | 'royal-maroon'
   | 'teal-surge'
-  | 'onyx-executive';
+  | 'onyx-executive'
+  | 'emerald-ribbon';
 
 export interface User {
   id: string;

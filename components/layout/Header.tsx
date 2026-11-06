@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Building2,
   LogOut,
+  CircleUser,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -156,10 +157,11 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
                 setShowProfileMenu(!showProfileMenu);
                 setShowAuxMenu(false);
               }}
+              aria-label={`Open ${firstName}'s profile menu`}
               className="flex cursor-pointer items-center gap-2 rounded-full p-1 transition-colors hover:bg-slate-100 sm:pr-1"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-800 sm:h-9 sm:w-9 sm:text-sm">
-                {firstName.charAt(0)}
+                <CircleUser className="h-5 w-5 sm:h-[22px] sm:w-[22px]" aria-hidden="true" />
               </div>
               <div className="hidden sm:block text-left">
                 <div className="text-xs font-bold text-slate-800 leading-tight">{firstName}</div>
