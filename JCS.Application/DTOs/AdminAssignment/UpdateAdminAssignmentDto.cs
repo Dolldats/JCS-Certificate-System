@@ -6,6 +6,7 @@ public class UpdateAdminAssignmentDto
 {
     public Auxiliary Auxiliary { get; set; }
     public string? Ilaqa { get; set; }
+    public string? State { get; set; }
     public AdminRole Role { get; set; }
     public AdminStatus Status { get; set; }
     public string? RevokedBy { get; set; }

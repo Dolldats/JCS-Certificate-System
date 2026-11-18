@@ -3,5 +3,6 @@
 public enum AdminRole
 {
     SuperAdmin,
-    GeneralAdmin
+    GeneralAdmin,
+    StateAdmin
 }

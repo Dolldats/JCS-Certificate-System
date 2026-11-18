@@ -70,6 +70,10 @@ public class AuthController : ControllerBase
         {
             claims.Add(new Claim("Jamaat", jamaat));
         }
+        if (!string.IsNullOrWhiteSpace(assignment?.State))
+        {
+            claims.Add(new Claim("State", assignment.State));
+        }
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Secret"]!));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var tokenValue = new JwtSecurityToken(claims: claims, expires: expires, signingCredentials: credentials);
@@ -116,6 +120,7 @@ public class AuthController : ControllerBase
             ExpiresAt = expires, 
             Role = role, 
             Auxiliary = auxiliary,
+            State = assignment?.State,
             Profile = memberProfile,
             Events = userEventsAndCerts
         });

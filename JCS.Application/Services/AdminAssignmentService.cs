@@ -70,6 +70,12 @@ public class AdminAssignmentService : IAdminAssignmentService
             throw new InvalidOperationException("A valid admin role is required.");
         }
 
+        var state = string.IsNullOrWhiteSpace(dto.State) ? null : dto.State.Trim();
+        if (dto.Role == AdminRole.StateAdmin && string.IsNullOrWhiteSpace(state))
+        {
+            throw new InvalidOperationException("A state is required for a StateAdmin assignment.");
+        }
+
         if (string.IsNullOrWhiteSpace(dto.MembershipId))
         {
             throw new InvalidOperationException("Membership ID is required.");
@@ -104,12 +110,18 @@ public class AdminAssignmentService : IAdminAssignmentService
             throw new InvalidOperationException($"An active General Admin already exists for {dto.Auxiliary}.");
         }
 
+        if (dto.Role == AdminRole.StateAdmin && await _adminAssignmentRepository.HasActiveStateAdminAsync(dto.Auxiliary, state!, null, token))
+        {
+            throw new InvalidOperationException($"An active StateAdmin already exists for {dto.Auxiliary} in {state}.");
+        }
+
         var assignment = new AdminAssignment
         {
             Id = Guid.NewGuid(),
             MembershipId = membershipId,
             Auxiliary = dto.Auxiliary,
             Ilaqa = string.IsNullOrWhiteSpace(dto.Ilaqa) ? null : dto.Ilaqa.Trim(),
+            State = state,
             Role = dto.Role,
             Status = AdminStatus.Active,
             AssignedBy = assignedBy,
@@ -135,6 +147,19 @@ public class AdminAssignmentService : IAdminAssignmentService
             throw new InvalidOperationException("Valid auxiliary, role, and status values are required.");
         }
 
+        var state = string.IsNullOrWhiteSpace(dto.State) ? null : dto.State.Trim();
+        if (dto.Status == AdminStatus.Active && dto.Role == AdminRole.StateAdmin)
+        {
+            if (string.IsNullOrWhiteSpace(state))
+            {
+                throw new InvalidOperationException("A state is required for a StateAdmin assignment.");
+            }
+            if (await _adminAssignmentRepository.HasActiveStateAdminAsync(dto.Auxiliary, state, id, token))
+            {
+                throw new InvalidOperationException($"An active StateAdmin already exists for {dto.Auxiliary} in {state}.");
+            }
+        }
+
         if (dto.Status == AdminStatus.Active && dto.Role == AdminRole.GeneralAdmin && await _adminAssignmentRepository.HasActiveGeneralAdminForAuxiliaryAsync(dto.Auxiliary, id, token))
         {
             throw new InvalidOperationException($"An active General Admin already exists for {dto.Auxiliary}.");
@@ -144,6 +169,7 @@ public class AdminAssignmentService : IAdminAssignmentService
 
         assignment.Auxiliary = dto.Auxiliary;
         assignment.Ilaqa = string.IsNullOrWhiteSpace(dto.Ilaqa) ? null : dto.Ilaqa.Trim();
+        assignment.State = state;
         assignment.Role = dto.Role;
         assignment.Status = dto.Status;
 
@@ -234,6 +260,7 @@ public class AdminAssignmentService : IAdminAssignmentService
             MemberName = NameOf(assignment.MembershipId),
             Auxiliary = assignment.Auxiliary,
             Ilaqa = assignment.Ilaqa,
+            State = assignment.State,
             Role = assignment.Role,
             Status = assignment.Status,
             AssignedBy = assignment.AssignedBy,

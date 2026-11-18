@@ -41,6 +41,15 @@ public sealed class AdminAssignmentRepository : IAdminAssignmentRepository
         return await _context.AdminAssignments.AnyAsync(x => x.Auxiliary == auxiliary && x.Role == AdminRole.GeneralAdmin && x.Status == AdminStatus.Active && (!excludedId.HasValue || x.Id != excludedId.Value), cancellationToken);
     }
 
+    public async Task<bool> HasActiveStateAdminAsync(Auxiliary auxiliary, string state, Guid? excludedId = null, CancellationToken cancellationToken = default)
+    {
+        return await _context.AdminAssignments.AnyAsync(x => x.Auxiliary == auxiliary
+            && x.Role == AdminRole.StateAdmin
+            && x.Status == AdminStatus.Active
+            && x.State == state
+            && (!excludedId.HasValue || x.Id != excludedId.Value), cancellationToken);
+    }
+
     public async Task AddAsync(AdminAssignment assignment, CancellationToken cancellationToken = default)
     {
         await _context.AdminAssignments.AddAsync(assignment, cancellationToken);
