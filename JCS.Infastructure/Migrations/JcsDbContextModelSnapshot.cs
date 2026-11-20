@@ -276,6 +276,10 @@ namespace JCS.Infastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("Theme")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("Venue")
                         .IsRequired()
                         .HasMaxLength(200)

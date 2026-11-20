@@ -5,6 +5,7 @@ namespace JCS.Application.DTOs.Event;
 public class UpdateEventDto
 {
     public string Name { get; set; } = string.Empty;
+    public string? Theme { get; set; }
     public string? Description { get; set; }
     public EventType EventType { get; set; }
     public DateTime EventDate { get; set; }
