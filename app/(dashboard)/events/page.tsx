@@ -245,6 +245,10 @@ export default function EventsPage() {
     if (!user || !eventToDelete) return;
     // Let the dialog surface the real reason — swallowing it here showed
     // "Deleted Successfully!" even when the delete had failed.
+    const linkedCertificates = await certificatesApi.getByEvent(eventToDelete.id);
+    for (const certificate of linkedCertificates) {
+      await certificatesApi.delete(certificate.id, user, certificate);
+    }
     await eventsApi.delete(eventToDelete.id, user);
     await loadEvents();
     toast.success(`"${eventToDelete.name}" was deleted.`);
@@ -629,7 +633,7 @@ export default function EventsPage() {
         title="Delete Event?"
         description={
           eventToDelete
-            ? `Delete “${eventToDelete.name}” and its event record? Participants and certificates linked to it will be orphaned.`
+            ? `Permanently delete “${eventToDelete.name}”? Its participants and linked certificates will be automatically deleted too.`
             : undefined
         }
         confirmLabel="Yes, Delete"

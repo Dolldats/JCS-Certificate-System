@@ -174,6 +174,8 @@ export interface CertificateTemplate {
   signatureAssetPath?: string;
 
   isDefault: boolean;
+  /** True when this design was explicitly edited in Certificate Studio. */
+  isEdited?: boolean;
   updatedAt: string;
 }
 

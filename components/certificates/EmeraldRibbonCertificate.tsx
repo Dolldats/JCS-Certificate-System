@@ -3,10 +3,12 @@
 import React from 'react';
 import { Certificate, CertificateTemplate } from '../../types';
 import { getSalutation } from './certificateText';
+import { CertificateStructure } from './CertificateStructure';
 
 interface EmeraldRibbonCertificateProps {
   certificate?: Partial<Certificate>;
   template: CertificateTemplate;
+  previewMode?: boolean;
 }
 
 function Blank({ value, width }: { value?: string; width: number }) {
@@ -26,6 +28,7 @@ function Blank({ value, width }: { value?: string; width: number }) {
 export function EmeraldRibbonCertificate({
   certificate,
   template,
+  previewMode = false,
 }: EmeraldRibbonCertificateProps) {
   const name = certificate?.participantName || 'Participant Name';
   const venue = certificate?.venue;
@@ -55,6 +58,7 @@ export function EmeraldRibbonCertificate({
     organizationLogo[template.auxiliary || ''] ||
     '/ahmadiyyah_logo.png';
   const awardDate = template.signature1Date || certificate?.eventDate;
+  const certNumber = certificate?.certificateNumber || (previewMode ? 'JCS-ATF-2025-0001' : 'JCS-VERIFIED');
 
   return (
     <div
@@ -131,12 +135,12 @@ export function EmeraldRibbonCertificate({
       )}
 
       {certificate?.certificateNumber ? (
-        <p className="emerald-ribbon-serial absolute bottom-[78px] left-1/2 z-20 -translate-x-1/2 whitespace-nowrap font-mono text-[9px] tracking-wider text-emerald-100/65">
+        <p className="hidden emerald-ribbon-serial absolute bottom-[78px] left-1/2 z-20 -translate-x-1/2 whitespace-nowrap font-mono text-[9px] tracking-wider text-emerald-100/65">
           Serial No. {certificate.certificateNumber}
         </p>
       ) : null}
 
-      <div className="emerald-ribbon-content relative z-10 flex h-full flex-col items-center justify-between px-[8%] py-[5.5%] text-center">
+      <div className="hidden emerald-ribbon-content relative z-10 flex h-full flex-col items-center justify-between px-[8%] py-[5.5%] text-center">
         <header className="flex w-full shrink-0 items-center justify-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200/70 bg-white p-0.5 shadow-lg">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -221,6 +225,7 @@ export function EmeraldRibbonCertificate({
           </div>
         </footer>
       </div>
+      <CertificateStructure certificate={certificate} template={template} logoSrc={logoSrc} logoAlt="Organization logo" certificateNumber={certNumber} />
     </div>
   );
 }

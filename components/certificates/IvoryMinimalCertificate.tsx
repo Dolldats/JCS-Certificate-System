@@ -3,6 +3,7 @@
 import React from 'react';
 import { Certificate, CertificateTemplate } from '../../types';
 import { getSalutation } from './certificateText';
+import { CertificateStructure } from './CertificateStructure';
 
 interface IvoryMinimalCertificateProps {
   certificate?: Partial<Certificate>;
@@ -118,7 +119,7 @@ export function IvoryMinimalCertificate({
       )}
 
       {/* ---------- Content ---------- */}
-      <div className="relative z-10 h-full flex flex-col justify-between pl-12 pr-10 py-8">
+      <div className="hidden relative z-10 h-full flex flex-col justify-between pl-12 pr-10 py-8">
         {/* Airy header */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="w-10 h-10 rounded-full overflow-hidden bg-white border border-slate-200 flex items-center justify-center shrink-0 p-0.5">
@@ -228,6 +229,7 @@ export function IvoryMinimalCertificate({
           </div>
         </div>
       </div>
+      <CertificateStructure certificate={certificate} template={template} logoSrc={emblemSrc} logoAlt={emblemAlt} certificateNumber={certNumber} />
     </div>
   );
 }

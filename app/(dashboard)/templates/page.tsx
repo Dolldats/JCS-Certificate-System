@@ -902,6 +902,18 @@ export default function TemplatesPage() {
                 </CardHeader>
                 <CardContent className="space-y-3.5">
                   <Input
+                    label="Template Name (shown in certificate selection)"
+                    value={currentTemplate.name}
+                    onChange={(e) =>
+                      setCurrentTemplate({
+                        ...currentTemplate,
+                        name: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. Atfal"
+                  />
+
+                  <Input
                     label="Organization Name (Top Left)"
                     value={currentTemplate.organizationName}
                     onChange={(e) =>

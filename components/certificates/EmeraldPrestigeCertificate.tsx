@@ -3,6 +3,7 @@
 import React from 'react';
 import { Certificate, CertificateTemplate } from '../../types';
 import { getSalutation } from './certificateText';
+import { CertificateStructure } from './CertificateStructure';
 
 interface EmeraldPrestigeCertificateProps {
   certificate?: Partial<Certificate>;
@@ -143,7 +144,7 @@ export function EmeraldPrestigeCertificate({
       )}
 
       {/* ---------- Content ---------- */}
-      <div className="relative z-10 h-full flex flex-col">
+      <div className="hidden relative z-10 h-full flex flex-col">
         {/* Header content inside band */}
         <div className="h-[118px] shrink-0 flex items-center gap-3 px-8">
           <div className="w-12 h-12 rounded-full border-2 border-white/90 p-0.5 shrink-0 bg-white overflow-hidden flex items-center justify-center shadow">
@@ -260,6 +261,7 @@ export function EmeraldPrestigeCertificate({
           </div>
         </div>
       </div>
+      <CertificateStructure certificate={certificate} template={template} logoSrc={emblemSrc} logoAlt={emblemAlt} certificateNumber={certNumber} />
     </div>
   );
 }

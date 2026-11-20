@@ -3,6 +3,7 @@
 import React from 'react';
 import { Certificate, CertificateTemplate } from '../../types';
 import { getSalutation } from './certificateText';
+import { CertificateStructure } from './CertificateStructure';
 
 interface RoyalMaroonCertificateProps {
   certificate?: Partial<Certificate>;
@@ -134,7 +135,7 @@ export function RoyalMaroonCertificate({
       )}
 
       {/* ---------- Content ---------- */}
-      <div className="relative z-10 h-full flex flex-col justify-between px-14 pt-9 pb-10 text-center">
+      <div className="hidden relative z-10 h-full flex flex-col justify-between px-14 pt-9 pb-10 text-center">
         {/* Medallion header */}
         <div className="flex flex-col items-center shrink-0">
           <div
@@ -250,6 +251,7 @@ export function RoyalMaroonCertificate({
           </div>
         </div>
       </div>
+      <CertificateStructure certificate={certificate} template={template} logoSrc={emblemSrc} logoAlt={emblemAlt} certificateNumber={certNumber} />
     </div>
   );
 }

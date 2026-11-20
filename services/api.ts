@@ -1780,6 +1780,7 @@ function mapBackendTemplateToTemplate(raw: BackendRecord): CertificateTemplate {
     signature1Image: bStr(config.signature1Image) || undefined,
     signatureAssetPath: bStr(config.signatureAssetPath) || undefined,
     isDefault: bBool(raw.isActive, false),
+    isEdited: config.isEdited === true,
     updatedAt: bStr(raw.updatedAt || raw.createdAt || raw.createdOn),
   };
 }
@@ -1922,7 +1923,11 @@ export const templatesApi = {
           // Local Studio saves (edits + seed presets missing from the
           // backend) stay visible alongside backend templates. Overrides
           // are full templates, so ones with no base are appended as-is.
-          for (const [id, override] of Object.entries(savedOverrides)) {
+          for (const [id, storedOverride] of Object.entries(savedOverrides)) {
+            const override = {
+              ...storedOverride,
+              isEdited: storedOverride.isEdited === true,
+            };
             const base = byId.get(id) ?? INITIAL_TEMPLATES.find((t) => t.id === id);
             byId.set(id, base ? { ...base, ...override } : override);
           }
@@ -1948,7 +1953,9 @@ export const templatesApi = {
     const savedOverrides = getStorage<Record<string, CertificateTemplate>>('template_overrides', {});
     const merged: CertificateTemplate[] = [
       ...INITIAL_TEMPLATES.map((tmpl) =>
-        savedOverrides[tmpl.id] ? { ...tmpl, ...savedOverrides[tmpl.id] } : tmpl
+        savedOverrides[tmpl.id]
+          ? { ...tmpl, ...savedOverrides[tmpl.id], isEdited: savedOverrides[tmpl.id].isEdited === true }
+          : tmpl
       ),
       // Brand-new local designs (no seed base, backend unreachable/empty).
       ...Object.values(savedOverrides).filter(
@@ -2060,12 +2067,17 @@ export const templatesApi = {
     }, 'text');
   },
 
-  async save(templateData: CertificateTemplate, performedBy: User): Promise<CertificateTemplate> {
+  async save(
+    templateData: CertificateTemplate,
+    performedBy: User,
+    options: { isEdited?: boolean } = {}
+  ): Promise<CertificateTemplate> {
     // Set when the server rejects the save — the local copy is kept but the
     // failure is surfaced instead of being logged as a success.
     let backendSaveError: string | null = null;
     let updatedTemplate: CertificateTemplate = {
       ...templateData,
+      isEdited: options.isEdited ?? true,
       updatedAt: new Date().toISOString(),
     };
 
@@ -2104,6 +2116,7 @@ export const templatesApi = {
           signature1Date: templateData.signature1Date,
           signature1Image: templateData.signature1Image,
           signatureAssetPath: templateData.signatureAssetPath,
+          isEdited: updatedTemplate.isEdited,
         });
 
         const backendPayload = {
@@ -2318,7 +2331,7 @@ export const certificatesApi = {
           adminRole: performedBy.role,
           auxiliary: known?.auxiliary,
           target: known?.certificateNumber || id,
-          details: 'Deleted revoked certificate record.',
+          details: 'Deleted certificate record.',
         });
       }
       return;
@@ -2334,7 +2347,7 @@ export const certificatesApi = {
         adminRole: performedBy.role,
         auxiliary: cachedCertificate.auxiliary,
         target: cachedCertificate.certificateNumber,
-        details: 'Deleted revoked certificate from local storage.',
+        details: 'Deleted certificate record from local storage.',
       });
     }
   },

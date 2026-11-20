@@ -3,6 +3,7 @@
 import React from 'react';
 import { Certificate, CertificateTemplate } from '../../types';
 import { getSalutation } from './certificateText';
+import { CertificateStructure } from './CertificateStructure';
 
 interface ModernCertificateProps {
   certificate?: Partial<Certificate>;
@@ -209,7 +210,7 @@ export function ModernCertificate({
       )}
 
       {/* 4. Main Certificate Content Layout — tight rhythm like the official design */}
-      <div className="relative z-10 h-full flex flex-col justify-between px-6 pt-2 pb-2 print:p-[12mm] text-center">
+      <div className="hidden relative z-10 h-full flex flex-col justify-between px-6 pt-2 pb-2 text-center">
         {/* Top Header: Logo + Organization Title */}
         <div className="flex items-center gap-2.5 text-left shrink-0">
           {/* Official Emblem — real auxiliary logo from /public */}
@@ -353,6 +354,7 @@ export function ModernCertificate({
           </div>
         </div>
       </div>
+      <CertificateStructure certificate={certificate} template={template} logoSrc={emblemSrc} logoAlt={emblemAlt} certificateNumber={certNumber} />
     </div>
   );
 }

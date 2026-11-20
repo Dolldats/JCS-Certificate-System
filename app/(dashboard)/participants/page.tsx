@@ -4,7 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
-import { eventsApi, participantsApi } from '../../../services/api';
+import { certificatesApi, eventsApi, participantsApi } from '../../../services/api';
 import { Event, Participant, Auxiliary, BulkVerificationResult } from '../../../types';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
@@ -56,6 +56,7 @@ function ParticipantsContent() {
   const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
   const [verifiedTotal, setVerifiedTotal] = useState(0);
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
 
   // Single Add Modal
   const [isSingleAddOpen, setIsSingleAddOpen] = useState(false);
@@ -63,6 +64,7 @@ function ParticipantsContent() {
   const [isVerifyingSingle, setIsVerifyingSingle] = useState(false);
   const [singleVerificationResult, setSingleVerificationResult] = useState<Participant | null>(null);
   const [participantToDelete, setParticipantToDelete] = useState<Participant | null>(null);
+  const [bulkParticipantsToRemove, setBulkParticipantsToRemove] = useState<Participant[] | null>(null);
 
   // Bulk Upload Modal
   const [isBulkOpen, setIsBulkOpen] = useState(false);
@@ -261,19 +263,57 @@ function ParticipantsContent() {
     setParticipantToDelete(participant);
   };
 
+  const removeParticipantsWithCertificates = async (targets: Participant[]) => {
+    if (!user) return;
+    const allCertificates = await certificatesApi.getAll();
+    for (const participant of targets) {
+      const linkedCertificates = allCertificates.filter((certificate) => certificate.participantId === participant.id);
+      for (const certificate of linkedCertificates) {
+        await certificatesApi.delete(certificate.id, user, certificate);
+      }
+      await participantsApi.delete(participant.id, user, participant);
+    }
+  };
+
+  const openBulkParticipantRemoval = (targets: Participant[]) => {
+    if (targets.length === 0) return;
+    setParticipantToDelete(null);
+    setBulkParticipantsToRemove(targets);
+  };
+
   const confirmDeleteParticipant = async () => {
-    if (!user || !participantToDelete) return;
+    if (!user) return;
+
+    if (bulkParticipantsToRemove) {
+      await removeParticipantsWithCertificates(bulkParticipantsToRemove);
+      setParticipants((current) => current.filter((item) => !bulkParticipantsToRemove.some((target) => target.id === item.id)));
+      setSelectedParticipantIds([]);
+      await loadParticipants();
+      toast.success(`${bulkParticipantsToRemove.length} participants and their certificates were removed.`);
+      return;
+    }
+    if (!participantToDelete) return;
 
     // Let the dialog surface the real reason: catching here would show
     // "Removed Successfully!" while a toast said the opposite.
-    await participantsApi.delete(participantToDelete.id, user, participantToDelete);
+    await removeParticipantsWithCertificates([participantToDelete]);
     setParticipants((current) => current.filter((item) => item.id !== participantToDelete.id));
-    toast.success(`${participantToDelete.fullName} was removed from this roster.`);
+    toast.success(`${participantToDelete.fullName} and their certificates were removed from this roster.`);
   };
 
   // Search and status are applied server-side, so the loaded page is already
   // the final result.
   const filteredParticipants = participants;
+  const visibleParticipantIds = filteredParticipants.map((participant) => participant.id);
+  const allVisibleParticipantsSelected =
+    visibleParticipantIds.length > 0 && visibleParticipantIds.every((id) => selectedParticipantIds.includes(id));
+  const toggleVisibleParticipants = () => {
+    setSelectedParticipantIds((current) =>
+      allVisibleParticipantsSelected
+        ? current.filter((id) => !visibleParticipantIds.includes(id))
+        : [...new Set([...current, ...visibleParticipantIds])]
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -317,7 +357,11 @@ function ParticipantsContent() {
             <Select
               label="Select Active Event to Manage Participants"
               value={selectedEventId}
-              onChange={(e) => setSelectedEventId(e.target.value)}
+              onChange={(e) => {
+                setSelectedEventId(e.target.value);
+                setPage(1);
+                setSelectedParticipantIds([]);
+              }}
               options={[{ value: 'all', label: 'All Events (All Participants)' }, ...events.map((evt) => ({
                 value: evt.id,
                 label: `${evt.name} (${evt.auxiliary} - ${evt.orgUnitName})`,
@@ -364,6 +408,7 @@ function ParticipantsContent() {
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setPage(1);
+              setSelectedParticipantIds([]);
             }}
             leftIcon={<Search className="w-4 h-4 text-slate-400" />}
           />
@@ -376,6 +421,7 @@ function ParticipantsContent() {
               onChange={(e) => {
                 setStatusFilter(e.target.value);
                 setPage(1);
+                setSelectedParticipantIds([]);
               }}
               options={[
                 { value: 'all', label: 'All Verification States' },
@@ -406,8 +452,27 @@ function ParticipantsContent() {
       {/* Roster Table */}
       <Card>
         <CardContent className="p-0">
+          {filteredParticipants.length > 0 && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-3">
+            <p className="text-xs text-slate-600" aria-live="polite">
+              {selectedParticipantIds.length} selected · {totalCount} match current filters
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="danger"
+                size="sm"
+                className="px-2 py-1 text-[11px] rounded-lg"
+                disabled={selectedParticipantIds.length === 0}
+                onClick={() => openBulkParticipantRemoval(
+                  filteredParticipants.filter((participant) => selectedParticipantIds.includes(participant.id))
+                )}
+                leftIcon={<Trash2 className="h-3.5 w-3.5" />}
+              >
+                Remove selected
+              </Button>
+            </div>
+          </div>}
           {loading ? (
-            <TableLoadingSkeleton label="Loading participant records" columns={6} />
+            <TableLoadingSkeleton label="Loading participant records" columns={7} />
           ) : filteredParticipants.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <Users className="w-12 h-12 text-slate-300 mx-auto" />
@@ -429,6 +494,15 @@ function ParticipantsContent() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>
+                    <input
+                      type="checkbox"
+                      aria-label="Select all participants on this page"
+                      checked={allVisibleParticipantsSelected}
+                      onChange={toggleVisibleParticipants}
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
+                    />
+                  </TableHead>
                   <TableHead>Member ID</TableHead>
                   <TableHead>Participant Name</TableHead>
                   <TableHead>Auxiliary &amp; Region</TableHead>
@@ -441,6 +515,21 @@ function ParticipantsContent() {
               <TableBody>
                 {filteredParticipants.map((p) => (
                   <TableRow key={p.id}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${p.fullName}`}
+                        checked={selectedParticipantIds.includes(p.id)}
+                        onChange={(event) =>
+                          setSelectedParticipantIds((current) =>
+                            event.target.checked
+                              ? [...new Set([...current, p.id])]
+                              : current.filter((id) => id !== p.id)
+                          )
+                        }
+                        className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-xs font-bold text-slate-800">
                       {p.memberId}
                     </TableCell>
@@ -501,10 +590,14 @@ function ParticipantsContent() {
           pageSize={pageSize}
           totalCount={totalCount}
           isLoading={loading}
-          onPageChange={setPage}
+          onPageChange={(nextPage) => {
+            setPage(nextPage);
+            setSelectedParticipantIds([]);
+          }}
           onPageSizeChange={(size) => {
             setPageSize(size);
             setPage(1);
+            setSelectedParticipantIds([]);
           }}
         />
       )}
@@ -770,22 +863,29 @@ function ParticipantsContent() {
       </Modal>
 
       <ConfirmDialog
-        isOpen={Boolean(participantToDelete)}
-        onClose={() => setParticipantToDelete(null)}
+        isOpen={Boolean(participantToDelete) || Boolean(bulkParticipantsToRemove)}
+        onClose={() => {
+          setParticipantToDelete(null);
+          setBulkParticipantsToRemove(null);
+        }}
         onConfirm={confirmDeleteParticipant}
-        title="Remove Participant?"
+        title={bulkParticipantsToRemove ? 'Remove Participants?' : 'Remove Participant?'}
         description={
-          participantToDelete
-            ? `Remove ${participantToDelete.fullName} (${participantToDelete.memberId}) from this roster? This cannot be undone.`
-            : undefined
+          bulkParticipantsToRemove
+            ? `Remove ${bulkParticipantsToRemove.length} participant(s) matching the current event and filters? Their linked certificates will also be permanently deleted.`
+            : participantToDelete
+              ? `Remove ${participantToDelete.fullName} (${participantToDelete.memberId}) from this roster? Their linked certificates will also be permanently deleted.`
+              : undefined
         }
-        confirmLabel="Yes, Remove"
+        confirmLabel={bulkParticipantsToRemove ? 'Yes, Remove All' : 'Yes, Remove'}
         tone="danger"
         successTitle="Removed Successfully!"
         successDescription={
-          participantToDelete
-            ? `${participantToDelete.fullName} has been removed from this roster.`
-            : undefined
+          bulkParticipantsToRemove
+            ? `${bulkParticipantsToRemove.length} participant(s) and their linked certificates were removed.`
+            : participantToDelete
+              ? `${participantToDelete.fullName} and their linked certificates were removed from this roster.`
+              : undefined
         }
       />
     </div>

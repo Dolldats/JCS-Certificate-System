@@ -3,6 +3,7 @@
 import React from 'react';
 import { Certificate, CertificateTemplate } from '../../types';
 import { getSalutation } from './certificateText';
+import { CertificateStructure } from './CertificateStructure';
 
 interface OnyxExecutiveCertificateProps {
   certificate?: Partial<Certificate>;
@@ -134,7 +135,7 @@ export function OnyxExecutiveCertificate({
       )}
 
       {/* ---------- Content ---------- */}
-      <div className="relative z-10 h-full flex flex-col justify-between px-16 pt-10 pb-9 text-center">
+      <div className="hidden relative z-10 h-full flex flex-col justify-between px-16 pt-10 pb-9 text-center">
         {/* Centered executive header */}
         <div className="flex flex-col items-center shrink-0">
           <div
@@ -243,6 +244,7 @@ export function OnyxExecutiveCertificate({
           </div>
         </div>
       </div>
+      <CertificateStructure certificate={certificate} template={template} logoSrc={emblemSrc} logoAlt={emblemAlt} certificateNumber={certNumber} />
     </div>
   );
 }

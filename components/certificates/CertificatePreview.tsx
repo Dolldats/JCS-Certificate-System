@@ -136,6 +136,7 @@ export function CertificatePreview({
           <EmeraldRibbonCertificate
             certificate={formattedCertificate}
             template={resolvedTemplate}
+            previewMode={previewMode}
           />
         );
       case 'emerald-prestige':

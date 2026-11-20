@@ -512,7 +512,10 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     overflow: visible !important;
   }
 
-  /* Make the certificate fill the full printed page */
+  /* Print the same 900px design canvas used by the on-screen preview, then
+     scale that complete canvas proportionally to A4 landscape. Scaling the
+     artwork as one unit keeps text, decorations, QR code, and spacing in the
+     same positions and proportions as the preview. */
   .certificate-print-area,
   .certificate-print-area * {
     visibility: visible;
@@ -526,13 +529,12 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     inset: 0 !important;
     left: 0 !important;
     top: 0 !important;
-    /* Explicit A4 landscape physical dimensions */
-    width: 297mm !important;
-    height: 210mm !important;
-    min-width: 297mm !important;
-    min-height: 210mm !important;
-    max-width: 297mm !important;
-    max-height: 210mm !important;
+    width: 900px !important;
+    height: 636.49px !important;
+    min-width: 900px !important;
+    min-height: 636.49px !important;
+    max-width: 900px !important;
+    max-height: 636.49px !important;
     box-sizing: border-box !important;
     /* Remove all screen-specific styling */
     margin: 0 !important;
@@ -543,8 +545,8 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     overflow: hidden !important;
     /* Force aspect-ratio to not fight the fixed dimensions */
     aspect-ratio: unset !important;
-    /* Print-safe bold font stack — webfonts can render thin in PDFs */
-    font-family: Arial, Helvetica, sans-serif !important;
+    transform: scale(1.24724) !important;
+    transform-origin: top left !important;
     /* Ensure backgrounds print */
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -560,44 +562,6 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
-  }
-
-  /* Keep the screen preview compact and enlarge the QR only on paper/PDF. */
-  .certificate-qr .certificate-qr-code {
-    width: 100px !important;
-    height: 100px !important;
-  }
-
-  .certificate-qr .certificate-qr-code > svg {
-    width: 100px !important;
-    height: 100px !important;
-  }
-
-  .certificate-qr .certificate-qr-code > div > div {
-    width: 24px !important;
-    height: 24px !important;
-  }
-
-  /* Inner content keeps the same tight rhythm as the screen preview */
-  .certificate-print-area > div[class*='z-10'] {
-    padding: 5mm 8mm !important;
-  }
-
-  /* Keep the Emerald Ribbon header clear of the top frame and lift its footer
-     labels away from the lower frame when saved as PDF. */
-  .certificate-print-area.certificate-emerald-ribbon > .emerald-ribbon-content {
-    padding: 11mm 8mm !important;
-  }
-
-  /* Force bold weights to survive PDF embedding */
-  .certificate-print-area h1 {
-    font-weight: 900 !important;
-    font-size: 28pt !important;
-    line-height: 1.15 !important;
-  }
-
-  .certificate-print-area h2 {
-    font-weight: 800 !important;
   }
 
   /* Force SVG and decorative elements to keep their colors */
@@ -687,19 +651,26 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     break-after: auto !important;
   }
 
-  body.printing-bulk #bulk-print-container .certificate-screen-wrap,
   body.printing-bulk #bulk-print-container .certificate-screen-sizer,
   body.printing-bulk #bulk-print-container .certificate-screen-scaler {
-    width: 297mm !important;
-    height: 210mm !important;
-    max-width: 297mm !important;
-    max-height: 210mm !important;
+    width: 900px !important;
+    height: 636.49px !important;
+    max-width: 900px !important;
+    max-height: 636.49px !important;
     position: static !important;
     transform: none !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     display: block !important;
+  }
+
+  body.printing-bulk #bulk-print-container .certificate-screen-wrap {
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    overflow: visible !important;
   }
 
   body.printing-bulk #bulk-print-container .certificate-print-area {
@@ -707,12 +678,12 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     inset: auto !important;
     left: auto !important;
     top: auto !important;
-    width: 297mm !important;
-    height: 210mm !important;
-    min-width: 297mm !important;
-    min-height: 210mm !important;
-    max-width: 297mm !important;
-    max-height: 210mm !important;
+    width: 900px !important;
+    height: 636.49px !important;
+    min-width: 900px !important;
+    min-height: 636.49px !important;
+    max-width: 900px !important;
+    max-height: 636.49px !important;
     margin: 0 !important;
     padding: 0 !important;
     border-radius: 0 !important;
@@ -721,6 +692,8 @@ html[data-theme='dark'] body textarea::placeholder { color: #82948a; }
     overflow: hidden !important;
     box-sizing: border-box !important;
     display: block !important;
+    transform: scale(1.24724) !important;
+    transform-origin: top left !important;
   }
 }
 

@@ -3,6 +3,7 @@
 import React from 'react';
 import { Certificate, CertificateTemplate } from '../../types';
 import { getSalutation } from './certificateText';
+import { CertificateStructure } from './CertificateStructure';
 
 interface TealSurgeCertificateProps {
   certificate?: Partial<Certificate>;
@@ -163,7 +164,7 @@ export function TealSurgeCertificate({
       )}
 
       {/* ---------- Content ---------- */}
-      <div className="relative z-10 h-full flex flex-col justify-between p-6 text-center">
+      <div className="hidden relative z-10 h-full flex flex-col justify-between p-6 text-center">
         {/* Left header */}
         <div className="flex items-center gap-2.5 text-left shrink-0">
           <div
@@ -283,6 +284,7 @@ export function TealSurgeCertificate({
           </div>
         </div>
       </div>
+      <CertificateStructure certificate={certificate} template={template} logoSrc={emblemSrc} logoAlt={emblemAlt} certificateNumber={certNumber} />
     </div>
   );
 }

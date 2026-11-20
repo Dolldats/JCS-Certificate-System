@@ -49,6 +49,7 @@ import {
   Sparkles,
   FileCheck,
   Printer,
+  Download,
   Trash2,
   RefreshCw,
 } from 'lucide-react';
@@ -74,7 +75,7 @@ function formatTemplateUpdatedAt(value: string | undefined): string {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(updatedAt);
-  return `Edited ${timestamp}`;
+  return timestamp;
 }
 
 function CertificatesContent() {
@@ -100,6 +101,11 @@ function CertificatesContent() {
   const [bulkQueue, setBulkQueue] = useState<Certificate[] | null>(null);
   const [editingCertificate, setEditingCertificate] = useState<Certificate | null>(null);
   const [certificateToDelete, setCertificateToDelete] = useState<Certificate | null>(null);
+  const [bulkDeleteTargets, setBulkDeleteTargets] = useState<Certificate[] | null>(null);
+  const [selectedCertificateIds, setSelectedCertificateIds] = useState<string[]>([]);
+  const [bulkRevokeTargets, setBulkRevokeTargets] = useState<Certificate[] | null>(null);
+  const [bulkRevokeReason, setBulkRevokeReason] = useState('');
+  const [isBulkRevoking, setIsBulkRevoking] = useState(false);
 
   // Batch Generation Wizard State
   const [isGenerateWizardOpen, setIsGenerateWizardOpen] = useState(false);
@@ -155,7 +161,8 @@ function CertificatesContent() {
           auxiliary: aux,
         }),
         eventsApi.getAll(aux),
-        templatesApi.getAll(aux),
+        // Fetch the full Studio catalog; the generator scopes it by role below.
+        templatesApi.getAll(),
       ]);
 
       setCertificates(enrichCertificates(certs.items, allEvents));
@@ -179,21 +186,26 @@ function CertificatesContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAuxiliary, page, pageSize, searchQuery, selectedEventId]);
 
-  const selectedWizardAuxiliary = events.find((event) => event.id === wizardEventId)?.auxiliary;
   const hasBackendSession = Boolean(getAuthToken());
+  const templateAuxiliary =
+    user?.role === 'SUPER_ADMIN'
+      ? undefined
+      : user?.role === 'GENERAL_ADMIN'
+        ? user.assignedAuxiliary
+        : activeAuxiliary === 'All'
+          ? undefined
+          : (activeAuxiliary as Auxiliary);
   const templatesForWizard = useMemo(
     () =>
-      templates.filter((template) => {
-        const auxiliaryMatches =
-          !template.auxiliary ||
-          template.auxiliary === 'All' ||
-          !selectedWizardAuxiliary ||
-          template.auxiliary === selectedWizardAuxiliary;
-        const isSavedBackendTemplate =
-          !hasBackendSession || /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(template.id);
-        return auxiliaryMatches && isSavedBackendTemplate;
-      }),
-    [templates, selectedWizardAuxiliary, hasBackendSession]
+      templateAuxiliary
+        ? templates.filter(
+            (template) =>
+              !template.auxiliary ||
+              template.auxiliary === 'All' ||
+              template.auxiliary === templateAuxiliary
+          )
+        : templates,
+    [templates, templateAuxiliary]
   );
   const effectiveWizardTemplateId = templatesForWizard.some(
     (template) => template.id === wizardTemplateId
@@ -282,11 +294,25 @@ function CertificatesContent() {
         return;
       }
 
+      let templateId = effectiveWizardTemplateId;
+      const isBackendId = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(templateId);
+      if (hasBackendSession && !isBackendId) {
+        const selectedTemplate = templatesForWizard.find((template) => template.id === templateId);
+        if (!selectedTemplate) throw new Error('Select a certificate design before generating certificates.');
+
+        // Built-in Studio designs are local presets until first used. Save the
+        // selected preset to the backend so issued certificates reference a
+        // real server template ID.
+        const savedTemplate = await templatesApi.save(selectedTemplate, user, { isEdited: false });
+        templateId = savedTemplate.id;
+        setWizardTemplateId(templateId);
+      }
+
       await certificatesApi.generateBulk(
         wizardEventId,
         uniqueParticipantIds,
         wizardCertType,
-        effectiveWizardTemplateId,
+        templateId,
         user
       );
       setIsGenerateWizardOpen(false);
@@ -446,16 +472,39 @@ function CertificatesContent() {
     setBulkQueue(null);
   };
 
+  const handleSaveBulkAsPdf = () => {
+    const previousTitle = document.title;
+    const eventName = events.find((event) => event.id === selectedEventId)?.name || 'Event';
+    document.title = `${eventName}-Certificates`;
+    const restoreTitle = () => {
+      document.title = previousTitle;
+      window.removeEventListener('afterprint', restoreTitle);
+    };
+    window.addEventListener('afterprint', restoreTitle, { once: true });
+    window.print();
+    window.setTimeout(restoreTitle, 1000);
+  };
+
   const handleDeleteCertificate = (certificate: Certificate) => {
     setCertificateToDelete(certificate);
   };
 
   const confirmDeleteCertificate = async () => {
+    if (bulkDeleteTargets?.length) {
+      for (const certificate of bulkDeleteTargets) {
+        await certificatesApi.delete(certificate.id, user || undefined, certificate);
+      }
+      await loadData();
+      setSelectedCertificateIds([]);
+      toast.success(`${bulkDeleteTargets.length} certificates were permanently deleted.`);
+      return;
+    }
     if (!certificateToDelete) return;
 
     // Let the dialog surface the real reason instead of contradicting itself.
     await certificatesApi.delete(certificateToDelete.id, user || undefined, certificateToDelete);
     await loadData();
+    setSelectedCertificateIds([]);
     toast.success(`Certificate ${certificateToDelete.certificateNumber} was deleted.`);
   };
 
@@ -465,6 +514,57 @@ function CertificatesContent() {
     const matchesType = typeFilter === 'all' || c.type === typeFilter;
     return matchesType;
   });
+  const activeFilteredCertificates = filteredCertificates.filter((certificate) => certificate.status !== 'Revoked');
+  const revokedFilteredCertificates = filteredCertificates.filter((certificate) => certificate.status === 'Revoked');
+  const allVisibleCertificatesSelected =
+    filteredCertificates.length > 0 &&
+    filteredCertificates.every((certificate) => selectedCertificateIds.includes(certificate.id));
+
+  const toggleVisibleCertificates = () => {
+    const visibleIds = filteredCertificates.map((certificate) => certificate.id);
+    setSelectedCertificateIds((current) =>
+      allVisibleCertificatesSelected
+        ? current.filter((id) => !visibleIds.includes(id))
+        : [...new Set([...current, ...visibleIds])]
+    );
+  };
+
+  const openBulkRevokeSelected = () => {
+    const targets = activeFilteredCertificates.filter((certificate) => selectedCertificateIds.includes(certificate.id));
+    if (targets.length === 0) return;
+    setBulkRevokeReason('');
+    setBulkRevokeTargets(targets);
+  };
+
+  const openBulkDeleteSelected = () => {
+    const targets = revokedFilteredCertificates.filter((certificate) => selectedCertificateIds.includes(certificate.id));
+    if (targets.length === 0) return;
+    setCertificateToDelete(null);
+    setBulkDeleteTargets(targets);
+  };
+
+  const confirmBulkRevoke = async () => {
+    if (!user || !bulkRevokeTargets?.length || !bulkRevokeReason.trim()) return;
+    setIsBulkRevoking(true);
+    let completed = 0;
+    try {
+      for (const certificate of bulkRevokeTargets) {
+        await certificatesApi.revoke(certificate.id, bulkRevokeReason.trim(), user);
+        completed += 1;
+      }
+      await loadData();
+      setSelectedCertificateIds([]);
+      setBulkRevokeTargets(null);
+      toast.success(`${completed} certificate(s) revoked.`);
+    } catch (error) {
+      await loadData();
+      toast.error(
+        `${completed} of ${bulkRevokeTargets.length} certificates were revoked. ${error instanceof Error ? error.message : 'The remaining certificates could not be revoked.'}`
+      );
+    } finally {
+      setIsBulkRevoking(false);
+    }
+  };
 
   // Certificate-type filter options — a dropdown, because the horizontal tab
   // strip overflowed and cut off the later types.
@@ -542,6 +642,7 @@ function CertificatesContent() {
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setPage(1);
+              setSelectedCertificateIds([]);
             }}
             leftIcon={<Search className="w-4 h-4 text-slate-400" />}
           />
@@ -553,6 +654,7 @@ function CertificatesContent() {
             onChange={(id) => {
               setTypeFilter(id);
               setPage(1);
+              setSelectedCertificateIds([]);
             }}
             options={typeTabs}
             className="w-full sm:w-56"
@@ -563,6 +665,7 @@ function CertificatesContent() {
               onChange={(e) => {
                 setSelectedEventId(e.target.value);
                 setPage(1);
+                setSelectedCertificateIds([]);
               }}
               options={[
                 { value: '', label: 'All Events' },
@@ -579,8 +682,34 @@ function CertificatesContent() {
       {/* Certificate Repository Table */}
       <Card>
         <CardContent className="p-0">
+          {filteredCertificates.length > 0 && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-3">
+            <p className="text-xs text-slate-600" aria-live="polite">
+              {selectedCertificateIds.length} selected · revoke active certificates or delete revoked ones
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="danger"
+                size="sm"
+                className="px-2 py-1 text-[11px] rounded-lg"
+                disabled={!selectedCertificateIds.some((id) => activeFilteredCertificates.some((certificate) => certificate.id === id))}
+                onClick={openBulkRevokeSelected}
+              >
+                Revoke selected
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="px-2 py-1 text-[11px] rounded-lg text-rose-700"
+                disabled={!selectedCertificateIds.some((id) => revokedFilteredCertificates.some((certificate) => certificate.id === id))}
+                onClick={openBulkDeleteSelected}
+                leftIcon={<Trash2 className="h-3.5 w-3.5" />}
+              >
+                Delete selected
+              </Button>
+            </div>
+          </div>}
           {loading ? (
-            <TableLoadingSkeleton label="Loading issued certificates" columns={7} />
+            <TableLoadingSkeleton label="Loading issued certificates" columns={8} />
           ) : filteredCertificates.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <Award className="w-12 h-12 text-slate-300 mx-auto" />
@@ -602,6 +731,15 @@ function CertificatesContent() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>
+                    <input
+                      type="checkbox"
+                      aria-label="Select all certificates on this page"
+                      checked={allVisibleCertificatesSelected}
+                      onChange={toggleVisibleCertificates}
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
+                    />
+                  </TableHead>
                   <TableHead>Serial Number</TableHead>
                   <TableHead>Participant</TableHead>
                   <TableHead>Event &amp; Auxiliary</TableHead>
@@ -614,6 +752,21 @@ function CertificatesContent() {
               <TableBody>
                 {filteredCertificates.map((cert) => (
                   <TableRow key={cert.id}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select certificate ${cert.certificateNumber}`}
+                        checked={selectedCertificateIds.includes(cert.id)}
+                        onChange={(event) =>
+                          setSelectedCertificateIds((current) =>
+                            event.target.checked
+                              ? [...new Set([...current, cert.id])]
+                              : current.filter((id) => id !== cert.id)
+                          )
+                        }
+                        className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600 disabled:opacity-40"
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-xs font-bold text-emerald-800">
                       {cert.certificateNumber}
                     </TableCell>
@@ -678,10 +831,14 @@ function CertificatesContent() {
           pageSize={pageSize}
           totalCount={totalCount}
           isLoading={loading}
-          onPageChange={setPage}
+          onPageChange={(nextPage) => {
+            setPage(nextPage);
+            setSelectedCertificateIds([]);
+          }}
           onPageSizeChange={(size) => {
             setPageSize(size);
             setPage(1);
+            setSelectedCertificateIds([]);
           }}
         />
       )}
@@ -719,17 +876,29 @@ function CertificatesContent() {
             value={effectiveWizardTemplateId}
             onChange={(e) => setWizardTemplateId(e.target.value)}
             disabled={templatesForWizard.length === 0}
-            options={[
-              {
-                value: '',
-                label: templatesForWizard.length > 0 ? 'Select a saved template' : 'No saved templates available',
-              },
-              ...templatesForWizard.map((tmpl) => ({
-                value: tmpl.id,
-                label: `${tmpl.name} (${tmpl.orientation}) — ${formatTemplateUpdatedAt(tmpl.updatedAt)}`,
-              })),
-            ]}
-          />
+          >
+            <option value="">
+              {templatesForWizard.length > 0 ? 'Select a template' : 'No saved templates available'}
+            </option>
+            {templatesForWizard
+              .filter((template) => !template.isEdited)
+              .map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name} ({template.orientation})
+                </option>
+              ))}
+            {templatesForWizard.some((template) => template.isEdited) && (
+              <optgroup label="Edited certificates">
+                {templatesForWizard
+                  .filter((template) => template.isEdited)
+                  .map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name} — {formatTemplateUpdatedAt(template.updatedAt)}
+                    </option>
+                  ))}
+              </optgroup>
+            )}
+          </Select>
           {templatesForWizard.length === 0 && (
             <p className="-mt-2 text-xs text-amber-700">
               Save a design in the{' '}
@@ -868,6 +1037,20 @@ function CertificatesContent() {
         }
         description="Every issued certificate for this event — preview all or print all."
         maxWidth="5xl"
+        showCloseButton={false}
+        headerActions={
+          <>
+            <Button variant="outline" size="sm" onClick={closeBulkQueue}>
+              Close
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => window.print()} leftIcon={<Printer className="h-4 w-4" />}>
+              Print All
+            </Button>
+            <Button variant="primary" size="sm" onClick={handleSaveBulkAsPdf} leftIcon={<Download className="h-4 w-4" />}>
+              Save as PDF
+            </Button>
+          </>
+        }
       >
         <div className="space-y-6">
           {(bulkQueue || []).map((cert) => {
@@ -898,14 +1081,6 @@ function CertificatesContent() {
               </div>
             );
           })}
-        </div>
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={closeBulkQueue}>
-            Close
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => window.print()} leftIcon={<Printer className="h-4 w-4" />}>
-            Print All
-          </Button>
         </div>
       </Modal>
 
@@ -940,23 +1115,78 @@ function CertificatesContent() {
         onSave={handleUpdate}
       />
 
-      <ConfirmDialog
-        isOpen={Boolean(certificateToDelete)}
-        onClose={() => setCertificateToDelete(null)}
-        onConfirm={confirmDeleteCertificate}
-        title="Delete Certificate?"
-        description={
-          certificateToDelete
-            ? `Permanently delete certificate ${certificateToDelete.certificateNumber} issued to ${certificateToDelete.participantName}? This cannot be undone.`
-            : undefined
+      <Modal
+        isOpen={Boolean(bulkRevokeTargets)}
+        onClose={() => {
+          if (isBulkRevoking) return;
+          setBulkRevokeTargets(null);
+          setBulkRevokeReason('');
+        }}
+        title={`Revoke ${bulkRevokeTargets?.length || 0} certificates?`}
+        description="This action marks the selected active certificates as revoked."
+        maxWidth="md"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isBulkRevoking}
+              onClick={() => {
+                setBulkRevokeTargets(null);
+                setBulkRevokeReason('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              isLoading={isBulkRevoking}
+              disabled={!bulkRevokeReason.trim() || !bulkRevokeTargets?.length}
+              onClick={() => void confirmBulkRevoke()}
+            >
+              Revoke certificates
+            </Button>
+          </>
         }
-        confirmLabel="Yes, Delete"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-slate-600">
+            {bulkRevokeTargets?.length || 0} active certificate(s) will be revoked. Enter a reason that will be recorded in the audit history.
+          </p>
+          <Input
+            label="Reason for revocation"
+            value={bulkRevokeReason}
+            onChange={(event) => setBulkRevokeReason(event.target.value)}
+            required
+          />
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        isOpen={Boolean(certificateToDelete) || Boolean(bulkDeleteTargets)}
+        onClose={() => {
+          setCertificateToDelete(null);
+          setBulkDeleteTargets(null);
+        }}
+        onConfirm={confirmDeleteCertificate}
+        title={bulkDeleteTargets ? 'Delete Certificates?' : 'Delete Certificate?'}
+        description={
+          bulkDeleteTargets
+            ? `Permanently delete ${bulkDeleteTargets.length} revoked certificate(s) matching the current filters? This cannot be undone.`
+            : certificateToDelete
+              ? `Permanently delete certificate ${certificateToDelete.certificateNumber} issued to ${certificateToDelete.participantName}? This cannot be undone.`
+              : undefined
+        }
+        confirmLabel={bulkDeleteTargets ? 'Yes, Delete All' : 'Yes, Delete'}
         tone="danger"
         successTitle="Deleted Successfully!"
         successDescription={
-          certificateToDelete
-            ? `Certificate ${certificateToDelete.certificateNumber} has been permanently deleted.`
-            : undefined
+          bulkDeleteTargets
+            ? `${bulkDeleteTargets.length} revoked certificate(s) have been permanently deleted.`
+            : certificateToDelete
+              ? `Certificate ${certificateToDelete.certificateNumber} has been permanently deleted.`
+              : undefined
         }
       />
     </div>
