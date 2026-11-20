@@ -8,6 +8,7 @@ public class AdminAssignment
     public string MembershipId { get; set; } = string.Empty;
     public Auxiliary Auxiliary { get; set; }
     public string? Ilaqa { get; set; }
+    public string? State { get; set; }
     public AdminRole Role { get; set; } = AdminRole.GeneralAdmin;
     public AdminStatus Status { get; set; } = AdminStatus.Active;
     public string AssignedBy { get; set; } = string.Empty;

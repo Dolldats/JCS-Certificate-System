@@ -33,6 +33,8 @@ public class ParticipantConfiguration : IEntityTypeConfiguration<Participant>
         builder.Property(x => x.Ilaqa)
             .HasMaxLength(150);
 
+        builder.Property(x => x.State).HasMaxLength(150);
+
         builder.Property(x => x.VerificationMessage)
             .HasMaxLength(500);
 

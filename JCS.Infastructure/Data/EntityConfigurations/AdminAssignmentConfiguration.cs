@@ -22,5 +22,7 @@ public class AdminAssignmentConfiguration : IEntityTypeConfiguration<AdminAssign
 
         builder.Property(x => x.RevokedBy)
             .HasMaxLength(100);
+
+        builder.Property(x => x.State).HasMaxLength(150);
     }
 }

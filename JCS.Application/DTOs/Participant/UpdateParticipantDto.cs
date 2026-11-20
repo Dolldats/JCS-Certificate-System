@@ -10,6 +10,7 @@ public class UpdateParticipantDto
     public string? Jamaat { get; set; }
     public string? Dila { get; set; }
     public string? Ilaqa { get; set; }
+    public string? State { get; set; }
     public Auxiliary Auxiliary { get; set; }
     public bool IsVerified { get; set; }
     public VerificationStatus VerificationStatus { get; set; }

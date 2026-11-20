@@ -44,6 +44,11 @@ public class ParticipantsController : ControllerBase
         {
             participants = participants.Where(x => x.Auxiliary == auxiliary).ToList();
         }
+        else if (User.IsInRole("StateAdmin"))
+        {
+            var state = User.FindFirst("State")?.Value;
+            participants = participants.Where(x => !string.IsNullOrWhiteSpace(state) && string.Equals(x.State, state, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
         if (query.EventId.HasValue) participants = participants.Where(x => x.EventId == query.EventId.Value).ToList();
         if (!string.IsNullOrWhiteSpace(query.Search)) participants = participants.Where(x => x.MembershipId.Contains(query.Search, StringComparison.OrdinalIgnoreCase) || x.FullName.Contains(query.Search, StringComparison.OrdinalIgnoreCase)).ToList();
         if (!string.IsNullOrWhiteSpace(query.Status) && Enum.TryParse<VerificationStatus>(query.Status, true, out var verificationStatus)) participants = participants.Where(x => x.VerificationStatus == verificationStatus).ToList();
@@ -74,6 +79,11 @@ public class ParticipantsController : ControllerBase
             participants = participants.Where(x => string.Equals(x.MembershipId, User.GetMembershipId(), StringComparison.OrdinalIgnoreCase)).ToList();
         else if (User.IsInRole("GeneralAdmin") && TryGetAuxiliary(out var auxiliary))
             participants = participants.Where(x => x.Auxiliary == auxiliary).ToList();
+        else if (User.IsInRole("StateAdmin"))
+        {
+            var state = User.FindFirst("State")?.Value;
+            participants = participants.Where(x => !string.IsNullOrWhiteSpace(state) && string.Equals(x.State, state, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
         return Ok(participants);
     }
 
@@ -87,7 +97,7 @@ public class ParticipantsController : ControllerBase
     }
 
     [HttpGet("verify/{membershipId}")]
-    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin,StateAdmin")]
     public async Task<IActionResult> VerifyMember(string membershipId, CancellationToken token)
     {
         if (string.IsNullOrWhiteSpace(membershipId))
@@ -100,7 +110,7 @@ public class ParticipantsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin,StateAdmin")]
     public async Task<IActionResult> CreateParticipant([FromBody] CreateParticipantDto dto, CancellationToken token)
     {
         if (!ModelState.IsValid)
@@ -143,6 +153,11 @@ public class ParticipantsController : ControllerBase
             }
         }
 
+        if (User.IsInRole("StateAdmin"))
+        {
+            dto.State = User.FindFirst("State")?.Value;
+        }
+
         if (targetEvent.Auxiliary != dto.Auxiliary)
         {
              return BadRequest(new { message = "Participant's auxiliary body does not match the event's auxiliary body." });
@@ -153,7 +168,7 @@ public class ParticipantsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin,StateAdmin")]
     public async Task<IActionResult> UpdateParticipant(Guid id, [FromBody] UpdateParticipantDto dto, CancellationToken token)
     {
         if (!ModelState.IsValid)
@@ -175,7 +190,7 @@ public class ParticipantsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin,StateAdmin")]
     public async Task<IActionResult> DeleteParticipant(Guid id, CancellationToken token)
     {
         var existing = await _participantService.GetByIdAsync(id, token);
@@ -203,7 +218,7 @@ public class ParticipantsController : ControllerBase
     }
 
     [HttpPost("event/{eventId:guid}/upload-csv")]
-    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin,StateAdmin")]
     public async Task<IActionResult> UploadCsv(Guid eventId, IFormFile file, CancellationToken token)
     {
         if (eventId == Guid.Empty || file == null || file.Length == 0 || file.Length > MaxImportFileBytes)
@@ -306,7 +321,7 @@ public class ParticipantsController : ControllerBase
     }
 
     [HttpPost("event/{eventId:guid}/upload-excel")]
-    [Authorize(Roles = "SuperAdmin,GeneralAdmin")]
+    [Authorize(Roles = "SuperAdmin,GeneralAdmin,StateAdmin")]
     public async Task<IActionResult> UploadExcel(Guid eventId, IFormFile file, CancellationToken token)
     {
         if (eventId == Guid.Empty || file == null || file.Length == 0 || file.Length > MaxImportFileBytes)
@@ -447,7 +462,8 @@ public class ParticipantsController : ControllerBase
 
     private bool CanAccessParticipant(ParticipantDto participant) =>
         (!User.IsInRole("Member") || string.Equals(participant.MembershipId, User.GetMembershipId(), StringComparison.OrdinalIgnoreCase)) &&
-        (!User.IsInRole("GeneralAdmin") || (TryGetAuxiliary(out var auxiliary) && participant.Auxiliary == auxiliary));
+        (!User.IsInRole("GeneralAdmin") || (TryGetAuxiliary(out var auxiliary) && participant.Auxiliary == auxiliary)) &&
+        (!User.IsInRole("StateAdmin") || string.Equals(participant.State, User.FindFirst("State")?.Value, StringComparison.OrdinalIgnoreCase));
 
     private bool CanAccessAuxiliary(Auxiliary auxiliary) =>
         !User.IsInRole("GeneralAdmin") || (TryGetAuxiliary(out var userAuxiliary) && userAuxiliary == auxiliary);

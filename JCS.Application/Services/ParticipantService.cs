@@ -34,6 +34,7 @@ public class ParticipantService : IParticipantService
             Jamaat = participant.Jamaat,
             Dila = participant.Dila,
             Ilaqa = participant.Ilaqa,
+            State = participant.State,
             Auxiliary = participant.Auxiliary,
             IsVerified = participant.IsVerified,
             VerificationStatus = participant.VerificationStatus,
@@ -61,6 +62,7 @@ public class ParticipantService : IParticipantService
                 Jamaat = participant.Jamaat,
                 Dila = participant.Dila,
                 Ilaqa = participant.Ilaqa,
+                State = participant.State,
                 Auxiliary = participant.Auxiliary,
                 IsVerified = participant.IsVerified,
                 VerificationStatus = participant.VerificationStatus,
@@ -91,6 +93,7 @@ public class ParticipantService : IParticipantService
                 Jamaat = participant.Jamaat,
                 Dila = participant.Dila,
                 Ilaqa = participant.Ilaqa,
+                State = participant.State,
                 Auxiliary = participant.Auxiliary,
                 IsVerified = participant.IsVerified,
                 VerificationStatus = participant.VerificationStatus,
@@ -116,6 +119,7 @@ public class ParticipantService : IParticipantService
             Jamaat = dto.Jamaat,
             Dila = dto.Dila,
             Ilaqa = dto.Ilaqa,
+            State = dto.State,
             Auxiliary = dto.Auxiliary,
             IsVerified = dto.IsVerified,
             VerificationStatus = dto.VerificationStatus,
@@ -140,6 +144,7 @@ public class ParticipantService : IParticipantService
             Jamaat = participant.Jamaat,
             Dila = participant.Dila,
             Ilaqa = participant.Ilaqa,
+            State = participant.State,
             Auxiliary = participant.Auxiliary,
             IsVerified = participant.IsVerified,
             VerificationStatus = participant.VerificationStatus,
@@ -163,6 +168,7 @@ public class ParticipantService : IParticipantService
         participant.Jamaat = dto.Jamaat;
         participant.Dila = dto.Dila;
         participant.Ilaqa = dto.Ilaqa;
+        participant.State = dto.State;
         participant.Auxiliary = dto.Auxiliary;
         participant.IsVerified = dto.IsVerified;
         participant.VerificationStatus = dto.VerificationStatus;
@@ -186,6 +192,7 @@ public class ParticipantService : IParticipantService
             Jamaat = participant.Jamaat,
             Dila = participant.Dila,
             Ilaqa = participant.Ilaqa,
+            State = participant.State,
             Auxiliary = participant.Auxiliary,
             IsVerified = participant.IsVerified,
             VerificationStatus = participant.VerificationStatus,

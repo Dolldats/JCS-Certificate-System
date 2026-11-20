@@ -9,6 +9,7 @@ public class AdminAssignmentDto
     public string? MemberName { get; set; }
     public Auxiliary Auxiliary { get; set; }
     public string? Ilaqa { get; set; }
+    public string? State { get; set; }
     public AdminRole Role { get; set; }
     public AdminStatus Status { get; set; }
     public string AssignedBy { get; set; } = string.Empty;
