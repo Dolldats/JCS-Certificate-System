@@ -566,8 +566,9 @@ export const authApi = {
           memberId: bStr(assignment.membershipId).toUpperCase(),
           fullName: bStr(assignment.fullName, 'Name unavailable'),
           email: bStr(assignment.email),
-          role: 'GENERAL_ADMIN' as const,
+          role: bStr(assignment.role).toLowerCase() === 'stateadmin' ? 'STATE_ADMIN' as const : 'GENERAL_ADMIN' as const,
           assignedAuxiliary: bStr(assignment.auxiliary) as Auxiliary,
+          state: bStr(assignment.state) || undefined,
           dila: bStr(assignment.dila) || undefined,
           jamaat: bStr(assignment.jamaat) || undefined,
         }));
@@ -601,13 +602,14 @@ export const authApi = {
     };
   },
 
-  async updateGeneralAdmin(id: string, auxiliary: Auxiliary, performedBy: User): Promise<void> {
+  async updateGeneralAdmin(id: string, auxiliary: Auxiliary, performedBy: User, role: 'GeneralAdmin' | 'StateAdmin' = 'GeneralAdmin', state?: string): Promise<void> {
     const existing = await backendFetch<BackendRecord>(`AdminAssignments/${encodeURIComponent(id)}`);
     await backendFetch<BackendRecord>(`AdminAssignments/${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: JSON.stringify({
         auxiliary,
-        role: 'GeneralAdmin',
+        role,
+        state: state || null,
         status: bStr(existing.status, 'Active'),
         revokedBy: null,
       }),
@@ -626,7 +628,7 @@ export const authApi = {
     });
   },
 
-  async assignGeneralAdmin(memberId: string, auxiliary: Auxiliary, performedBy: User): Promise<User> {
+  async assignGeneralAdmin(memberId: string, auxiliary: Auxiliary, performedBy: User, role: 'GeneralAdmin' | 'StateAdmin' = 'GeneralAdmin', state?: string): Promise<User> {
     const cleanId = memberId.trim().toUpperCase();
     const token = getAuthToken();
     const users = removeLegacyDemoUsers(getStorage<User[]>('users', INITIAL_USERS));
@@ -655,7 +657,8 @@ export const authApi = {
         body: JSON.stringify({
           membershipId: cleanId,
           auxiliary,
-          role: 'GeneralAdmin',
+          role,
+          state: state || null,
           assignedBy: performedBy.fullName,
         }),
       });
@@ -668,8 +671,9 @@ export const authApi = {
       memberId: cleanId,
       fullName: resolvedName,
       email: directoryMember?.email || existing?.email || '',
-      role: 'GENERAL_ADMIN',
+      role: role === 'StateAdmin' ? 'STATE_ADMIN' : 'GENERAL_ADMIN',
       assignedAuxiliary: auxiliary,
+      state: state || undefined,
       dila: directoryMember?.dila || existing?.dila,
       jamaat: directoryMember?.jamaat || existing?.jamaat,
     };
@@ -779,6 +783,7 @@ function mapBackendEventToEvent(raw: BackendRecord): Event {
     verifiedCount: bNum(raw.verifiedParticipantsCount ?? raw.verifiedCount ?? 0),
     certificatesIssuedCount: bNum(raw.certificatesIssuedCount ?? raw.certificatesCount ?? 0),
     theme: cleanTheme(raw.theme) || undefined,
+    state: bStr(raw.state) || undefined,
   };
 }
 
@@ -866,6 +871,7 @@ export const eventsApi = {
           organizationalLevel: data.orgLevel,
           organizationalUnit: data.orgUnitName.trim() || null,
           theme: data.theme?.trim() || null,
+          state: data.state?.trim() || null,
         };
 
         const res = await backendFetch<BackendRecord>('Events', {
@@ -939,6 +945,7 @@ export const eventsApi = {
           organizationalUnit: data.orgUnitName,
           status: data.status,
           theme: data.theme,
+          state: data.state,
         };
 
         const res = await backendFetch<BackendRecord>(`Events/${id}`, {

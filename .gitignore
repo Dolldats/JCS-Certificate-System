@@ -399,6 +399,7 @@ yarn-error.log*
 
 # Local ASP.NET development settings may contain credentials.
 JCS.API/appsettings.Development.json
+JCS.API/appsettings.Production.json
 
 # vercel
 .vercel

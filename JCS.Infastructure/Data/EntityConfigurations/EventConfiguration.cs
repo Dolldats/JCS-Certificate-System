@@ -17,6 +17,9 @@ public class EventConfiguration : IEntityTypeConfiguration<Event>
         builder.Property(x => x.Theme)
             .HasMaxLength(500);
 
+        builder.Property(x => x.State)
+            .HasMaxLength(100);
+
         builder.Property(x => x.Venue)
             .IsRequired()
             .HasMaxLength(200);

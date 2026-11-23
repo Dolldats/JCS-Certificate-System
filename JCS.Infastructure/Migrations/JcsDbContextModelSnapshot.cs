@@ -280,6 +280,10 @@ namespace JCS.Infastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("State")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("Venue")
                         .IsRequired()
                         .HasMaxLength(200)

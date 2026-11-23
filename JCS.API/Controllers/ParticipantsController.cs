@@ -180,6 +180,11 @@ public class ParticipantsController : ControllerBase
         if (existing == null) return NotFound(new { message = $"Participant with id {id} not found." });
         if (!CanAccessParticipant(existing) || (User.IsInRole("GeneralAdmin") && !CanAccessAuxiliary(dto.Auxiliary))) return Forbid();
 
+        if (User.IsInRole("StateAdmin"))
+        {
+            dto.State = User.FindFirst("State")?.Value;
+        }
+
         var result = await _participantService.UpdateAsync(id, dto, token);
         if (result == null)
         {
@@ -307,6 +312,7 @@ public class ParticipantsController : ControllerBase
                     Jamaat = verification.Jamaat,
                     Dila = verification.Dila,
                     Ilaqa = verification.Ilaqa,
+                    State = User.IsInRole("StateAdmin") ? User.FindFirst("State")?.Value : null,
                     Auxiliary = verification.Auxiliary ?? targetEvent.Auxiliary,
                     IsVerified = true,
                     VerificationStatus = VerificationStatus.Verified,
@@ -410,6 +416,7 @@ public class ParticipantsController : ControllerBase
                     Jamaat = verification.Jamaat,
                     Dila = verification.Dila,
                     Ilaqa = verification.Ilaqa,
+                    State = User.IsInRole("StateAdmin") ? User.FindFirst("State")?.Value : null,
                     Auxiliary = verification.Auxiliary ?? targetEvent.Auxiliary,
                     IsVerified = true,
                     VerificationStatus = VerificationStatus.Verified,

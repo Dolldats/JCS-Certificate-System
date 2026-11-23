@@ -83,6 +83,7 @@ export default function EventsPage() {
     orgUnitName: 'Western Region',
     status: 'Upcoming' as EventStatus,
     theme: '',
+    state: '',
   });
 
   const loadEvents = async () => {
@@ -185,6 +186,7 @@ export default function EventsPage() {
           status: newEvent.status,
           createdBy: user.fullName,
           theme: newEvent.theme,
+          state: newEvent.state || undefined,
         };
       if (editingEventId) {
         await eventsApi.update(editingEventId, eventData, user);
@@ -206,6 +208,7 @@ export default function EventsPage() {
         orgUnitName: 'Western Region',
         status: 'Upcoming',
         theme: '',
+        state: '',
       });
       await loadEvents();
       toast.success(wasEditing ? 'Event changes saved.' : 'Event created.');
@@ -233,6 +236,7 @@ export default function EventsPage() {
       orgUnitName: target.orgUnitName,
       status: target.status,
       theme: target.theme || '',
+      state: target.state || '',
     });
     setIsCreateOpen(true);
   };
@@ -497,6 +501,13 @@ export default function EventsPage() {
             value={newEvent.theme}
             onChange={(e) => setNewEvent({ ...newEvent, theme: e.target.value })}
             placeholder="e.g. My Faith, My Identity"
+          />
+
+          <Input
+            label="State (optional)"
+            value={newEvent.state}
+            onChange={(e) => setNewEvent({ ...newEvent, state: e.target.value })}
+            placeholder="e.g. Lagos"
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

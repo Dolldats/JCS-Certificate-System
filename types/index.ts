@@ -1,6 +1,6 @@
 export type Auxiliary = 'Khuddam' | 'Ansarullah' | 'Lajna' | 'Nasra' | 'Atfal';
 
-export type AdminRole = 'SUPER_ADMIN' | 'GENERAL_ADMIN';
+export type AdminRole = 'SUPER_ADMIN' | 'GENERAL_ADMIN' | 'STATE_ADMIN';
 
 export type EventType =
   | 'Ijtema'
@@ -61,6 +61,7 @@ export interface User {
   phone?: string;
   role: AdminRole | 'MEMBER'; // Members use the Member Portal rather than the admin shell.
   assignedAuxiliary?: Auxiliary;
+  state?: string;
   dila?: string;
   jamaat?: string;
   avatarUrl?: string;
@@ -104,6 +105,7 @@ export interface Event {
   verifiedCount: number;
   certificatesIssuedCount: number;
   theme?: string;
+  state?: string;
 }
 
 export interface Participant {

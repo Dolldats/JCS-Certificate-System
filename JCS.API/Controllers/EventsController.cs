@@ -37,6 +37,11 @@ public class EventsController : ControllerBase
         {
             events = events.Where(x => x.Auxiliary == auxiliary).ToList();
         }
+        else if (User.IsInRole("StateAdmin"))
+        {
+            var state = User.FindFirst("State")?.Value;
+            events = events.Where(x => !string.IsNullOrWhiteSpace(state) && string.Equals(x.State, state, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
         if (!string.IsNullOrWhiteSpace(query.Search)) events = events.Where(x => x.Name.Contains(query.Search, StringComparison.OrdinalIgnoreCase) || x.Venue.Contains(query.Search, StringComparison.OrdinalIgnoreCase)).ToList();
         if (!string.IsNullOrWhiteSpace(query.Status)) events = events.Where(x => string.Equals(x.Status, query.Status, StringComparison.OrdinalIgnoreCase)).ToList();
         if (!string.IsNullOrWhiteSpace(query.Auxiliary) && Enum.TryParse<Auxiliary>(query.Auxiliary, true, out var filterAuxiliary)) events = events.Where(x => x.Auxiliary == filterAuxiliary).ToList();
@@ -64,6 +69,7 @@ public class EventsController : ControllerBase
         }
 
         if (!CanAccessAuxiliary(result.Auxiliary)) return Forbid();
+        if (User.IsInRole("StateAdmin") && !string.Equals(result.State, User.FindFirst("State")?.Value, StringComparison.OrdinalIgnoreCase)) return Forbid();
 
         if (User.IsInRole("Member"))
         {

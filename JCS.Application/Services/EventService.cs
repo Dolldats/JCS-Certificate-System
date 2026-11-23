@@ -28,6 +28,7 @@ public class EventService : IEventService
             Id = eventItem.Id,
             Name = eventItem.Name,
             Theme = eventItem.Theme,
+            State = eventItem.State,
             Description = eventItem.Description,
             EventType = eventItem.EventType,
             EventDate = eventItem.EventDate,
@@ -57,6 +58,7 @@ public class EventService : IEventService
                 Id = eventItem.Id,
                 Name = eventItem.Name,
                 Theme = eventItem.Theme,
+                State = eventItem.State,
                 Description = eventItem.Description,
                 EventType = eventItem.EventType,
                 EventDate = eventItem.EventDate,
@@ -89,6 +91,7 @@ public class EventService : IEventService
                 Id = eventItem.Id,
                 Name = eventItem.Name,
                 Theme = eventItem.Theme,
+                State = eventItem.State,
                 Description = eventItem.Description,
                 EventType = eventItem.EventType,
                 EventDate = eventItem.EventDate,
@@ -116,6 +119,7 @@ public class EventService : IEventService
             Id = Guid.NewGuid(),
             Name = dto.Name,
             Theme = string.IsNullOrWhiteSpace(dto.Theme) ? null : dto.Theme.Trim(),
+            State = string.IsNullOrWhiteSpace(dto.State) ? null : dto.State.Trim(),
             Description = dto.Description,
             EventType = dto.EventType,
             EventDate = dto.EventDate,
@@ -136,6 +140,7 @@ public class EventService : IEventService
             Id = newEvent.Id,
             Name = newEvent.Name,
             Theme = newEvent.Theme,
+            State = newEvent.State,
             Description = newEvent.Description,
             EventType = newEvent.EventType,
             EventDate = newEvent.EventDate,
@@ -163,6 +168,7 @@ public class EventService : IEventService
 
         eventItem.Name = dto.Name;
         eventItem.Theme = string.IsNullOrWhiteSpace(dto.Theme) ? null : dto.Theme.Trim();
+        eventItem.State = string.IsNullOrWhiteSpace(dto.State) ? null : dto.State.Trim();
         eventItem.Description = dto.Description;
         eventItem.EventType = dto.EventType;
         eventItem.EventDate = dto.EventDate;
@@ -181,6 +187,7 @@ public class EventService : IEventService
             Id = eventItem.Id,
             Name = eventItem.Name,
             Theme = eventItem.Theme,
+            State = eventItem.State,
             Description = eventItem.Description,
             EventType = eventItem.EventType,
             EventDate = eventItem.EventDate,

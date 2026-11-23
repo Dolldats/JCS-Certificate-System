@@ -87,6 +87,8 @@ export default function AdminsPage() {
   const [adminToDelete, setAdminToDelete] = useState<string | null>(null);
   const [adminToRevoke, setAdminToRevoke] = useState<string | null>(null);
   const [assignAuxiliary, setAssignAuxiliary] = useState<Auxiliary>('Atfal');
+  const [assignRole, setAssignRole] = useState<'GeneralAdmin' | 'StateAdmin'>('GeneralAdmin');
+  const [assignState, setAssignState] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignError, setAssignError] = useState('');
   const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
@@ -113,9 +115,9 @@ export default function AdminsPage() {
 
     try {
       if (editingAssignmentId) {
-        await authApi.updateGeneralAdmin(editingAssignmentId, assignAuxiliary, user);
+        await authApi.updateGeneralAdmin(editingAssignmentId, assignAuxiliary, user, assignRole, assignState);
       } else {
-        await authApi.assignGeneralAdmin(assignMemberId.trim().toUpperCase(), assignAuxiliary, user);
+        await authApi.assignGeneralAdmin(assignMemberId.trim().toUpperCase(), assignAuxiliary, user, assignRole, assignState);
       }
       setIsAssignOpen(false);
       setAssignMemberId('');
@@ -418,6 +420,16 @@ export default function AdminsPage() {
               label: getAuxiliaryLabel(a),
             }))}
           />
+
+          <Select
+            label="Administrator Role *"
+            value={assignRole}
+            onChange={(e) => setAssignRole(e.target.value as 'GeneralAdmin' | 'StateAdmin')}
+            options={[{ value: 'GeneralAdmin', label: 'General Admin' }, { value: 'StateAdmin', label: 'State Admin' }]}
+          />
+          {assignRole === 'StateAdmin' && (
+            <Input label="State *" value={assignState} onChange={(e) => setAssignState(e.target.value)} placeholder="e.g. Lagos" required />
+          )}
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-2xs text-slate-500 leading-relaxed">
             The assigned user will only have access to manage events, participants, and certificate generation for the assigned auxiliary.
